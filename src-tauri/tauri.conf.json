@@ -36,6 +36,29 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
+    "fileAssociations": [
+      {
+        "ext": ["txt.x"],
+        "name": "AppX Encrypted Text",
+        "description": "AppX encrypted text document",
+        "role": "Editor",
+        "rank": "Owner"
+      },
+      {
+        "ext": ["js.x"],
+        "name": "AppX Encrypted JavaScript",
+        "description": "AppX encrypted JavaScript document",
+        "role": "Editor",
+        "rank": "Owner"
+      },
+      {
+        "ext": ["java.x"],
+        "name": "AppX Encrypted Java",
+        "description": "AppX encrypted Java document",
+        "role": "Editor",
+        "rank": "Owner"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -13,6 +13,9 @@ export default defineConfig(async () => ({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    include: ["monaco-editor"],
+  },
   clearScreen: false,
   server: {
     port: 1420,

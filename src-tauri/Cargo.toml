@@ -19,6 +19,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+aes-gcm = "0.10"
+rand = "0.9"
+sha2 = "0.10"
+base64 = "0.22"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"

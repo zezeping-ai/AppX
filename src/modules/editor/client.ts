@@ -1,0 +1,62 @@
+import { invoke } from "@tauri-apps/api/core";
+import type { FileInspect, EditorTreeNode } from "@/modules/editor/types";
+
+export async function pickFolder(): Promise<string | null> {
+  return invoke<string | null>("editor_pick_folder");
+}
+
+export async function pickFile(): Promise<string | null> {
+  return invoke<string | null>("editor_pick_file");
+}
+
+export async function listDirectory(path: string): Promise<EditorTreeNode[]> {
+  return invoke<EditorTreeNode[]>("editor_list_directory", { path });
+}
+
+export async function inspectFile(path: string): Promise<FileInspect> {
+  return invoke<FileInspect>("editor_inspect_file", { path });
+}
+
+export async function readFile(path: string): Promise<string> {
+  return invoke<string>("editor_read_file", { path });
+}
+
+export async function writeFile(path: string, content: string): Promise<void> {
+  return invoke("editor_write_file", { path, content });
+}
+
+export async function createFile(
+  directory: string,
+  options?: {
+    fileName?: string;
+    encrypted?: boolean;
+    content?: string;
+  },
+): Promise<string> {
+  return invoke<string>("editor_create_file", {
+    directory,
+    fileName: options?.fileName,
+    encrypted: options?.encrypted,
+    content: options?.content,
+  });
+}
+
+export async function createDirectory(directory: string, folderName: string): Promise<string> {
+  return invoke<string>("editor_create_directory", { directory, folderName });
+}
+
+export async function deletePath(path: string): Promise<void> {
+  return invoke("editor_delete_path", { path });
+}
+
+export async function renamePath(path: string, newName: string): Promise<string> {
+  return invoke<string>("editor_rename_path", { path, newName });
+}
+
+export async function convertToEncryptedFile(path: string): Promise<string> {
+  return invoke<string>("editor_convert_to_encrypted", { path });
+}
+
+export async function convertToPlainFile(path: string): Promise<string> {
+  return invoke<string>("editor_convert_to_plain", { path });
+}

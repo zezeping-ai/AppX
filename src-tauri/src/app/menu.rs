@@ -1,8 +1,10 @@
 use crate::app::updates::check_and_install_update;
+use crate::app::windows::schedule_preferences_window;
 use tauri::menu::{
     AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID,
 };
 
+const MENU_APP_SETTINGS_ID: &str = "appx.app.settings";
 const MENU_APP_QUIT_ID: &str = "appx.app.quit";
 const MENU_HELP_CHECK_UPDATE_ID: &str = "appx.help.check_update";
 
@@ -26,9 +28,17 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
     };
     let about_text = format!("关于 {}", app_menu_title(app));
     let about = PredefinedMenuItem::about(app, Some(about_text.as_str()), Some(about_metadata))?;
+    let settings = MenuItem::with_id(
+        app,
+        MENU_APP_SETTINGS_ID,
+        "偏好设置",
+        true,
+        Some("CmdOrCtrl+,"),
+    )?;
     let quit = MenuItem::with_id(app, MENU_APP_QUIT_ID, "退出", true, Some("CmdOrCtrl+Q"))?;
 
     let app_submenu = Submenu::new(app, app_menu_title(app), true)?;
+    app_submenu.append(&settings)?;
 
     #[cfg(target_os = "macos")]
     {
@@ -96,6 +106,9 @@ pub fn handle_menu_event(app: &tauri::AppHandle, event: MenuEvent) {
     match event.id().as_ref() {
         MENU_APP_QUIT_ID => {
             app.exit(0);
+        }
+        MENU_APP_SETTINGS_ID => {
+            let _ = schedule_preferences_window(app);
         }
         MENU_HELP_CHECK_UPDATE_ID => {
             let app = app.clone();

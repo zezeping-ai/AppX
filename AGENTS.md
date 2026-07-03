@@ -8,6 +8,23 @@
 - 代码风格：简洁、紧凑、无冗余
 
 # 项目规则（每次对话自动生效）
+## 前端架构
+```
+src/
+├── router/              # 路由聚合；各功能在 features/<name>/routes.ts 定义
+├── features/<name>/     # 功能模块（路由 + 页面 + 组件 + composables）
+│   ├── routes.ts        # 导出 xxxRoutes
+│   ├── pages/           # 路由入口页（薄壳）
+│   ├── components/      # 仅本功能使用的 UI
+│   └── index.ts         # 对外 barrel
+├── modules/<domain>/    # Tauri IPC 客户端 + 类型（与 Rust app/<domain> 对应）
+├── components/          # 跨功能复用的通用组件
+├── hooks/               # 跨功能 UI 基础设施
+└── shared/              # 纯工具函数
+```
+- 新增功能：创建 `features/<name>/`，定义 `routes.ts`，在 `router/index.ts` 注册
+- 功能私有代码不放 `components/`；仅多功能共用时才提升为全局组件
+
 ## 前端
 1. 修改项目支持 `@/` 目录引入
 2. 引入 vueuse、lodash-es、sass、@vitejs/plugin-vue-jsx、tailwindcss、vue-router 和 pinia、ant-design-vue、@iconify/vue

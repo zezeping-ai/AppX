@@ -22,6 +22,23 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![
+            app::editor::editor_pick_folder,
+            app::editor::editor_pick_file,
+            app::editor::editor_list_directory,
+            app::editor::editor_inspect_file,
+            app::editor::editor_read_file,
+            app::editor::editor_write_file,
+            app::editor::editor_create_file,
+            app::editor::editor_create_directory,
+            app::editor::editor_delete_path,
+            app::editor::editor_rename_path,
+            app::editor::editor_convert_to_encrypted,
+            app::editor::editor_convert_to_plain,
+            app::editor::editor_get_settings,
+            app::editor::editor_save_encryption_passphrase,
+            app::windows::window_show_preferences,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
