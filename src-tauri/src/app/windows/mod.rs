@@ -1,6 +1,8 @@
 use std::{thread, time::Duration};
 use tauri::{Manager, WebviewUrl};
 
+use crate::app::app_lock;
+
 const MAIN_WINDOW_LABEL: &str = "main";
 const PREFERENCES_WINDOW_LABEL: &str = "preferences";
 const PREFERENCES_ROUTE: &str = "/#/preferences";
@@ -47,6 +49,7 @@ pub fn show_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
         window.show()?;
         window.set_focus()?;
     }
+    let _ = app_lock::relock_on_show(app);
     Ok(())
 }
 

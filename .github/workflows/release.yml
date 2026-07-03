@@ -110,18 +110,44 @@ jobs:
           RAW_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          key="$(printf '%s' "$RAW_TAURI_SIGNING_PRIVATE_KEY" | tr -d '\r\n\t ')"
-          if [ -z "$key" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY secret is empty"
-            exit 1
-          fi
+          python3 <<'PY'
+          import os
+          import sys
 
-          {
-            echo "TAURI_SIGNING_PRIVATE_KEY<<EOF"
-            echo "$key"
-            echo "EOF"
-            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
-          } >> "$GITHUB_ENV"
+          key = os.environ["RAW_TAURI_SIGNING_PRIVATE_KEY"].translate(str.maketrans("", "", "\r\n\t "))
+          password = os.environ["RAW_TAURI_SIGNING_PRIVATE_KEY_PASSWORD"].strip("\r\n")
+
+          if not key:
+              print("TAURI_SIGNING_PRIVATE_KEY secret is empty", file=sys.stderr)
+              sys.exit(1)
+          if not password:
+              print("TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret is empty", file=sys.stderr)
+              sys.exit(1)
+
+          github_env = os.environ["GITHUB_ENV"]
+          pwd_delim = f"TAURI_PWD_{os.urandom(8).hex()}"
+
+          with open(github_env, "a", encoding="utf-8") as f:
+              f.write("TAURI_SIGNING_PRIVATE_KEY<<EOF\n")
+              f.write(key)
+              f.write("\nEOF\n")
+              f.write(f"TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<{pwd_delim}\n")
+              f.write(password)
+              f.write(f"\n{pwd_delim}\n")
+
+          print(f"updater signing secrets loaded (key chars={len(key)}, password chars={len(password)})")
+          PY
+
+      - name: Verify updater signing credentials
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          test_file="$(mktemp)"
+          trap 'rm -f "$test_file" "$test_file.sig"' EXIT
+          printf 'verify' > "$test_file"
+          pnpm tauri signer sign "$test_file"
 
       - name: Build app bundles
         uses: tauri-apps/tauri-action@v0.6.2

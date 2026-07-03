@@ -26,7 +26,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyMUY5NjE2Q0JBRDdDMTMKUldRVGZLM0xGcFlmSXJBL000ekJPd1oyQmRFZmV2dFNUMjhIR1owS1ZWZjU4ZWhaTWxWME5Va2YK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVDRkMzNzc0QjZCN0U4RDcKUldUWDZMZTJkRGY4WEU0NXF5REdKVEpBSXMzanNnSS9Nc3M4bHlsNDZOZVQ0QXh5UTVzcmNEMkoK",
       "endpoints": [
         "https://github.com/zezeping-ai/AppX/releases/latest/download/latest.json"
       ]

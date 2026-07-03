@@ -32,8 +32,14 @@ CI=1 pnpm tauri signer generate -w src-tauri/keys/updater.key -f --ci -p <your-p
 
 3. 在 GitHub 仓库 Settings → Secrets 中添加：
 
-- `TAURI_SIGNING_PRIVATE_KEY`：`updater.key` 文件内容
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：私钥密码（当前项目已启用密码保护）
+- `TAURI_SIGNING_PRIVATE_KEY`：`updater.key` 文件**完整单行内容**（`cat src-tauri/keys/updater.key`，不要多空格或换行）
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`：生成密钥时 `-p` 使用的密码（与私钥完全一致，不要首尾空格）
+
+本地可先验证密钥与密码是否匹配，再写入 Secrets：
+
+```bash
+./scripts/verify-updater-signing.sh
+```
 
 4. 推送 tag 触发发布：
 

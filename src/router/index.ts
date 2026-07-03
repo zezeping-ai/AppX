@@ -1,6 +1,8 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import { editorRoutes } from "@/features/editor/routes";
 import { preferencesRoutes } from "@/features/preferences/routes";
+import { appLockRoutes, UNLOCK_ROUTE_PATH } from "@/features/appLock/routes";
+import { getAppLockSettings } from "@/modules/appLock";
 
 export const ROUTE_CHANGE_EVENT = "appx:route-change";
 
@@ -16,8 +18,32 @@ export const router = createRouter({
         ...editorRoutes,
       ],
     },
+    ...appLockRoutes,
     ...preferencesRoutes,
   ],
+});
+
+router.beforeEach(async (to) => {
+  if (to.path === UNLOCK_ROUTE_PATH) {
+    return true;
+  }
+  if (!to.path.startsWith("/editor")) {
+    return true;
+  }
+
+  try {
+    const settings = await getAppLockSettings();
+    if (settings.enabled && settings.lockOnStartup && settings.sessionLocked) {
+      return {
+        path: UNLOCK_ROUTE_PATH,
+        query: { redirect: to.fullPath },
+      };
+    }
+  } catch {
+    // 获取不到设置时，不阻断进入；避免在异常情况下把用户锁死。
+  }
+
+  return true;
 });
 
 router.afterEach(() => {

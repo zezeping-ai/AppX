@@ -5,13 +5,16 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   ConfigProvider,
+  Divider,
   Dropdown,
   Input,
   Layout,
   Menu,
   Radio,
   Space,
+  Switch,
   Tag,
   Typography,
 } from "ant-design-vue";
@@ -26,12 +29,20 @@ const app = createApp(AppRoot);
 app.use(createPinia());
 app.use(router);
 
+const register = (name: string, component: any) => {
+  if (!app.component(name)) {
+    app.component(name, component);
+  }
+};
+
 [
   Alert,
   App,
   Button,
   Card,
+  Checkbox,
   ConfigProvider,
+  Divider,
   Input,
   Input.Password,
   Input.TextArea,
@@ -44,6 +55,7 @@ app.use(router);
   Radio.Button,
   Radio.Group,
   Space,
+  Switch,
   Tag,
   Typography,
   Typography.Title,
@@ -51,22 +63,22 @@ app.use(router);
   Typography.Paragraph,
 ].forEach((component) => {
   if (component?.name) {
-    app.component(component.name, component);
+    register(component.name, component);
   }
 });
 
-app.component("ATypographyTitle", Typography.Title);
-app.component("ATypographyText", Typography.Text);
-app.component("ATypographyParagraph", Typography.Paragraph);
-app.component("ARadioButton", Radio.Button);
-app.component("ARadioGroup", Radio.Group);
-app.component("AInputPassword", Input.Password);
-app.component("ATextarea", Input.TextArea);
-app.component("AMenuItem", Menu.Item);
-app.component("ADropdown", Dropdown);
-app.component("ADropdownButton", Dropdown.Button);
-app.component("ALayoutSider", Layout.Sider);
-app.component("ALayoutContent", Layout.Content);
-app.component("AApp", App);
+register("ATypographyTitle", Typography.Title);
+register("ATypographyText", Typography.Text);
+register("ATypographyParagraph", Typography.Paragraph);
+register("ARadioButton", Radio.Button);
+register("ARadioGroup", Radio.Group);
+register("AInputPassword", Input.Password);
+register("ATextarea", Input.TextArea);
+register("AMenuItem", Menu.Item);
+register("ADropdown", Dropdown);
+register("ADropdownButton", Dropdown.Button);
+register("ALayoutSider", Layout.Sider);
+register("ALayoutContent", Layout.Content);
+register("AApp", App);
 
 app.mount("#app");

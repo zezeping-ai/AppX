@@ -1,8 +1,10 @@
 mod app;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default().manage(app::app_lock::AppLockSessionState::default());
 
     #[cfg(desktop)]
     {
@@ -13,16 +15,22 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            app::app_lock::setup(app.handle(), app.state())?;
             app::menu::setup(app)?;
             app::tray::setup(app)?;
             Ok(())
         })
         .on_menu_event(app::menu::handle_menu_event)
         .on_window_event(app::windows::handle_close_requested)
+        .plugin(tauri_plugin_biometry::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            app::app_lock::app_lock_get_settings,
+            app::app_lock::app_lock_save_settings,
+            app::app_lock::app_lock_lock_session,
+            app::app_lock::app_lock_unlock_session,
             app::editor::editor_pick_folder,
             app::editor::editor_pick_file,
             app::editor::editor_list_directory,

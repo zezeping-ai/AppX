@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { APP_NAV_ITEMS } from "./nav";
+import { getAppLockSettings } from "@/modules/appLock";
+import { UNLOCK_ROUTE_PATH } from "@/features/appLock/routes";
 
+const router = useRouter();
 const route = useRoute();
 const collapsed = ref(true);
 const visibleNavItems = computed(() => APP_NAV_ITEMS.filter((item) => item.enabled !== false));
@@ -11,6 +14,37 @@ const visibleNavItems = computed(() => APP_NAV_ITEMS.filter((item) => item.enabl
 const activeNavKey = computed(() => {
   const feature = route.meta.feature;
   return typeof feature === "string" ? feature : null;
+});
+
+async function checkLockOnFocus() {
+  if (!route.path.startsWith("/editor")) {
+    return;
+  }
+  try {
+    const settings = await getAppLockSettings();
+    if (settings.enabled && settings.lockOnStartup && settings.sessionLocked) {
+      await router.replace({
+        path: UNLOCK_ROUTE_PATH,
+        query: { redirect: route.fullPath },
+      });
+    }
+  } catch {
+    // 忽略异常，避免在极端情况下影响使用
+  }
+}
+
+function onFocus() {
+  void checkLockOnFocus();
+}
+
+onMounted(() => {
+  window.addEventListener("focus", onFocus);
+  document.addEventListener("visibilitychange", onFocus);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("focus", onFocus);
+  document.removeEventListener("visibilitychange", onFocus);
 });
 </script>
 
