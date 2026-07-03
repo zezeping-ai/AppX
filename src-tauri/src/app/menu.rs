@@ -1,0 +1,108 @@
+use crate::app::updates::check_and_install_update;
+use tauri::menu::{
+    AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID,
+};
+
+const MENU_APP_QUIT_ID: &str = "appx.app.quit";
+const MENU_HELP_CHECK_UPDATE_ID: &str = "appx.help.check_update";
+
+fn app_menu_title(app: &tauri::App) -> String {
+    let name = app.package_info().name.clone();
+    let mut chars = name.chars();
+    match chars.next() {
+        None => name,
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
+pub fn setup(app: &tauri::App) -> tauri::Result<()> {
+    let pkg = app.package_info();
+    let about_metadata = AboutMetadata {
+        name: Some(pkg.name.clone()),
+        version: Some(pkg.version.to_string()),
+        copyright: app.config().bundle.copyright.clone(),
+        authors: app.config().bundle.publisher.clone().map(|p| vec![p]),
+        ..Default::default()
+    };
+    let about_text = format!("关于 {}", app_menu_title(app));
+    let about = PredefinedMenuItem::about(app, Some(about_text.as_str()), Some(about_metadata))?;
+    let quit = MenuItem::with_id(app, MENU_APP_QUIT_ID, "退出", true, Some("CmdOrCtrl+Q"))?;
+
+    let app_submenu = Submenu::new(app, app_menu_title(app), true)?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let sep = PredefinedMenuItem::separator(app)?;
+        let services = PredefinedMenuItem::services(app, None)?;
+        let sep2 = PredefinedMenuItem::separator(app)?;
+        let hide = PredefinedMenuItem::hide(app, None)?;
+        let hide_others = PredefinedMenuItem::hide_others(app, None)?;
+        let sep3 = PredefinedMenuItem::separator(app)?;
+        let show_all = PredefinedMenuItem::show_all(app, None)?;
+        let sep_before_quit = PredefinedMenuItem::separator(app)?;
+        app_submenu.append(&sep)?;
+        app_submenu.append(&services)?;
+        app_submenu.append(&sep2)?;
+        app_submenu.append(&hide)?;
+        app_submenu.append(&hide_others)?;
+        app_submenu.append(&sep3)?;
+        app_submenu.append(&show_all)?;
+        app_submenu.append(&sep_before_quit)?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let sep_before_quit = PredefinedMenuItem::separator(app)?;
+        app_submenu.append(&sep_before_quit)?;
+    }
+
+    app_submenu.append(&quit)?;
+
+    let undo = PredefinedMenuItem::undo(app, None)?;
+    let redo = PredefinedMenuItem::redo(app, None)?;
+    let cut = PredefinedMenuItem::cut(app, None)?;
+    let copy = PredefinedMenuItem::copy(app, None)?;
+    let paste = PredefinedMenuItem::paste(app, None)?;
+    let select_all = PredefinedMenuItem::select_all(app, None)?;
+    let edit_submenu = Submenu::with_items(
+        app,
+        "编辑",
+        true,
+        &[&undo, &redo, &cut, &copy, &paste, &select_all],
+    )?;
+
+    let check_update = MenuItem::with_id(
+        app,
+        MENU_HELP_CHECK_UPDATE_ID,
+        "检查更新",
+        true,
+        None::<&str>,
+    )?;
+    let sep_after_about = PredefinedMenuItem::separator(app)?;
+    let help_submenu = Submenu::with_id_and_items(
+        app,
+        HELP_SUBMENU_ID,
+        "帮助",
+        true,
+        &[&about, &sep_after_about, &check_update],
+    )?;
+
+    let menu = Menu::with_items(app, &[&app_submenu, &edit_submenu, &help_submenu])?;
+    app.set_menu(menu)?;
+    Ok(())
+}
+
+pub fn handle_menu_event(app: &tauri::AppHandle, event: MenuEvent) {
+    match event.id().as_ref() {
+        MENU_APP_QUIT_ID => {
+            app.exit(0);
+        }
+        MENU_HELP_CHECK_UPDATE_ID => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                check_and_install_update(app).await;
+            });
+        }
+        _ => {}
+    }
+}
