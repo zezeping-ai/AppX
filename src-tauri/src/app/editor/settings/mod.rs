@@ -4,4 +4,4 @@ mod model;
 mod storage;
 
 pub use commands::*;
-pub use key::{derive_key_from_passphrase, load_passphrase};
+pub use key::load_passphrase;

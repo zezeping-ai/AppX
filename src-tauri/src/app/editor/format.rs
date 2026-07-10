@@ -1,10 +1,5 @@
 use std::path::{Path, PathBuf};
 
-pub const MAGIC: &[u8; 4] = b"APPX";
-pub const VERSION: u8 = 1;
-pub const NONCE_LEN: usize = 12;
-pub const HEADER_LEN: usize = MAGIC.len() + 1 + NONCE_LEN;
-
 const DEFAULT_ENCRYPTED_SUFFIX: &str = ".x";
 const CUSTOM_ENCRYPTED_SUFFIX: &str = ".x0";
 

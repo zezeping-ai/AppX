@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_PASSPHRASE: &str = "zezeping";
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditorSettings {
@@ -20,20 +18,17 @@ impl Default for EditorSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditorEncryptionSettings {
-    #[serde(default = "default_passphrase")]
+    /// 空字符串表示未单独配置，回退「偏好设置 › 安全」中的默认加密口令
+    #[serde(default)]
     pub passphrase: String,
 }
 
 impl Default for EditorEncryptionSettings {
     fn default() -> Self {
         Self {
-            passphrase: default_passphrase(),
+            passphrase: String::new(),
         }
     }
-}
-
-fn default_passphrase() -> String {
-    DEFAULT_PASSPHRASE.to_string()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -46,12 +41,13 @@ pub struct EditorSettingsView {
 #[serde(rename_all = "camelCase")]
 pub struct EditorEncryptionView {
     pub passphrase: String,
+    pub uses_global_passphrase: bool,
 }
 
 /// 旧版 `settings.json` 结构，仅用于迁移
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct LegacyAppSettings {
-    #[serde(default = "default_passphrase")]
+    #[serde(default)]
     pub(super) encryption_passphrase: String,
 }

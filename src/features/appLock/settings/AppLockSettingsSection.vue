@@ -8,6 +8,7 @@ import {
   isBiometryUserDismissed,
   saveAppLockSettings,
 } from "@/modules/appLock";
+import SecurityEncryptionSection from "./SecurityEncryptionSection.vue";
 
 const loading = ref(false);
 const toggling = ref(false);
@@ -80,6 +81,7 @@ onMounted(() => {
 
 <template>
   <a-space direction="vertical" size="middle" class="app-lock-settings">
+    <SecurityEncryptionSection />
     <a-card title="应用锁" :bordered="false" :loading="loading">
       <a-space direction="vertical" size="small" class="w-full">
         <a-checkbox :checked="enabled" :disabled="toggling" @update:checked="onToggleEnabled">

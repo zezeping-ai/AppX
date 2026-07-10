@@ -6,14 +6,21 @@ import {
   saveEditorEncryptionPassphrase,
 } from "@/modules/editor/settings/client";
 
-const DEFAULT_PASSPHRASE = "zezeping";
+const SECURITY_PASSPHRASE_SOURCE = "偏好设置 › 安全 › 默认加密口令";
 
 const loading = ref(false);
 const saving = ref(false);
-const passphrase = ref(DEFAULT_PASSPHRASE);
-const savedPassphrase = ref(DEFAULT_PASSPHRASE);
+const passphrase = ref("");
+const savedPassphrase = ref("");
+const usesGlobalPassphrase = ref(true);
 
-const canSave = computed(() => passphrase.value.trim().length > 0);
+const canSave = computed(
+  () => passphrase.value.trim() !== savedPassphrase.value.trim(),
+);
+
+const globalPassphraseHint = computed(
+  () => `未单独配置，使用「${SECURITY_PASSPHRASE_SOURCE}」`,
+);
 
 async function refresh() {
   loading.value = true;
@@ -21,6 +28,7 @@ async function refresh() {
     const view = await getEditorSettings();
     passphrase.value = view.encryption.passphrase;
     savedPassphrase.value = view.encryption.passphrase;
+    usesGlobalPassphrase.value = view.encryption.usesGlobalPassphrase;
   } catch (error) {
     message.error(String(error));
   } finally {
@@ -29,23 +37,29 @@ async function refresh() {
 }
 
 async function onSave() {
-  if (!canSave.value) return;
-  const confirmed = await new Promise<boolean>((resolve) => {
-    Modal.confirm({
-      title: "确认修改加密口令",
-      content: "修改后，旧口令加密的 .x 文件将无法解密。请确认已备份并记住新口令。",
-      okText: "确认修改",
-      okType: "danger",
-      cancelText: "取消",
-      onOk: () => resolve(true),
-      onCancel: () => {
-        passphrase.value = savedPassphrase.value;
-        resolve(false);
-      },
+  const trimmed = passphrase.value.trim();
+  const hadCustomPassphrase = savedPassphrase.value.trim().length > 0;
+
+  if (hadCustomPassphrase || trimmed.length > 0) {
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Modal.confirm({
+        title: trimmed ? "确认修改 Editor 加密口令" : "确认清除独立配置",
+        content: trimmed
+          ? "修改后，旧口令加密的 .x 文件将无法解密。请确认已备份并记住新口令。"
+          : `清除后，Editor 的 .x 加密将改用「${SECURITY_PASSPHRASE_SOURCE}」。`,
+        okText: "确认",
+        okType: trimmed ? "danger" : "primary",
+        cancelText: "取消",
+        onOk: () => resolve(true),
+        onCancel: () => {
+          passphrase.value = savedPassphrase.value;
+          resolve(false);
+        },
+      });
     });
-  });
-  if (!confirmed) {
-    return;
+    if (!confirmed) {
+      return;
+    }
   }
 
   saving.value = true;
@@ -53,7 +67,12 @@ async function onSave() {
     const view = await saveEditorEncryptionPassphrase(passphrase.value);
     passphrase.value = view.encryption.passphrase;
     savedPassphrase.value = view.encryption.passphrase;
-    message.success("已保存");
+    usesGlobalPassphrase.value = view.encryption.usesGlobalPassphrase;
+    message.success(
+      usesGlobalPassphrase.value
+        ? `已清除独立配置，改用「${SECURITY_PASSPHRASE_SOURCE}」`
+        : "已保存独立加密口令",
+    );
   } catch (error) {
     message.error(String(error));
   } finally {
@@ -72,11 +91,20 @@ onMounted(() => {
       <a-typography-title :level="5" class="editor-encryption__title">加密（.x）</a-typography-title>
     </div>
 
+    <a-typography-text
+      v-if="usesGlobalPassphrase"
+      type="secondary"
+      class="editor-encryption__status"
+    >
+      {{ globalPassphraseHint }}
+    </a-typography-text>
+
     <div class="editor-encryption__body">
       <a-input-password
         v-model:value="passphrase"
-        placeholder="输入加密口令"
+        :placeholder="`留空则使用「${SECURITY_PASSPHRASE_SOURCE}」`"
         autocomplete="new-password"
+        allow-clear
       />
       <a-button type="primary" :loading="saving" :disabled="!canSave" @click="onSave">
         保存
@@ -96,11 +124,18 @@ onMounted(() => {
 }
 
 .editor-encryption__header {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .editor-encryption__title {
   margin: 0;
+}
+
+.editor-encryption__status {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .editor-encryption__body {

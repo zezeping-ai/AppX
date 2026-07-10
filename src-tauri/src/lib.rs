@@ -50,6 +50,7 @@ pub fn run() {
             app::editor::editor_convert_to_plain,
             app::editor::editor_get_settings,
             app::editor::editor_save_encryption_passphrase,
+            app::security::security_get_settings,
             app::windows::window_show_preferences,
         ])
         .build(tauri::generate_context!())
