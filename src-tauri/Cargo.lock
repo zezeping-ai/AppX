@@ -88,6 +88,8 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
+ "objc2",
+ "objc2-app-kit",
  "rand",
  "serde",
  "serde_json",

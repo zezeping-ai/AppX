@@ -3,6 +3,9 @@ use tauri::{Manager, WebviewUrl};
 
 use crate::app::app_lock;
 
+#[cfg(target_os = "macos")]
+mod macos_close;
+
 const MAIN_WINDOW_LABEL: &str = "main";
 const PREFERENCES_WINDOW_LABEL: &str = "preferences";
 const PREFERENCES_ROUTE: &str = "/#/preferences";
@@ -31,6 +34,7 @@ fn navigate_to_route(window: &tauri::WebviewWindow, route: &str) -> tauri::Resul
     Ok(())
 }
 
+#[cfg(not(target_os = "macos"))]
 async fn hide_main_window_safely(app: tauri::AppHandle) {
     for _ in 0..10 {
         let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
@@ -46,6 +50,9 @@ async fn hide_main_window_safely(app: tauri::AppHandle) {
 
 pub fn show_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        if window.is_fullscreen().unwrap_or(false) {
+            let _ = window.set_fullscreen(false);
+        }
         window.show()?;
         window.set_focus()?;
     }
@@ -109,6 +116,12 @@ pub fn schedule_preferences_window(app: &tauri::AppHandle) -> tauri::Result<()> 
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+pub fn handle_close_requested(window: &tauri::Window, event: &tauri::WindowEvent) {
+    macos_close::handle_window_event(window, event);
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn handle_close_requested(window: &tauri::Window, event: &tauri::WindowEvent) {
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
         if window.label() != MAIN_WINDOW_LABEL {
@@ -121,6 +134,14 @@ pub fn handle_close_requested(window: &tauri::Window, event: &tauri::WindowEvent
         });
     }
 }
+
+#[cfg(target_os = "macos")]
+pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
+    macos_close::handle_run_event(app_handle, event);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn handle_run_event(_app_handle: &tauri::AppHandle, _event: tauri::RunEvent) {}
 
 #[tauri::command]
 pub fn window_show_preferences(app: tauri::AppHandle) -> Result<(), String> {

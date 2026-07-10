@@ -47,6 +47,9 @@ pub fn run() {
             app::editor::editor_save_encryption_passphrase,
             app::windows::window_show_preferences,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            app::windows::handle_run_event(app_handle, event);
+        });
 }
