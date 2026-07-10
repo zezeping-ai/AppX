@@ -27,6 +27,7 @@ pub fn run() {
             app::code_snippets::setup(app.handle())?;
             app::menu::setup(app)?;
             app::tray::setup(app)?;
+            app::updates::schedule_startup_update_check(app.handle());
             Ok(())
         })
         .on_menu_event(app::menu::handle_menu_event)

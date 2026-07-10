@@ -10,8 +10,40 @@ use logging::append_update_log;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
+/// 更新检查触发方式：启动自动检查仅在有更新或安装失败时弹窗。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateCheckMode {
+    Manual,
+    Startup,
+}
+
+/// 应用启动后自动检查更新（开发构建跳过）。
+pub fn schedule_startup_update_check(app: &tauri::AppHandle) {
+    #[cfg(debug_assertions)]
+    {
+        append_update_log(app, "updater", "startup check skipped: debug build");
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            check_and_install_update_with_mode(app, UpdateCheckMode::Startup).await;
+        });
+    }
+}
+
 pub async fn check_and_install_update(app: tauri::AppHandle) {
-    let context = update_log_context(&app);
+    check_and_install_update_with_mode(app, UpdateCheckMode::Manual).await;
+}
+
+async fn check_and_install_update_with_mode(app: tauri::AppHandle, mode: UpdateCheckMode) {
+    let silent = mode == UpdateCheckMode::Startup;
+    let context = format!(
+        "{}, trigger={}",
+        update_log_context(&app),
+        if silent { "startup" } else { "manual" }
+    );
     append_update_log(&app, "updater", format!("check started: {context}"));
 
     let updater = match app.updater() {
@@ -22,15 +54,17 @@ pub async fn check_and_install_update(app: tauri::AppHandle) {
                 "updater",
                 format!("updater init failed: {err}; {context}"),
             );
-            show_error_dialog(
-                &app,
-                "检查更新失败",
-                &format!(
-                    "初始化更新器失败：{err}\n平台：{}\n当前版本：{}\n请检查 tauri.conf.json 的 updater 配置。",
-                    updater_platform_key(),
-                    app.package_info().version
-                ),
-            );
+            if !silent {
+                show_error_dialog(
+                    &app,
+                    "检查更新失败",
+                    &format!(
+                        "初始化更新器失败：{err}\n平台：{}\n当前版本：{}\n请检查 tauri.conf.json 的 updater 配置。",
+                        updater_platform_key(),
+                        app.package_info().version
+                    ),
+                );
+            }
             return;
         }
     };
@@ -39,22 +73,26 @@ pub async fn check_and_install_update(app: tauri::AppHandle) {
         Ok(update) => update,
         Err(err) => {
             append_update_log(&app, "updater", format!("check failed: {err}; {context}"));
-            show_error_dialog(
-                &app,
-                "检查更新失败",
-                &format!(
-                    "无法检查更新：{err}\n平台：{}\n当前版本：{}\n请确认 GitHub Releases 与 updater endpoint 已正确配置。",
-                    updater_platform_key(),
-                    app.package_info().version
-                ),
-            );
+            if !silent {
+                show_error_dialog(
+                    &app,
+                    "检查更新失败",
+                    &format!(
+                        "无法检查更新：{err}\n平台：{}\n当前版本：{}\n请确认 GitHub Releases 与 updater endpoint 已正确配置。",
+                        updater_platform_key(),
+                        app.package_info().version
+                    ),
+                );
+            }
             return;
         }
     };
 
     let Some(update) = update else {
         append_update_log(&app, "updater", format!("already up to date: {context}"));
-        show_info_dialog(&app, "检查更新", "当前已是最新版本。");
+        if !silent {
+            show_info_dialog(&app, "检查更新", "当前已是最新版本。");
+        }
         return;
     };
 
