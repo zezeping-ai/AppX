@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { APP_NAV_ITEMS } from "./nav";
 import { getAppLockSettings } from "@/modules/appLock";
-import { UNLOCK_ROUTE_PATH } from "@/features";
+import { UNLOCK_ROUTE_PATH } from "@/router/standalone";
 
 const router = useRouter();
 const route = useRoute();

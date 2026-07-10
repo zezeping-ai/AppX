@@ -1,4 +1,7 @@
 mod app;
+mod commands;
+mod database;
+mod paths;
 
 use tauri::Manager;
 
@@ -6,7 +9,8 @@ use tauri::Manager;
 pub fn run() {
     let mut builder = tauri::Builder::default()
         .manage(app::app_lock::AppLockSessionState::default())
-        .manage(app::editor::FilePassphraseStore::default());
+        .manage(app::editor::FilePassphraseStore::default())
+        .manage(app::code_snippets::SnippetRegistry::default());
 
     #[cfg(desktop)]
     {
@@ -17,7 +21,10 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            paths::ensure_profile_scaffold(app.handle())?;
+            database::log_db_full_path(app.handle());
             app::app_lock::setup(app.handle(), app.state())?;
+            app::code_snippets::setup(app.handle())?;
             app::menu::setup(app)?;
             app::tray::setup(app)?;
             Ok(())
@@ -28,7 +35,23 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(database::plugin().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            commands::database::database_resolve_path,
+            commands::database::database_reset_dev,
+            app::crypto::commands::crypto_encrypt_text,
+            app::crypto::commands::crypto_decrypt_text,
+            app::code_snippets::code_snippets_sync,
+            app::code_snippets::code_snippets_set_expansion_paused,
+            app::code_snippets::code_snippets_get_permissions,
+            app::code_snippets::code_snippets_open_accessibility_settings,
+            app::code_snippets::code_snippets_get_settings,
+            app::code_snippets::code_snippets_save_settings,
+            app::palette::code_snippets_list_palette_items,
+            app::palette::code_snippets_insert_palette_item,
+            app::palette::code_snippets_copy_palette_item,
+            app::palette::code_snippets_hide_palette,
             app::app_lock::app_lock_get_settings,
             app::app_lock::app_lock_save_settings,
             app::app_lock::app_lock_lock_session,

@@ -9,4 +9,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     icon: "mdi:application-edit-outline",
     enabled: true,
   },
+  {
+    key: "code-snippets",
+    label: "代码段",
+    to: "/code-snippets",
+    icon: "mdi:lightning-bolt-outline",
+    enabled: true,
+  },
 ];

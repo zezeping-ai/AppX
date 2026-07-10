@@ -1,8 +1,13 @@
 pub mod app_lock;
+pub mod clipboard;
+pub mod code_snippets;
 pub mod crypto;
 pub mod editor;
+pub mod focus_target;
+pub mod palette;
 pub mod security;
 pub mod menu;
+pub mod text_delivery;
 pub mod tray;
 pub mod updates;
 pub mod windows;

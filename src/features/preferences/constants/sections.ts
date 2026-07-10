@@ -1,9 +1,10 @@
 import type { Component } from "vue";
 import { AppearanceSettingsSection } from "@/features/appearance";
 import { AppLockSettingsSection } from "@/features/appLock";
+import { CodeSnippetsSettingsSection } from "@/features/codeSnippets";
 import { EditorSettingsSection } from "@/features/editor";
 
-export type PreferenceSectionKey = "appearance" | "security" | "editor";
+export type PreferenceSectionKey = "appearance" | "security" | "editor" | "code-snippets";
 
 export type PreferenceSection = {
   key: PreferenceSectionKey;
@@ -30,5 +31,11 @@ export const PREFERENCE_SECTIONS: PreferenceSection[] = [
     label: "Editor",
     icon: "mdi:application-edit-outline",
     component: EditorSettingsSection,
+  },
+  {
+    key: "code-snippets",
+    label: "代码段",
+    icon: "mdi:lightning-bolt-outline",
+    component: CodeSnippetsSettingsSection,
   },
 ];

@@ -1,14 +1,18 @@
 import { createRouter, createWebHashHistory } from "vue-router";
-import {
-  layoutChildRoutes,
-  standaloneRoutes,
-  UNLOCK_ROUTE_PATH,
-} from "@/features";
+import { ROUTE_CHANGE_EVENT } from "@/router/events";
+import { pageRoutes } from "@/router/pages";
+import { standaloneRoutes, UNLOCK_ROUTE_PATH } from "@/router/standalone";
 import { getAppLockSettings } from "@/modules/appLock";
 
-export const ROUTE_CHANGE_EVENT = "appx:route-change";
+export { ROUTE_CHANGE_EVENT } from "@/router/events";
+export { pageRoutes, EDITOR_ROUTE_PATH, CODE_SNIPPETS_ROUTE_PATH } from "@/router/pages";
+export {
+  standaloneRoutes,
+  PREFERENCES_ROUTE_PATH,
+  UNLOCK_ROUTE_PATH,
+} from "@/router/standalone";
 
-/** 聚合各功能模块路由；新增功能时在 features/<name>/routes.ts 定义并在此注册 */
+/** 聚合路由：Layout 子路由见 router/pages.ts，独立窗口见 router/standalone.ts */
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
@@ -17,7 +21,7 @@ export const router = createRouter({
       component: () => import("@/components/Layout/index.vue"),
       children: [
         { path: "", redirect: "/editor" },
-        ...layoutChildRoutes,
+        ...pageRoutes,
       ],
     },
     ...standaloneRoutes,
