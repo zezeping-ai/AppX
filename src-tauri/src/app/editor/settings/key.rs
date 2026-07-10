@@ -16,10 +16,6 @@ pub fn load_passphrase(app: &tauri::AppHandle) -> Result<String, String> {
     Ok(read_editor_settings(app)?.encryption.passphrase)
 }
 
-pub fn load_cipher_key(app: &tauri::AppHandle) -> Result<[u8; KEY_LEN], String> {
-    Ok(derive_key_from_passphrase(&load_passphrase(app)?))
-}
-
 pub fn editor_settings_view(app: &tauri::AppHandle) -> Result<EditorSettingsView, String> {
     let settings = read_editor_settings(app)?;
     Ok(EditorSettingsView {

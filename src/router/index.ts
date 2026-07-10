@@ -1,7 +1,9 @@
 import { createRouter, createWebHashHistory } from "vue-router";
-import { editorRoutes } from "@/features/editor/routes";
-import { preferencesRoutes } from "@/features/preferences/routes";
-import { appLockRoutes, UNLOCK_ROUTE_PATH } from "@/features/appLock/routes";
+import {
+  layoutChildRoutes,
+  standaloneRoutes,
+  UNLOCK_ROUTE_PATH,
+} from "@/features";
 import { getAppLockSettings } from "@/modules/appLock";
 
 export const ROUTE_CHANGE_EVENT = "appx:route-change";
@@ -15,11 +17,10 @@ export const router = createRouter({
       component: () => import("@/components/Layout/index.vue"),
       children: [
         { path: "", redirect: "/editor" },
-        ...editorRoutes,
+        ...layoutChildRoutes,
       ],
     },
-    ...appLockRoutes,
-    ...preferencesRoutes,
+    ...standaloneRoutes,
   ],
 });
 

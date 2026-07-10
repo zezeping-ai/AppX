@@ -4,7 +4,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default().manage(app::app_lock::AppLockSessionState::default());
+    let mut builder = tauri::Builder::default()
+        .manage(app::app_lock::AppLockSessionState::default())
+        .manage(app::editor::FilePassphraseStore::default());
 
     #[cfg(desktop)]
     {
@@ -42,6 +44,9 @@ pub fn run() {
             app::editor::editor_delete_path,
             app::editor::editor_rename_path,
             app::editor::editor_convert_to_encrypted,
+            app::editor::editor_convert_to_custom_encrypted,
+            app::editor::editor_convert_custom_to_default_encrypted,
+            app::editor::editor_unlock_encrypted_file,
             app::editor::editor_convert_to_plain,
             app::editor::editor_get_settings,
             app::editor::editor_save_encryption_passphrase,

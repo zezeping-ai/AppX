@@ -12,8 +12,6 @@ import { useRecentOpens } from "./useRecentOpens";
 import { useWorkspacePersistence } from "./useWorkspacePersistence";
 import MonacoEditor from "@/components/MonacoEditor/index.vue";
 import {
-  convertToEncryptedFile,
-  convertToPlainFile,
   createDirectory,
   createFile,
   deletePath,
@@ -23,9 +21,11 @@ import {
   pickFolder,
   readFile,
   renamePath,
-  writeFile,
 } from "@/modules/editor/client";
+import { fileStatusMark, isEncryptedFileName } from "@/modules/editor/encryption";
+import { createOpenedEditorFile } from "@/modules/editor/openedFile";
 import type { OpenedEditorFile } from "@/modules/editor/types";
+import { useEncryptedFileFlow } from "./useEncryptedFileFlow";
 
 const { savedWorkspaceRoot, rememberWorkspaceRoot } = useWorkspacePersistence();
 const {
@@ -59,8 +59,7 @@ const statusText = computed(() => {
     return "";
   }
   const dirtyMark = activeFile.value.dirty ? " *" : "";
-  const modeMark = activeFile.value.encrypted ? " [加密]" : "";
-  return `${activeFile.value.path}${modeMark}${dirtyMark}`;
+  return `${activeFile.value.path}${fileStatusMark(activeFile.value)}${dirtyMark}`;
 });
 
 function syncEditorFromActiveTab() {
@@ -98,6 +97,85 @@ async function refreshTree() {
   } finally {
     loadingTree.value = false;
   }
+}
+
+async function ensureCanSwitchFromActiveTab(): Promise<boolean> {
+  if (!activeFile.value?.dirty) {
+    return true;
+  }
+  return confirmDiscardUnsaved(activeFile.value.name);
+}
+
+const encryptedFlow = useEncryptedFileFlow({
+  tabByPath,
+  activePath,
+  editorContent,
+  refreshTree,
+});
+
+async function openFileByPath(path: string): Promise<boolean> {
+  if (activePath.value === path) {
+    return true;
+  }
+
+  if (!(await ensureCanSwitchFromActiveTab())) {
+    return false;
+  }
+
+  const existing = tabByPath.value.get(path);
+  if (existing) {
+    activePath.value = path;
+    syncEditorFromActiveTab();
+    return true;
+  }
+
+  try {
+    const inspect = await inspectFile(path);
+    if (!inspect.editable) {
+      message.error("该文件无法在编辑器中打开");
+      return false;
+    }
+
+    const resolved = inspect.encrypted
+      ? await encryptedFlow.resolveEncryptedContent(path, inspect)
+      : { path, content: await readFile(path) };
+    if (!resolved) {
+      return false;
+    }
+
+    const nextInspect =
+      resolved.path === path ? inspect : await inspectFile(resolved.path);
+    const tab = createOpenedEditorFile(resolved.path, nextInspect, resolved.content);
+    tabByPath.value = new Map(tabByPath.value).set(resolved.path, tab);
+    activePath.value = resolved.path;
+    editorContent.value = resolved.content;
+    return true;
+  } catch (error) {
+    message.error(String(error));
+    return false;
+  }
+};
+
+async function reopenAfterConvert(nextPath: string | null) {
+  if (nextPath) {
+    await openFileByPath(nextPath);
+  }
+}
+
+async function convertFileToEncrypted(path: string) {
+  await reopenAfterConvert(await encryptedFlow.convertToEncrypted(path));
+}
+
+async function convertFileToCustomEncrypted(path: string) {
+  await reopenAfterConvert(await encryptedFlow.convertToCustomEncrypted(path));
+}
+
+async function convertCustomToDefaultEncrypted(path: string) {
+  await reopenAfterConvert(await encryptedFlow.convertToDefaultEncrypted(path));
+}
+
+async function convertFileToPlain(path: string) {
+  await reopenAfterConvert(await encryptedFlow.convertToPlain(path));
 }
 
 async function openWorkspace(path: string) {
@@ -173,56 +251,6 @@ async function handleDroppedPaths(paths: string[]) {
   }
 }
 
-async function ensureCanSwitchFromActiveTab(): Promise<boolean> {
-  if (!activeFile.value?.dirty) {
-    return true;
-  }
-  return confirmDiscardUnsaved(activeFile.value.name);
-}
-
-async function openFileByPath(path: string): Promise<boolean> {
-  if (activePath.value === path) {
-    return true;
-  }
-
-  if (!(await ensureCanSwitchFromActiveTab())) {
-    return false;
-  }
-
-  const existing = tabByPath.value.get(path);
-  if (existing) {
-    activePath.value = path;
-    syncEditorFromActiveTab();
-    return true;
-  }
-
-  try {
-    const inspect = await inspectFile(path);
-    if (!inspect.editable) {
-      message.error("该文件无法在编辑器中打开");
-      return false;
-    }
-
-    const content = await readFile(path);
-    const name = path.split(/[/\\]/).pop() ?? path;
-    const tab: OpenedEditorFile = {
-      path,
-      name,
-      content,
-      language: inspect.language,
-      encrypted: inspect.encrypted,
-      dirty: false,
-    };
-    tabByPath.value = new Map(tabByPath.value).set(path, tab);
-    activePath.value = path;
-    editorContent.value = content;
-    return true;
-  } catch (error) {
-    message.error(String(error));
-    return false;
-  }
-}
-
 async function selectTab(path: string) {
   await openFileByPath(path);
 }
@@ -272,8 +300,10 @@ function removeTab(path: string, wasActive = activePath.value === path) {
 
 async function onExplorerCreateFile(directory: string, fileName: string) {
   try {
-    const encrypted = /\.[^./]+\.x$/i.test(fileName);
-    const path = await createFile(directory, { fileName, encrypted });
+    const path = await createFile(directory, {
+      fileName,
+      encrypted: isEncryptedFileName(fileName),
+    });
     await refreshTree();
     await openFileByPath(path);
   } catch (error) {
@@ -352,49 +382,18 @@ async function saveActiveFile() {
 
   saving.value = true;
   try {
-    await writeFile(activePath.value, editorContent.value);
-    updateActiveTabContent(editorContent.value, false);
-    message.success(activeFile.value.encrypted ? "已加密保存" : "已保存");
+    const saved = await encryptedFlow.saveWithPassphraseFallback(
+      activePath.value,
+      editorContent.value,
+      activeFile.value,
+    );
+    if (saved) {
+      updateActiveTabContent(editorContent.value, false);
+    }
   } catch (error) {
     message.error(String(error));
   } finally {
     saving.value = false;
-  }
-}
-
-async function convertFileToEncrypted(path: string) {
-  try {
-    const tab = tabByPath.value.get(path);
-    if (tab?.dirty && activePath.value === path) {
-      await writeFile(path, editorContent.value);
-    }
-    const nextPath = await convertToEncryptedFile(path);
-    const nextTabs = new Map(tabByPath.value);
-    nextTabs.delete(path);
-    tabByPath.value = nextTabs;
-    await refreshTree();
-    await openFileByPath(nextPath);
-    message.success("已转换为加密文件");
-  } catch (error) {
-    message.error(String(error));
-  }
-}
-
-async function convertFileToPlain(path: string) {
-  try {
-    const tab = tabByPath.value.get(path);
-    if (tab?.dirty && activePath.value === path) {
-      await writeFile(path, editorContent.value);
-    }
-    const nextPath = await convertToPlainFile(path);
-    const nextTabs = new Map(tabByPath.value);
-    nextTabs.delete(path);
-    tabByPath.value = nextTabs;
-    await refreshTree();
-    await openFileByPath(nextPath);
-    message.success("已转换为普通文件");
-  } catch (error) {
-    message.error(String(error));
   }
 }
 
@@ -493,6 +492,8 @@ watch(editorContent, (value) => {
           @rename="onExplorerRename"
           @delete="onExplorerDelete"
           @convert-to-encrypted="convertFileToEncrypted"
+          @convert-to-custom-encrypted="convertFileToCustomEncrypted"
+          @convert-custom-to-default-encrypted="convertCustomToDefaultEncrypted"
           @convert-to-plain="convertFileToPlain"
         />
       </aside>

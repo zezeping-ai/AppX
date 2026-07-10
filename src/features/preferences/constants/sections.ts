@@ -1,7 +1,7 @@
 import type { Component } from "vue";
-import AppearanceSettingsSection from "@/features/appearance/AppearanceSettingsSection.vue";
-import { EditorSettingsSection } from "@/features/editor/settings";
-import { AppLockSettingsSection } from "@/features/security";
+import { AppearanceSettingsSection } from "@/features/appearance";
+import { AppLockSettingsSection } from "@/features/appLock";
+import { EditorSettingsSection } from "@/features/editor";
 
 export type PreferenceSectionKey = "appearance" | "security" | "editor";
 

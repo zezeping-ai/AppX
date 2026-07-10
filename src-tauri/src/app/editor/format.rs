@@ -5,24 +5,66 @@ pub const VERSION: u8 = 1;
 pub const NONCE_LEN: usize = 12;
 pub const HEADER_LEN: usize = MAGIC.len() + 1 + NONCE_LEN;
 
-/// AppX 加密命名：`{name}.{lang}.x`，例如 `readme.txt.x`、`app.js.x`
-pub fn is_encrypted_path(path: &Path) -> bool {
+const DEFAULT_ENCRYPTED_SUFFIX: &str = ".x";
+const CUSTOM_ENCRYPTED_SUFFIX: &str = ".x0";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncryptionKind {
+    Default,
+    Custom,
+}
+
+/// 独立口令加密：`{name}.{lang}.x0`
+pub fn is_custom_encrypted_path(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
-    if !name.ends_with(".x") {
+    if !name.ends_with(CUSTOM_ENCRYPTED_SUFFIX) {
+        return false;
+    }
+    let inner = &name[..name.len().saturating_sub(3)];
+    inner.contains('.')
+}
+
+/// 默认口令加密：`{name}.{lang}.x`
+pub fn is_default_encrypted_path(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    if !name.ends_with(DEFAULT_ENCRYPTED_SUFFIX) || name.ends_with(CUSTOM_ENCRYPTED_SUFFIX) {
         return false;
     }
     let inner = &name[..name.len().saturating_sub(2)];
     inner.contains('.')
 }
 
+pub fn is_encrypted_path(path: &Path) -> bool {
+    is_custom_encrypted_path(path) || is_default_encrypted_path(path)
+}
+
+pub fn encryption_kind(path: &Path) -> Option<EncryptionKind> {
+    if is_custom_encrypted_path(path) {
+        Some(EncryptionKind::Custom)
+    } else if is_default_encrypted_path(path) {
+        Some(EncryptionKind::Default)
+    } else {
+        None
+    }
+}
+
 pub fn encrypted_lang_hint(path: &Path) -> Option<String> {
-    if !is_encrypted_path(path) {
+    let name = path.file_name()?.to_str()?;
+    let (inner, suffix_len) = if name.ends_with(CUSTOM_ENCRYPTED_SUFFIX) {
+        (&name[..name.len() - 3], 3)
+    } else if name.ends_with(DEFAULT_ENCRYPTED_SUFFIX) {
+        (&name[..name.len() - 2], 2)
+    } else {
+        return None;
+    };
+    if !inner.contains('.') {
         return None;
     }
-    let name = path.file_name()?.to_str()?;
-    let inner = &name[..name.len() - 2];
+    let _ = suffix_len;
     let dot = inner.rfind('.')?;
     Some(inner[dot + 1..].to_ascii_lowercase())
 }
@@ -178,22 +220,101 @@ pub fn ensure_writable_path(path: &Path) -> Result<(), String> {
     }
 }
 
-/// `app.js` -> `app.js.x`，`readme.txt` -> `readme.txt.x`
-pub fn encrypted_path_from_plain(path: &Path) -> PathBuf {
+/// `app.js` -> `app.js.x`
+pub fn default_encrypted_path_from_plain(path: &Path) -> PathBuf {
+    encrypted_path_with_suffix(path, DEFAULT_ENCRYPTED_SUFFIX)
+}
+
+/// `app.js` -> `app.js.x0`
+pub fn custom_encrypted_path_from_plain(path: &Path) -> PathBuf {
+    encrypted_path_with_suffix(path, CUSTOM_ENCRYPTED_SUFFIX)
+}
+
+/// `app.js.x` -> `app.js.x0`
+pub fn custom_encrypted_path_from_default(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("untitled.x");
+    parent.join(format!("{name}0"))
+}
+
+/// `app.js.x0` -> `app.js.x`
+pub fn default_encrypted_path_from_custom(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("untitled.x0");
+    if name.ends_with(CUSTOM_ENCRYPTED_SUFFIX) {
+        parent.join(&name[..name.len() - 1])
+    } else {
+        parent.join(format!("{name}.x"))
+    }
+}
+
+/// 转为独立口令加密时的目标路径。
+pub fn custom_encrypt_target(path: &Path) -> PathBuf {
+    if is_custom_encrypted_path(path) {
+        path.to_path_buf()
+    } else if is_default_encrypted_path(path) {
+        custom_encrypted_path_from_default(path)
+    } else {
+        custom_encrypted_path_from_plain(path)
+    }
+}
+
+/// `app.js.x` / `app.js.x0` -> `app.js`
+pub fn plain_path_from_encrypted(path: &Path) -> Option<PathBuf> {
+    let name = path.file_name()?.to_str()?;
+    let plain_name = if name.ends_with(CUSTOM_ENCRYPTED_SUFFIX) {
+        &name[..name.len() - 3]
+    } else if name.ends_with(DEFAULT_ENCRYPTED_SUFFIX) {
+        &name[..name.len() - 2]
+    } else {
+        return None;
+    };
+    path.parent().map(|parent| parent.join(plain_name))
+}
+
+fn encrypted_path_with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     let name = path
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("untitled");
-    parent.join(format!("{name}.x"))
+    parent.join(format!("{name}{suffix}"))
 }
 
-/// `app.js.x` -> `app.js`，`readme.txt.x` -> `readme.txt`
-pub fn plain_path_from_encrypted(path: &Path) -> Option<PathBuf> {
-    if !is_encrypted_path(path) {
-        return None;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn detects_default_and_custom_encrypted_paths() {
+        let default = PathBuf::from("/tmp/readme.txt.x");
+        let custom = PathBuf::from("/tmp/readme.txt.x0");
+        assert!(is_default_encrypted_path(&default));
+        assert!(!is_custom_encrypted_path(&default));
+        assert!(is_custom_encrypted_path(&custom));
+        assert!(!is_default_encrypted_path(&custom));
+        assert_eq!(encryption_kind(&default), Some(EncryptionKind::Default));
+        assert_eq!(encryption_kind(&custom), Some(EncryptionKind::Custom));
     }
-    let name = path.file_name()?.to_str()?;
-    let plain_name = &name[..name.len() - 2];
-    path.parent().map(|parent| parent.join(plain_name))
+
+    #[test]
+    fn converts_between_encrypted_suffixes() {
+        let default = PathBuf::from("/tmp/app.js.x");
+        let custom = PathBuf::from("/tmp/app.js.x0");
+        assert_eq!(
+            custom_encrypted_path_from_default(&default),
+            PathBuf::from("/tmp/app.js.x0")
+        );
+        assert_eq!(
+            default_encrypted_path_from_custom(&custom),
+            PathBuf::from("/tmp/app.js.x")
+        );
+    }
 }

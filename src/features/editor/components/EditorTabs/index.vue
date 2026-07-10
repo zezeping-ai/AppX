@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
+import { encryptionFileIcon } from "@/modules/editor/encryption";
 import type { OpenedEditorFile } from "@/modules/editor/types";
 
 defineProps<{
@@ -23,11 +24,7 @@ const emit = defineEmits<{
       :class="{ 'editor-tabs__item--active': tab.path === activePath }"
       @click="emit('select', tab.path)"
     >
-      <Icon
-        :icon="tab.encrypted ? 'mdi:file-lock-outline' : 'mdi:file-document-outline'"
-        width="14"
-        height="14"
-      />
+      <Icon :icon="encryptionFileIcon(tab)" width="14" height="14" />
       <span class="editor-tabs__label">
         {{ tab.name }}<span v-if="tab.dirty" class="editor-tabs__dirty">*</span>
       </span>

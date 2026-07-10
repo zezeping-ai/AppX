@@ -25,6 +25,8 @@ const emit = defineEmits<{
   rename: [path: string, newName: string];
   delete: [path: string];
   convertToEncrypted: [path: string];
+  convertToCustomEncrypted: [path: string];
+  convertCustomToDefaultEncrypted: [path: string];
   convertToPlain: [path: string];
 }>();
 
@@ -238,11 +240,27 @@ const contextActions = computed<ContextMenuAction[]>(() => {
     { key: "open", label: "打开" },
     { key: "rename", label: "重命名" },
   ];
+
+  // 转换项优先级：转为普通 > 转为加密 (.x) > 独立口令加密 (.x0)
+  const convertActions: ContextMenuAction[] = [];
   if (node.encrypted) {
-    actions.push({ key: "to-plain", label: "转为普通", divider: true });
-  } else {
-    actions.push({ key: "to-encrypted", label: "转为加密", divider: true });
+    convertActions.push({ key: "to-plain", label: "转为普通" });
   }
+  if (!node.encrypted) {
+    convertActions.push({ key: "to-encrypted", label: "转为加密 (.x)" });
+  } else if (node.customEncrypted) {
+    convertActions.push({ key: "to-default-encrypted", label: "转为默认口令加密" });
+  }
+  if (!node.encrypted) {
+    convertActions.push({ key: "to-custom-encrypted", label: "独立口令加密 (.x0)" });
+  } else if (!node.customEncrypted) {
+    convertActions.push({ key: "to-custom-encrypted", label: "转为独立口令加密 (.x0)" });
+  }
+  if (convertActions.length) {
+    convertActions[0] = { ...convertActions[0], divider: true };
+    actions.push(...convertActions);
+  }
+
   actions.push({ key: "delete", label: "删除", danger: true, divider: true });
   return actions;
 });
@@ -339,6 +357,14 @@ function onContextAction(key: string) {
   }
   if (key === "to-encrypted") {
     emit("convertToEncrypted", node.path);
+    return;
+  }
+  if (key === "to-custom-encrypted") {
+    emit("convertToCustomEncrypted", node.path);
+    return;
+  }
+  if (key === "to-default-encrypted") {
+    emit("convertCustomToDefaultEncrypted", node.path);
     return;
   }
   if (key === "to-plain") {

@@ -1,9 +1,10 @@
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::app::app_lock::AppLockSessionState;
+use crate::app::editor::passphrase_store::FilePassphraseStore;
 
 use super::cipher;
 use super::convert;
@@ -22,8 +23,16 @@ fn ensure_unlocked(state: &AppLockSessionState) -> Result<(), String> {
 pub struct FileInspect {
     pub path: String,
     pub encrypted: bool,
+    pub custom_encrypted: bool,
     pub language: String,
     pub editable: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnlockEncryptedFileResult {
+    pub path: String,
+    pub content: String,
 }
 
 #[tauri::command]
@@ -57,46 +66,74 @@ pub fn editor_list_directory(
     tree::list_directory(PathBuf::from(path.trim()).as_path())
 }
 
+fn parse_path(path: String) -> PathBuf {
+    PathBuf::from(path.trim())
+}
+
+fn build_file_inspect(path: &Path) -> FileInspect {
+    FileInspect {
+        path: tree::path_to_string(path),
+        encrypted: format::is_encrypted_path(path),
+        custom_encrypted: format::is_custom_encrypted_path(path),
+        language: format::language_from_path(path),
+        editable: format::is_encrypted_path(path) || format::is_editable_path(path),
+    }
+}
+
 #[tauri::command]
 pub fn editor_inspect_file(
     state: State<'_, AppLockSessionState>,
     path: String,
 ) -> Result<FileInspect, String> {
     ensure_unlocked(&state)?;
-    let path_buf = PathBuf::from(path.trim());
-    Ok(FileInspect {
-        path: tree::path_to_string(&path_buf),
-        encrypted: format::is_encrypted_path(&path_buf),
-        language: format::language_from_path(&path_buf),
-        editable: format::is_encrypted_path(&path_buf) || format::is_editable_path(&path_buf),
-    })
+    Ok(build_file_inspect(&parse_path(path)))
 }
 
 #[tauri::command]
 pub fn editor_read_file(
     app: tauri::AppHandle,
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     path: String,
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
-    cipher::read_file_content(&app, PathBuf::from(path.trim()).as_path())
+    cipher::read_file_content(&app, &passphrase_store, &parse_path(path))
 }
 
 #[tauri::command]
 pub fn editor_write_file(
     app: tauri::AppHandle,
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     path: String,
     content: String,
 ) -> Result<(), String> {
     ensure_unlocked(&state)?;
-    cipher::write_file_content(&app, PathBuf::from(path.trim()).as_path(), &content)
+    cipher::write_file_content(&app, &passphrase_store, &parse_path(path), &content)
+}
+
+#[tauri::command]
+pub fn editor_unlock_encrypted_file(
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+    passphrase: String,
+) -> Result<UnlockEncryptedFileResult, String> {
+    ensure_unlocked(&state)?;
+    let path_buf = parse_path(path);
+    let (next_path, content) =
+        convert::unlock_encrypted_file(&passphrase_store, &path_buf, &passphrase)?;
+    Ok(UnlockEncryptedFileResult {
+        path: next_path,
+        content,
+    })
 }
 
 #[tauri::command]
 pub fn editor_create_file(
     app: tauri::AppHandle,
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     directory: String,
     file_name: Option<String>,
     encrypted: Option<bool>,
@@ -117,7 +154,12 @@ pub fn editor_create_file(
     }
 
     format::ensure_writable_path(&path)?;
-    cipher::write_file_content(&app, &path, content.as_deref().unwrap_or(""))?;
+    cipher::write_file_content(
+        &app,
+        &passphrase_store,
+        &path,
+        content.as_deref().unwrap_or(""),
+    )?;
     Ok(tree::path_to_string(&path))
 }
 
@@ -132,43 +174,74 @@ pub fn editor_create_directory(
 }
 
 #[tauri::command]
-pub fn editor_delete_path(state: State<'_, AppLockSessionState>, path: String) -> Result<(), String> {
+pub fn editor_delete_path(
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+) -> Result<(), String> {
     ensure_unlocked(&state)?;
-    tree::delete_path(PathBuf::from(path.trim()).as_path())
+    let path_buf = parse_path(path);
+    tree::delete_path(&path_buf)?;
+    passphrase_store.remove(&tree::path_to_string(&path_buf));
+    Ok(())
 }
 
 #[tauri::command]
 pub fn editor_rename_path(
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     path: String,
     new_name: String,
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
-    tree::rename_path(PathBuf::from(path.trim()).as_path(), &new_name)
+    let path_buf = parse_path(path);
+    let old_key = tree::path_to_string(&path_buf);
+    let new_path = tree::rename_path(&path_buf, &new_name)?;
+    passphrase_store.rename_key(&old_key, &new_path);
+    Ok(new_path)
 }
 
 #[tauri::command]
 pub fn editor_convert_to_encrypted(
     app: tauri::AppHandle,
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     path: String,
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
-    convert::convert_to_encrypted(
-        &app,
-        PathBuf::from(path.trim()).as_path(),
-    )
+    convert::convert_to_encrypted(&app, &passphrase_store, &parse_path(path))
+}
+
+#[tauri::command]
+pub fn editor_convert_to_custom_encrypted(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+    passphrase: String,
+) -> Result<String, String> {
+    ensure_unlocked(&state)?;
+    convert::convert_to_custom_encrypted(&app, &passphrase_store, &parse_path(path), &passphrase)
+}
+
+#[tauri::command]
+pub fn editor_convert_custom_to_default_encrypted(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+) -> Result<String, String> {
+    ensure_unlocked(&state)?;
+    convert::convert_custom_to_default_encrypted(&app, &passphrase_store, &parse_path(path))
 }
 
 #[tauri::command]
 pub fn editor_convert_to_plain(
     app: tauri::AppHandle,
     state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
     path: String,
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
-    convert::convert_to_plain(
-        &app,
-        PathBuf::from(path.trim()).as_path(),
-    )
+    convert::convert_to_plain(&app, &passphrase_store, &parse_path(path))
 }

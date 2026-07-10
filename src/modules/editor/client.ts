@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FileInspect, EditorTreeNode } from "@/modules/editor/types";
+import type {
+  EditorTreeNode,
+  FileInspect,
+  UnlockEncryptedFileResult,
+} from "@/modules/editor/types";
 
 export async function pickFolder(): Promise<string | null> {
   return invoke<string | null>("editor_pick_folder");
@@ -23,6 +27,16 @@ export async function readFile(path: string): Promise<string> {
 
 export async function writeFile(path: string, content: string): Promise<void> {
   return invoke("editor_write_file", { path, content });
+}
+
+export async function unlockEncryptedFile(
+  path: string,
+  passphrase: string,
+): Promise<UnlockEncryptedFileResult> {
+  return invoke<UnlockEncryptedFileResult>("editor_unlock_encrypted_file", {
+    path,
+    passphrase,
+  });
 }
 
 export async function createFile(
@@ -55,6 +69,17 @@ export async function renamePath(path: string, newName: string): Promise<string>
 
 export async function convertToEncryptedFile(path: string): Promise<string> {
   return invoke<string>("editor_convert_to_encrypted", { path });
+}
+
+export async function convertToCustomEncryptedFile(
+  path: string,
+  passphrase: string,
+): Promise<string> {
+  return invoke<string>("editor_convert_to_custom_encrypted", { path, passphrase });
+}
+
+export async function convertCustomToDefaultEncryptedFile(path: string): Promise<string> {
+  return invoke<string>("editor_convert_custom_to_default_encrypted", { path });
 }
 
 export async function convertToPlainFile(path: string): Promise<string> {

@@ -11,6 +11,7 @@ pub struct EditorTreeNode {
     pub path: String,
     pub kind: String,
     pub encrypted: Option<bool>,
+    pub custom_encrypted: Option<bool>,
     pub language: Option<String>,
     pub children: Option<Vec<EditorTreeNode>>,
 }
@@ -42,6 +43,7 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
                 path: path_to_string(&path),
                 kind: "directory".to_string(),
                 encrypted: None,
+                custom_encrypted: None,
                 language: None,
                 children: Some(list_directory(&path)?),
             });
@@ -57,6 +59,7 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
             path: path_to_string(&path),
             kind: "file".to_string(),
             encrypted: Some(format::is_encrypted_path(&path)),
+            custom_encrypted: Some(format::is_custom_encrypted_path(&path)),
             language: Some(format::language_from_path(&path)),
             children: None,
         });

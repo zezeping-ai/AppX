@@ -17,9 +17,7 @@ const lockOnStartup = true;
 
 const biometryStatus = ref<Awaited<ReturnType<typeof getBiometryStatusView>> | null>(null);
 
-function applyView(view: {
-  enabled: boolean;
-}) {
+function applyView(view: { enabled: boolean }) {
   enabled.value = view.enabled;
 }
 
@@ -78,11 +76,10 @@ onMounted(() => {
   void refresh();
   void refreshBiometryStatus();
 });
-
 </script>
 
 <template>
-  <a-space direction="vertical" size="middle" class="security-settings">
+  <a-space direction="vertical" size="middle" class="app-lock-settings">
     <a-card title="应用锁" :bordered="false" :loading="loading">
       <a-space direction="vertical" size="small" class="w-full">
         <a-checkbox :checked="enabled" :disabled="toggling" @update:checked="onToggleEnabled">
@@ -111,9 +108,8 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
-.security-settings {
+.app-lock-settings {
   width: 100%;
   max-width: 760px;
 }
 </style>
-

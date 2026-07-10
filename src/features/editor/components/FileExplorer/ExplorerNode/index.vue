@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
+import { encryptionFileIcon } from "@/modules/editor/encryption";
 import ExplorerInlineInput from "@/features/editor/components/FileExplorer/ExplorerInlineInput/index.vue";
 import type { ExplorerTreeItem } from "@/features/editor/components/FileExplorer/normalizeTree";
 import type { InlineEditState } from "@/features/editor/components/FileExplorer/types";
@@ -47,7 +48,13 @@ const iconName = computed(() => {
   if (isDirectory.value) {
     return isExpanded.value ? "mdi:folder-open-outline" : "mdi:folder-outline";
   }
-  return props.node.encrypted ? "mdi:file-lock-outline" : "mdi:file-document-outline";
+  if (props.node.customEncrypted || props.node.encrypted) {
+    return encryptionFileIcon({
+      encrypted: Boolean(props.node.encrypted),
+      customEncrypted: Boolean(props.node.customEncrypted),
+    });
+  }
+  return "mdi:file-document-outline";
 });
 
 function onRowClick() {
