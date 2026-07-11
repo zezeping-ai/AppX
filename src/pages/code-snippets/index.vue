@@ -3,19 +3,21 @@ import { Icon } from "@iconify/vue";
 import { App as AntApp, Button, Tag } from "ant-design-vue";
 import type { ColumnsType } from "ant-design-vue/es/table";
 import { computed, h, onMounted } from "vue";
-import ListQueryBar from "@/components/ui/ListQueryBar/index.vue";
+import ListQueryBar from "@/pages/code-snippets/components/ListQueryBar/index.vue";
 import { useDrawer, useList, useListPagination } from "@/hooks";
 import { CodeSnippetRecord } from "@/models";
 import {
   CODE_SNIPPET_GROUPS,
   isPasswordSnippetGroup,
   labelOfSnippetGroup,
+  syncAllSnippetsToRuntime,
+  formatAbbreviationTrigger,
+  inlineExpansionTrigger,
+  inlineExpansionTriggerLabel,
   type CodeSnippetGroup,
-} from "@/modules/codeSnippets/groups";
+} from "@/modules/codeSnippets";
 import { decryptText } from "@/modules/crypto";
 import SnippetForm from "@/pages/code-snippets/Form.vue";
-import { syncAllSnippetsToRuntime } from "@/pages/code-snippets/syncRuntime";
-import { formatAbbreviationTrigger } from "@/shared/abbreviation";
 import { getErrorMessage } from "@/shared/error";
 import { formatShortcutLabel } from "@/shared/shortcut";
 
@@ -125,7 +127,7 @@ const columns = computed<ColumnsType<CodeSnippetRecord>>(() => [
     key: "abbreviation",
     width: 140,
     customRender: ({ record }) => (
-      <Tag>{formatAbbreviationTrigger(record.abbreviation)}</Tag>
+      <Tag>{formatAbbreviationTrigger(record.abbreviation, inlineExpansionTrigger.value)}</Tag>
     ),
   },
   {
@@ -178,7 +180,8 @@ onMounted(() => {
       <div>
         <h1 class="code-snippets-page__title">代码段</h1>
         <p class="code-snippets-page__desc">
-          跨软件文本展开：输入 <code>:缩写;</code>，或使用命令面板 / 全局快捷键。内容加密存储。
+          跨软件文本展开：输入 <code>:缩写</code> 后按
+          <strong>{{ inlineExpansionTriggerLabel() }}</strong>，或使用快捷键命令面板 / 全局快捷键。内容加密存储。
         </p>
       </div>
     </header>

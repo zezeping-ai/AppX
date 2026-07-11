@@ -31,7 +31,7 @@ const USED_MDI_ICONS = [
   "plus",
   "refresh",
   "shield-lock-outline",
-  "star-outline",
+  "tag-outline",
   "unfold-less-horizontal",
 ] as const;
 

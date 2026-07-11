@@ -22,6 +22,10 @@ pub fn set_expansion_paused(paused: bool) {
     abbreviation::set_expansion_paused(paused);
 }
 
+pub fn apply_expansion_trigger(shortcut: &str) {
+    abbreviation::trigger::apply_trigger_shortcut(shortcut);
+}
+
 pub fn is_abbreviation_listener_active() -> bool {
     abbreviation::is_listener_active()
 }

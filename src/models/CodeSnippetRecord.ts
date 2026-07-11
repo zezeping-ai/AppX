@@ -3,8 +3,8 @@ import {
   type ApplicationRecordAttributes,
   type RecordDefaults,
 } from "@/models/ApplicationRecord";
-import type { CodeSnippetGroup } from "@/modules/codeSnippets/groups";
-import { DEFAULT_CODE_SNIPPET_GROUP } from "@/modules/codeSnippets/groups";
+import type { CodeSnippetGroup } from "@/models/codeSnippets/groups";
+import { DEFAULT_CODE_SNIPPET_GROUP } from "@/models/codeSnippets/groups";
 
 export interface CodeSnippetMeta {
   group: CodeSnippetGroup;

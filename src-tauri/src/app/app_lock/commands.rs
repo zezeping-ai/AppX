@@ -1,6 +1,7 @@
 use tauri::State;
 
 use super::model::{to_view, AppLockSettingsView, SaveAppLockSettingsInput};
+use super::runtime::{on_session_locked, on_session_unlocked};
 use super::state::AppLockSessionState;
 use super::storage::{read_app_lock_settings, write_app_lock_settings};
 
@@ -30,9 +31,11 @@ pub fn app_lock_save_settings(
     let mut settings = read_app_lock_settings(&app)?;
     settings.enabled = input.enabled;
     settings.lock_on_startup = input.lock_on_startup;
+    settings.lock_on_window_show = input.lock_on_window_show;
 
     if !settings.enabled {
         state.set_locked(false)?;
+        on_session_unlocked(&app)?;
     }
 
     write_app_lock_settings(&app, &settings)?;
@@ -45,8 +48,11 @@ pub fn app_lock_lock_session(
     state: State<'_, AppLockSessionState>,
 ) -> Result<AppLockSettingsView, String> {
     let settings = read_app_lock_settings(&app)?;
-    let should_lock = settings.enabled && settings.lock_on_startup;
+    let should_lock = settings.enabled;
     state.set_locked(should_lock)?;
+    if should_lock {
+        on_session_locked(&app)?;
+    }
     Ok(to_view(&settings, should_lock))
 }
 
@@ -57,5 +63,6 @@ pub fn app_lock_unlock_session(
 ) -> Result<AppLockSettingsView, String> {
     let settings = read_app_lock_settings(&app)?;
     state.set_locked(false)?;
+    on_session_unlocked(&app)?;
     Ok(to_view(&settings, false))
 }

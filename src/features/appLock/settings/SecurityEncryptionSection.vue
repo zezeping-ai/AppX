@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { message } from "ant-design-vue";
-import { getSecuritySettings } from "@/modules/security";
+import { getSecuritySettings } from "@/modules/appLock";
 
 const loading = ref(false);
 const passphrase = ref("");

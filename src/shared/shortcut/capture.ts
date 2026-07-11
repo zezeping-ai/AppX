@@ -23,18 +23,24 @@ export function captureShortcut(event: KeyboardEvent): string | null {
 function resolveShortcutKey(event: KeyboardEvent): string | null {
   const { key, code } = event;
 
+  // 优先用 code：macOS 上 F 键等可能把 key 报成普通字符（如 F1 → "a"）
+  if (/^F\d{1,2}$/i.test(code)) return code.toUpperCase();
   if (/^F\d{1,2}$/i.test(key)) return key.toUpperCase();
-  if (key === " ") return "Space";
-  if (key === "Enter") return "Enter";
-  if (key === "Tab") return "Tab";
-  if (key === "Backspace") return "Backspace";
-  if (key === "Delete") return "Delete";
-  if (key === "Escape") return "Escape";
+
+  if (code === "Space" || key === " ") return "Space";
+  if (code === "Enter" || code === "NumpadEnter" || key === "Enter") return "Enter";
+  if (code === "Tab" || key === "Tab") return "Tab";
+  if (code === "Backspace" || key === "Backspace") return "Backspace";
+  if (code === "Delete" || key === "Delete") return "Delete";
+  if (code === "Escape" || key === "Escape") return "Escape";
+  if (code.startsWith("Arrow")) return code.slice(5);
   if (key.startsWith("Arrow")) return key.slice(5);
 
-  if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) return `Key${key.toUpperCase()}`;
-  if (/^Key[A-Z0-9]$/.test(code)) return code;
   if (/^Digit[0-9]$/.test(code)) return `Key${code.slice(-1)}`;
+  if (/^Numpad[0-9]$/.test(code)) return `Key${code.slice(-1)}`;
+  if (/^Key[A-Z0-9]$/.test(code)) return code;
+
+  if (key.length === 1 && /[a-zA-Z0-9]/.test(key)) return `Key${key.toUpperCase()}`;
 
   return null;
 }

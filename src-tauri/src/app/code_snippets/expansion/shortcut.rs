@@ -3,8 +3,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+use crate::app::app_lock::is_session_locked;
+use crate::app::code_snippets::{is_shortcuts_enabled, registry::SnippetRegistry};
 use crate::app::text_delivery::insert_at_focus;
-use crate::app::code_snippets::registry::SnippetRegistry;
 
 pub fn refresh_shortcuts(app: &AppHandle) -> Result<(), String> {
     let shortcut_api = app.global_shortcut();
@@ -17,14 +18,21 @@ pub fn refresh_shortcuts(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     };
 
+    if !is_shortcuts_enabled() {
+        return Ok(());
+    }
+
     for (shortcut_text, entry) in registry.snapshot().shortcuts {
         let parsed = parse_shortcut(&shortcut_text)?;
         let content = Arc::new(entry.content);
         let handler_content = content.clone();
 
         shortcut_api
-            .on_shortcut(parsed, move |_app, _shortcut, event| {
+            .on_shortcut(parsed, move |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
+                    if is_session_locked(app) || !is_shortcuts_enabled() {
+                        return;
+                    }
                     insert_at_focus(&handler_content);
                 }
             })

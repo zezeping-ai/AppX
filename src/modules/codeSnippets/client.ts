@@ -26,7 +26,11 @@ export async function getCodeSnippetSettings(): Promise<CodeSnippetSettingsView>
 }
 
 export async function saveCodeSnippetSettings(input: {
+  enabled: boolean;
   inlineExpansionEnabled: boolean;
+  inlineExpansionTrigger: string;
+  shortcutsEnabled: boolean;
+  paletteEnabled: boolean;
 }): Promise<CodeSnippetSettingsView> {
   return invoke<CodeSnippetSettingsView>("code_snippets_save_settings", { input });
 }

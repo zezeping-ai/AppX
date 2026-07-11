@@ -3,6 +3,6 @@
 use tauri::AppHandle;
 
 pub fn start_listener(_app: AppHandle) -> Result<(), String> {
-    log::warn!("[code_snippets] :abbreviation; expansion is only supported on macOS");
+    log::warn!("[code_snippets] :abbrev + F12 expansion is only supported on macOS");
     Ok(())
 }

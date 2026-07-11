@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CodeSnippetPaletteItem } from "@/modules/codeSnippets/types";
 
+/** 命令面板 IPC（code_snippets 子能力，与 Rust palette 模块对应） */
 export async function listPaletteItems(): Promise<CodeSnippetPaletteItem[]> {
   return invoke<CodeSnippetPaletteItem[]>("code_snippets_list_palette_items");
 }

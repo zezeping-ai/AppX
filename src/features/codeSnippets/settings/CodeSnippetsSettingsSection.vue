@@ -1,42 +1,52 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { message } from "ant-design-vue";
-import { Icon } from "@iconify/vue";
+import ShortcutRecorder from "@/components/ShortcutRecorder/index.vue";
 import {
   getCodeSnippetPermissions,
   getCodeSnippetSettings,
   openAccessibilitySettings,
   saveCodeSnippetSettings,
+  setExpansionPaused,
+  setInlineExpansionTrigger,
   type CodeSnippetPermissionsView,
+  type CodeSnippetSettingsView,
 } from "@/modules/codeSnippets";
-import { formatAbbreviationTrigger } from "@/shared/abbreviation";
-import { formatShortcutLabel } from "@/shared/shortcut";
+import { formatShortcutLabel, normalizeGlobalShortcut } from "@/shared/shortcut";
 
 const loading = ref(false);
 const saving = ref(false);
 const permissions = ref<CodeSnippetPermissionsView | null>(null);
-const inlineExpansionEnabled = ref(true);
 
-const platformLabel = computed(() => {
-  switch (permissions.value?.platform) {
-    case "macos":
-      return "macOS";
-    case "windows":
-      return "Windows";
-    case "linux":
-      return "Linux";
-    default:
-      return "当前系统";
-  }
-});
+const enabled = ref(true);
+const inlineExpansionEnabled = ref(true);
+const inlineExpansionTrigger = ref("F12");
+const shortcutsEnabled = ref(true);
+const paletteEnabled = ref(true);
+
+let lastPersistedTrigger = "F12";
+
+const featuresActive = computed(() => enabled.value);
+
+const inlineExpansionActive = computed(
+  () => featuresActive.value && inlineExpansionEnabled.value,
+);
+
+const shortcutsActive = computed(() => featuresActive.value && shortcutsEnabled.value);
+
+const paletteActive = computed(() => featuresActive.value && paletteEnabled.value);
 
 const accessibilityGranted = computed(() => permissions.value?.accessibilityGranted === true);
 
 const listenerReady = computed(
   () =>
+    inlineExpansionActive.value &&
     permissions.value?.listenerActive === true &&
-    inlineExpansionEnabled.value &&
     (permissions.value?.registeredAbbreviationCount ?? 0) > 0,
+);
+
+const inlineExpansionTriggerLabel = computed(() =>
+  formatShortcutLabel(inlineExpansionTrigger.value),
 );
 
 const paletteShortcutLabel = computed(() =>
@@ -45,8 +55,24 @@ const paletteShortcutLabel = computed(() =>
     : "—",
 );
 
-function formatRegisteredTrigger(abbrev: string) {
-  return formatAbbreviationTrigger(abbrev);
+function applySettings(settings: CodeSnippetSettingsView) {
+  enabled.value = settings.enabled;
+  inlineExpansionEnabled.value = settings.inlineExpansionEnabled;
+  inlineExpansionTrigger.value = settings.inlineExpansionTrigger;
+  shortcutsEnabled.value = settings.shortcutsEnabled;
+  paletteEnabled.value = settings.paletteEnabled;
+  lastPersistedTrigger = settings.inlineExpansionTrigger;
+  setInlineExpansionTrigger(settings.inlineExpansionTrigger);
+}
+
+function currentSettingsInput() {
+  return {
+    enabled: enabled.value,
+    inlineExpansionEnabled: inlineExpansionEnabled.value,
+    inlineExpansionTrigger: inlineExpansionTrigger.value,
+    shortcutsEnabled: shortcutsEnabled.value,
+    paletteEnabled: paletteEnabled.value,
+  };
 }
 
 async function refresh() {
@@ -57,7 +83,7 @@ async function refresh() {
       getCodeSnippetSettings(),
     ]);
     permissions.value = perm;
-    inlineExpansionEnabled.value = settings.inlineExpansionEnabled;
+    applySettings(settings);
   } catch (error) {
     message.error(String(error));
   } finally {
@@ -65,20 +91,52 @@ async function refresh() {
   }
 }
 
-async function onToggleInlineExpansion(checked: boolean) {
-  const previous = inlineExpansionEnabled.value;
-  inlineExpansionEnabled.value = checked;
+async function persistSettings(successMessage: string) {
+  const previous = currentSettingsInput();
   saving.value = true;
   try {
-    await saveCodeSnippetSettings({ inlineExpansionEnabled: checked });
+    const saved = await saveCodeSnippetSettings(currentSettingsInput());
+    applySettings(saved);
     await refresh();
-    message.success(checked ? "已启用 :缩写; 展开" : "已停用 :缩写; 展开");
+    message.success(successMessage);
   } catch (error) {
-    inlineExpansionEnabled.value = previous;
+    applySettings(previous);
     message.error(String(error));
   } finally {
     saving.value = false;
   }
+}
+
+async function onToggleEnabled(checked: boolean) {
+  enabled.value = checked;
+  await persistSettings(checked ? "已启用代码段全局功能" : "已停用代码段全局功能");
+}
+
+async function onToggleInlineExpansion(checked: boolean) {
+  inlineExpansionEnabled.value = checked;
+  await persistSettings(
+    checked
+      ? `已启用 :缩写 + ${inlineExpansionTriggerLabel.value} 展开`
+      : `已停用 :缩写 + ${inlineExpansionTriggerLabel.value} 展开`,
+  );
+}
+
+async function onToggleShortcuts(checked: boolean) {
+  shortcutsEnabled.value = checked;
+  await persistSettings(checked ? "已启用全局快捷键" : "已停用全局快捷键");
+}
+
+async function onTogglePalette(checked: boolean) {
+  paletteEnabled.value = checked;
+  await persistSettings(checked ? "已启用快捷键命令面板" : "已停用快捷键命令面板");
+}
+
+async function onInlineExpansionTriggerChange(shortcut: string) {
+  const normalized = normalizeGlobalShortcut(shortcut);
+  if (!normalized || normalized === lastPersistedTrigger) return;
+
+  inlineExpansionTrigger.value = normalized;
+  await persistSettings(`展开触发键已设为 ${formatShortcutLabel(normalized)}`);
 }
 
 async function openAccessibilitySettingsPage() {
@@ -89,12 +147,6 @@ async function openAccessibilitySettingsPage() {
   }
 }
 
-watch(inlineExpansionEnabled, (value) => {
-  if (permissions.value) {
-    permissions.value = { ...permissions.value, inlineExpansionEnabled: value };
-  }
-});
-
 onMounted(() => {
   void refresh();
 });
@@ -102,126 +154,127 @@ onMounted(() => {
 
 <template>
   <a-space direction="vertical" size="middle" class="code-snippets-settings">
-    <a-card title="展开方式" :bordered="false" :loading="loading">
+    <a-card title="全局功能" :bordered="false" :loading="loading">
       <a-space direction="vertical" size="middle" class="w-full">
         <a-checkbox
-          :checked="inlineExpansionEnabled"
+          :checked="enabled"
           :disabled="saving || loading"
-          @update:checked="onToggleInlineExpansion"
+          @update:checked="onToggleEnabled"
         >
-          启用 <code>:缩写;</code> 全局展开
+          启用代码段全局功能
         </a-checkbox>
         <a-typography-text type="secondary" class="block text-[12px] leading-snug">
-          在其他应用中输入 <code>:缩写;</code> 自动展开；关闭后仅保留全局快捷键与命令面板。
+          关闭后，缩写展开、全局快捷键与快捷键命令面板将全部停用；子项开关保留配置，重新开启总开关后按各自状态恢复。
         </a-typography-text>
 
-        <a-alert type="info" show-icon>
-          <template #message>命令面板</template>
-          <template #description>
-            按 <strong>{{ paletteShortcutLabel }}</strong> 打开命令面板，搜索并选择代码段插入到当前光标位置。
-          </template>
-        </a-alert>
+        <div class="feature-switches app-surface-muted" :class="{ 'feature-switches--disabled': !featuresActive }">
+          <a-checkbox
+            :checked="inlineExpansionEnabled"
+            :disabled="!featuresActive || saving || loading"
+            @update:checked="onToggleInlineExpansion"
+          >
+            启用 <code>:缩写 + {{ inlineExpansionTriggerLabel }}</code> 全局展开
+          </a-checkbox>
+          <a-typography-text type="secondary" class="feature-switches__hint">
+            在其他应用中输入 <code>:缩写</code> 后按
+            <strong>{{ inlineExpansionTriggerLabel }}</strong> 自动展开（仅 macOS）。
+          </a-typography-text>
+
+          <div
+            v-if="permissions?.platform === 'macos'"
+            class="feature-switches__trigger"
+            :class="{ 'feature-switches__trigger--disabled': !featuresActive || saving || loading }"
+          >
+            <span class="feature-switches__trigger-label">展开触发键</span>
+            <ShortcutRecorder
+              v-model:value="inlineExpansionTrigger"
+              :on-recording-change="setExpansionPaused"
+              @update:value="onInlineExpansionTriggerChange"
+            />
+          </div>
+
+          <a-checkbox
+            :checked="shortcutsEnabled"
+            :disabled="!featuresActive || saving || loading"
+            @update:checked="onToggleShortcuts"
+          >
+            启用全局快捷键
+          </a-checkbox>
+          <a-typography-text type="secondary" class="feature-switches__hint">
+            各代码段单独配置的快捷键，可在任意应用中插入内容。
+          </a-typography-text>
+
+          <a-checkbox
+            :checked="paletteEnabled"
+            :disabled="!featuresActive || saving || loading"
+            @update:checked="onTogglePalette"
+          >
+            启用快捷键命令面板
+          </a-checkbox>
+          <a-typography-text type="secondary" class="feature-switches__hint">
+            按 <strong>{{ paletteShortcutLabel }}</strong> 打开快捷键命令面板，搜索并选择代码段插入到当前光标位置。
+          </a-typography-text>
+        </div>
+
+        <a-space wrap>
+          <a-tag :color="inlineExpansionActive ? 'success' : 'default'">
+            缩写展开：{{ inlineExpansionActive ? "运行中" : "已停用" }}
+          </a-tag>
+          <a-tag :color="shortcutsActive ? 'success' : 'default'">
+            全局快捷键：{{ shortcutsActive ? "运行中" : "已停用" }}
+          </a-tag>
+          <a-tag :color="paletteActive ? 'success' : 'default'">
+            快捷键命令面板：{{ paletteActive ? "运行中" : "已停用" }}
+          </a-tag>
+        </a-space>
       </a-space>
     </a-card>
 
-    <a-card title="权限与系统配置" :bordered="false" :loading="loading">
+    <a-card
+      v-if="permissions?.platform === 'macos'"
+      title="权限与系统配置"
+      :bordered="false"
+      :loading="loading"
+    >
       <a-space direction="vertical" size="middle" class="w-full">
-        <a-alert type="info" show-icon>
-          <template #message>当前系统：{{ platformLabel }}</template>
-          <template #description>
-            <code>:缩写;</code> 跨应用展开目前仅在 macOS 上可用；命令面板与全局快捷键全平台可用。
-          </template>
-        </a-alert>
+        <a-space wrap>
+          <a-tag :color="accessibilityGranted ? 'success' : 'warning'">
+            辅助功能：{{ accessibilityGranted ? "已授权" : "未授权" }}
+          </a-tag>
+          <a-tag :color="permissions?.listenerActive ? 'success' : 'error'">
+            全局监听：{{ permissions?.listenerActive ? "运行中" : "未启动" }}
+          </a-tag>
+          <a-tag :color="listenerReady ? 'success' : 'default'">
+            已同步缩写：{{ permissions?.registeredAbbreviationCount ?? 0 }}
+          </a-tag>
+          <a-button size="small" @click="refresh">刷新状态</a-button>
+          <a-button size="small" type="primary" @click="openAccessibilitySettingsPage">
+            打开系统设置
+          </a-button>
+        </a-space>
 
-        <template v-if="permissions?.platform === 'macos'">
-          <div class="permission-block">
-            <div class="permission-block__head">
-              <Icon icon="mdi:human-greeting-proximity" class="permission-block__icon" aria-hidden="true" />
-              <div>
-                <a-typography-text strong>辅助功能（Accessibility）</a-typography-text>
-                <a-typography-text type="secondary" class="block text-[12px] leading-snug mt-0.5">
-                  监听全局按键（<code>:缩写;</code>）并向其他应用插入文本时需要此权限。
-                </a-typography-text>
-              </div>
-            </div>
+        <a-alert
+          v-if="inlineExpansionActive && accessibilityGranted && !permissions?.listenerActive"
+          type="error"
+          show-icon
+          message="全局缩写监听未启动"
+          description="请完全退出并重启 AppX；若仍失败，请移除后重新添加辅助功能权限。"
+        />
 
-            <a-space wrap>
-              <a-tag :color="accessibilityGranted ? 'success' : 'warning'">
-                {{ accessibilityGranted ? "已授权" : "未授权" }}
-              </a-tag>
-              <a-tag :color="permissions?.listenerActive ? 'success' : 'error'">
-                全局监听：{{ permissions?.listenerActive ? "运行中" : "未启动" }}
-              </a-tag>
-              <a-tag :color="listenerReady ? 'success' : 'default'">
-                已同步缩写：{{ permissions?.registeredAbbreviationCount ?? 0 }}
-              </a-tag>
-              <a-button size="small" @click="refresh">刷新状态</a-button>
-              <a-button size="small" type="primary" @click="openAccessibilitySettingsPage">
-                打开系统设置
-              </a-button>
-            </a-space>
+        <a-alert
+          v-else-if="permissions?.listenerActive && (permissions?.registeredAbbreviationCount ?? 0) === 0"
+          type="warning"
+          show-icon
+          message="运行时未加载任何缩写"
+          description="请打开「代码段」页面或保存一次代码段，将数据同步到运行时。"
+        />
 
-            <a-typography-text
-              v-if="(permissions?.registeredAbbreviations?.length ?? 0) > 0"
-              type="secondary"
-              class="block text-[12px] leading-snug"
-            >
-              已注册缩写：{{ permissions?.registeredAbbreviations?.map(formatRegisteredTrigger).join("、") }}
-            </a-typography-text>
-
-            <a-alert
-              v-if="inlineExpansionEnabled && accessibilityGranted && !permissions?.listenerActive"
-              type="error"
-              show-icon
-              message="全局缩写监听未启动"
-              description="请完全退出并重启 AppX；若仍失败，请移除后重新添加辅助功能权限。"
-            />
-
-            <a-alert
-              v-else-if="permissions?.listenerActive && (permissions?.registeredAbbreviationCount ?? 0) === 0"
-              type="warning"
-              show-icon
-              message="运行时未加载任何缩写"
-              description="请打开「代码段」页面或保存一次代码段，将数据同步到运行时。"
-            />
-
-            <a-typography-title :level="5" class="permission-block__steps-title">
-              配置步骤
-            </a-typography-title>
-            <ol class="permission-block__steps">
-              <li>打开「系统设置」→「隐私与安全性」→「辅助功能」</li>
-              <li>点击锁图标解锁（如需要）</li>
-              <li>在列表中找到并启用 <strong>AppX</strong></li>
-              <li>授权后点击「刷新状态」确认显示「已授权」</li>
-            </ol>
-          </div>
-        </template>
-
-        <template v-else-if="permissions?.platform === 'windows'">
-          <div class="permission-block">
-            <a-typography-title :level="5" class="permission-block__steps-title">
-              Windows 使用说明
-            </a-typography-title>
-            <ul class="permission-block__steps permission-block__steps--unordered">
-              <li><strong>命令面板</strong>：{{ paletteShortcutLabel }}</li>
-              <li><strong>全局快捷键</strong>：各代码段单独配置，无需管理员权限。</li>
-              <li><strong>:缩写; 展开</strong>：当前版本暂不支持，请使用命令面板或快捷键。</li>
-            </ul>
-          </div>
-        </template>
-
-        <template v-else-if="permissions?.platform === 'linux'">
-          <div class="permission-block">
-            <a-typography-title :level="5" class="permission-block__steps-title">
-              Linux 使用说明
-            </a-typography-title>
-            <ul class="permission-block__steps permission-block__steps--unordered">
-              <li><strong>命令面板</strong>：{{ paletteShortcutLabel }}</li>
-              <li><strong>全局快捷键</strong>：依赖桌面环境，Wayland 下可能受限。</li>
-              <li><strong>:缩写; 展开</strong>：当前版本暂不支持，请使用命令面板或快捷键。</li>
-            </ul>
-          </div>
-        </template>
+        <ol class="permission-steps">
+          <li>打开「系统设置」→「隐私与安全性」→「辅助功能」</li>
+          <li>点击锁图标解锁（如需要）</li>
+          <li>在列表中找到并启用 <strong>AppX</strong></li>
+          <li>授权后点击「刷新状态」确认显示「已授权」</li>
+        </ol>
       </a-space>
     </a-card>
   </a-space>
@@ -233,46 +286,52 @@ onMounted(() => {
   max-width: 760px;
 }
 
-.permission-block {
+.feature-switches {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   padding: 12px 14px;
   border-radius: 8px;
-  background: rgb(0 0 0 / 3%);
+
+  &--disabled {
+    opacity: 0.55;
+  }
 }
 
-.permission-block__head {
+.feature-switches__hint {
+  display: block;
+  margin: 0 0 8px 24px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.feature-switches__trigger {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 24px;
+  max-width: 320px;
+
+  &--disabled {
+    pointer-events: none;
+  }
 }
 
-.permission-block__icon {
+.feature-switches__trigger-label {
   flex-shrink: 0;
-  margin-top: 2px;
-  font-size: 22px;
-  color: rgb(0 0 0 / 55%);
+  font-size: 12px;
+  color: var(--app-fg-subtle);
 }
 
-.permission-block__steps-title {
-  margin: 4px 0 0 !important;
-  font-size: 14px !important;
-}
-
-.permission-block__steps {
+.permission-steps {
   margin: 0;
   padding-left: 1.25rem;
   font-size: 13px;
   line-height: 1.65;
-  color: rgb(0 0 0 / 75%);
+  color: var(--app-fg-subtle);
 
   li + li {
     margin-top: 6px;
-  }
-
-  &--unordered {
-    list-style: disc;
   }
 }
 </style>

@@ -64,9 +64,14 @@ impl SnippetRegistry {
                 id: entry.id,
                 name: entry.name.clone(),
                 abbreviation: entry.abbreviation.clone(),
+                group: entry.group.clone(),
             })
             .collect();
-        items.sort_by(|a, b| a.name.cmp(&b.name));
+        items.sort_by(|a, b| {
+            a.group
+                .cmp(&b.group)
+                .then_with(|| a.name.cmp(&b.name))
+        });
         items
     }
 }

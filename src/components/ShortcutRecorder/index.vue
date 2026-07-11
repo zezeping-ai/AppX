@@ -2,27 +2,23 @@
 import { Icon } from "@iconify/vue";
 import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { setExpansionPaused } from "@/modules/codeSnippets/client";
 import { captureShortcut, formatShortcutLabel } from "@/shared/shortcut";
 
 const value = defineModel<string>("value", { default: "" });
 
+const props = defineProps<{
+  /** 录制期间回调，可用于暂停全局快捷键监听等 */
+  onRecordingChange?: (recording: boolean) => void | Promise<void>;
+}>();
+
 const recording = ref(false);
 
-async function setPaused(paused: boolean) {
-  try {
-    await setExpansionPaused(paused);
-  } catch {
-    // 非 Tauri 环境忽略
-  }
-}
-
 watch(recording, (active) => {
-  void setPaused(active);
+  void props.onRecordingChange?.(active);
 });
 
 onBeforeUnmount(() => {
-  void setPaused(false);
+  void props.onRecordingChange?.(false);
 });
 
 const displayText = computed(() => {
@@ -45,6 +41,9 @@ useEventListener(
   "keydown",
   (event) => {
     if (!recording.value) return;
+
+    // 忽略长按连发，避免一次录制产生多次判定
+    if (event.repeat) return;
 
     if (event.key === "Escape") {
       event.preventDefault();

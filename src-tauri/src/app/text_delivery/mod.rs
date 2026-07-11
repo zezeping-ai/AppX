@@ -102,7 +102,8 @@ pub fn delete_chars(count: usize) {
 }
 
 pub fn replace_trigger(abbrev_len: usize, content: &str) {
-    delete_chars(abbrev_len.saturating_add(2));
+    // `:缩写` + F12（F12 不产生可见字符，仅删前缀与缩写）
+    delete_chars(abbrev_len.saturating_add(1));
     thread::spawn({
         let content = content.to_string();
         move || {

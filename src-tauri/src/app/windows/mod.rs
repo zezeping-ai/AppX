@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
-use tauri::{Manager, WebviewUrl};
+use tauri::{Manager, State, WebviewUrl};
 
-use crate::app::app_lock;
+use crate::app::app_lock::{ensure_unlocked, relock_on_show, AppLockSessionState};
 
 #[cfg(target_os = "macos")]
 mod macos_close;
@@ -56,7 +56,7 @@ pub fn show_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
         window.show()?;
         window.set_focus()?;
     }
-    let _ = app_lock::relock_on_show(app);
+    let _ = relock_on_show(app);
     Ok(())
 }
 
@@ -144,6 +144,10 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
 pub fn handle_run_event(_app_handle: &tauri::AppHandle, _event: tauri::RunEvent) {}
 
 #[tauri::command]
-pub fn window_show_preferences(app: tauri::AppHandle) -> Result<(), String> {
+pub fn window_show_preferences(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+) -> Result<(), String> {
+    ensure_unlocked(&state)?;
     schedule_preferences_window(&app).map_err(|err| err.to_string())
 }

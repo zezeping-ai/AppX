@@ -6,6 +6,7 @@ export type CodeSnippetSyncItem = {
   abbreviation: string;
   shortcut?: string | null;
   content: string;
+  group?: CodeSnippetGroup;
 };
 
 export type CodeSnippetFormValues = {
@@ -32,20 +33,29 @@ export type CodeSnippetListItem = {
 export type CodeSnippetPlatform = "macos" | "windows" | "linux" | "unknown";
 
 export type CodeSnippetSettingsView = {
+  enabled: boolean;
   inlineExpansionEnabled: boolean;
+  inlineExpansionTrigger: string;
+  shortcutsEnabled: boolean;
+  paletteEnabled: boolean;
 };
 
 export type CodeSnippetPaletteItem = {
   id: number;
   name: string;
   abbreviation: string;
+  group: CodeSnippetGroup;
 };
 
 export type CodeSnippetPermissionsView = {
   platform: CodeSnippetPlatform;
   accessibilityGranted: boolean | null;
   abbreviationSupported: boolean;
+  enabled: boolean;
   inlineExpansionEnabled: boolean;
+  inlineExpansionTrigger: string;
+  shortcutsEnabled: boolean;
+  paletteEnabled: boolean;
   paletteShortcut: string;
   listenerActive: boolean;
   registeredAbbreviationCount: number;

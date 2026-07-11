@@ -27,6 +27,22 @@ src/
 ├── hooks/               # 跨功能 UI 基础设施
 └── shared/              # 纯工具函数
 ```
+
+### 分层依赖（禁止反向引用）
+```
+router → pages → (features | modules | models)
+pages/features → modules → shared/tauri
+models → shared/tauri（不依赖 modules）
+App.vue → modules/features/hooks（不依赖 pages/）
+```
+
+### 模块隔离原则
+- **私有依赖跟父模块走**：仅服务于某功能的代码放在该功能目录内，不从 `shared/` 或 `components/` 提前抽象
+- **子能力内聚**：palette 归入 `modules/codeSnippets/palette.ts`；security 归入 `modules/appLock/security.ts`
+- **数据层独立**：领域常量/类型放 `models/<domain>/`，`modules/` 仅 re-export，避免 models 依赖 modules
+- **启动编排**：跨页面启动逻辑放 `modules/<domain>/bootstrap.ts`，不在 `App.vue` 引用 `pages/`
+- **editor 为参考实现**：页面薄、composable 私有、单域 modules、无跨页面 import
+
 - 新增主窗口页面：在 `pages/<name>/` 创建，在 `router/pages.ts` 注册
 - 新增独立窗口/流程页：在 `pages/<name>/` 创建，在 `router/standalone.ts` 注册
 - `features/` 不放 routes、不放页面入口；偏好设置各 Tab 用 Section 组件
@@ -51,3 +67,18 @@ src/
 3. 引入 tauri-plugin-updater，帮助菜单提供「检查更新」，自动检测 GitHub 最新 release 并下载安装
 4. Rust 拆分模块：若 `XXX.rs` 需要拆分则变成 `XXX/mod.rs`，自身独享依赖放在文件夹内
 5. 涉及更新器（updater）改动时，始终同步检查：`pubkey`、签名私钥来源、release 产物匹配关系
+
+### Rust 模块隔离
+```
+src-tauri/src/
+├── lib.rs           # 组合根：插件、State、setup、invoke_handler
+├── app/
+│   ├── ipc.rs       # IPC commands 按域聚合（app_invoke_handler! 宏）
+│   ├── runtime/     # 会话锁/解锁事件协调，各域注册回调
+│   ├── settings/    # JSON 设置读写共用 storage
+│   └── <domain>/    # 功能域（与前端 modules/<domain> 对应）
+```
+
+- **app_lock 不直接依赖功能域**：通过 `runtime` 协调器广播锁/解锁事件；各域在 `session.rs` 注册回调
+- **settings 存储统一**：各域 storage 使用 `app/settings/storage.rs`，不重复实现 app_data_dir
+- **新增功能域**：在 `app/<domain>/` 建模块，commands 经 `pub use` 导出，在 `app/ipc.rs` 宏中注册

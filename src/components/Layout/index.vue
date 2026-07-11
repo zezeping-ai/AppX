@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { APP_NAV_ITEMS } from "./nav";
-import { getAppLockSettings } from "@/modules/appLock";
+import { isAppSessionLocked } from "@/modules/appLock";
 import { UNLOCK_ROUTE_PATH } from "@/router/standalone";
 
 const router = useRouter();
@@ -17,12 +17,8 @@ const activeNavKey = computed(() => {
 });
 
 async function checkLockOnFocus() {
-  if (!route.path.startsWith("/editor")) {
-    return;
-  }
   try {
-    const settings = await getAppLockSettings();
-    if (settings.enabled && settings.lockOnStartup && settings.sessionLocked) {
+    if (await isAppSessionLocked()) {
       await router.replace({
         path: UNLOCK_ROUTE_PATH,
         query: { redirect: route.fullPath },
@@ -86,8 +82,8 @@ onUnmounted(() => {
   display: flex;
   height: 100vh;
   min-height: 0;
-  background: var(--app-bg, #f5f5f5);
-  color: var(--app-fg, rgba(0, 0, 0, 0.88));
+  background: var(--app-bg);
+  color: var(--app-fg);
 }
 
 .app-layout__sidebar {
@@ -98,8 +94,8 @@ onUnmounted(() => {
   min-width: 0;
   height: 100%;
   padding: 10px 8px;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  background: var(--app-layout-sidebar-bg, #fff);
+  border-right: 1px solid var(--app-border);
+  background: var(--app-layout-sidebar-bg);
   transition: width 0.2s ease;
 }
 
@@ -120,7 +116,7 @@ onUnmounted(() => {
   cursor: pointer;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--app-hover-bg-strong);
   }
 }
 
@@ -149,14 +145,14 @@ onUnmounted(() => {
 
   &:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--app-hover-bg);
   }
 
   &--active {
     opacity: 1;
     font-weight: 500;
-    background: rgba(22, 119, 255, 0.1);
-    color: #1677ff;
+    background: var(--app-active-bg);
+    color: var(--app-active-fg);
   }
 }
 
@@ -164,23 +160,5 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-[data-theme="dark"] .app-layout__sidebar {
-  border-right-color: rgba(255, 255, 255, 0.1);
-  --app-layout-sidebar-bg: #1f1f1f;
-}
-
-[data-theme="dark"] .app-layout__nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .app-layout__collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .app-layout__nav-item--active {
-  background: rgba(22, 119, 255, 0.18);
-  color: #69b1ff;
 }
 </style>

@@ -1,10 +1,10 @@
 import type { Component } from "vue";
-import { AppearanceSettingsSection } from "@/features/appearance";
+import { ApplicationSettingsSection } from "@/features/app";
 import { AppLockSettingsSection } from "@/features/appLock";
 import { CodeSnippetsSettingsSection } from "@/features/codeSnippets";
 import { EditorSettingsSection } from "@/features/editor";
 
-export type PreferenceSectionKey = "appearance" | "security" | "editor" | "code-snippets";
+export type PreferenceSectionKey = "app" | "security" | "editor" | "code-snippets";
 
 export type PreferenceSection = {
   key: PreferenceSectionKey;
@@ -13,12 +13,12 @@ export type PreferenceSection = {
   component: Component;
 };
 
-export const PREFERENCE_SECTIONS: PreferenceSection[] = [
+export const APP_PREFERENCE_SECTIONS: PreferenceSection[] = [
   {
-    key: "appearance",
-    label: "主题",
-    icon: "mdi:palette-outline",
-    component: AppearanceSettingsSection,
+    key: "app",
+    label: "应用",
+    icon: "mdi:cog-outline",
+    component: ApplicationSettingsSection,
   },
   {
     key: "security",
@@ -26,9 +26,12 @@ export const PREFERENCE_SECTIONS: PreferenceSection[] = [
     icon: "mdi:shield-lock-outline",
     component: AppLockSettingsSection,
   },
+];
+
+export const FEATURE_PREFERENCE_SECTIONS: PreferenceSection[] = [
   {
     key: "editor",
-    label: "Editor",
+    label: "编辑器",
     icon: "mdi:application-edit-outline",
     component: EditorSettingsSection,
   },
@@ -38,4 +41,9 @@ export const PREFERENCE_SECTIONS: PreferenceSection[] = [
     icon: "mdi:lightning-bolt-outline",
     component: CodeSnippetsSettingsSection,
   },
+];
+
+export const PREFERENCE_SECTIONS: PreferenceSection[] = [
+  ...APP_PREFERENCE_SECTIONS,
+  ...FEATURE_PREFERENCE_SECTIONS,
 ];

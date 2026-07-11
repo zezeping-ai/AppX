@@ -14,12 +14,13 @@ const loading = ref(false);
 const toggling = ref(false);
 
 const enabled = ref(false);
-const lockOnStartup = true;
+const lockOnWindowShow = ref(false);
 
 const biometryStatus = ref<Awaited<ReturnType<typeof getBiometryStatusView>> | null>(null);
 
-function applyView(view: { enabled: boolean }) {
+function applyView(view: { enabled: boolean; lockOnWindowShow: boolean }) {
   enabled.value = view.enabled;
+  lockOnWindowShow.value = view.lockOnWindowShow;
 }
 
 async function refresh() {
@@ -38,6 +39,26 @@ async function refreshBiometryStatus() {
   biometryStatus.value = await getBiometryStatusView();
 }
 
+async function persistSettings(successMessage: string) {
+  const previous = { enabled: enabled.value, lockOnWindowShow: lockOnWindowShow.value };
+  toggling.value = true;
+  try {
+    const view = await saveAppLockSettings({
+      enabled: enabled.value,
+      lockOnStartup: true,
+      lockOnWindowShow: lockOnWindowShow.value,
+    });
+    applyView(view);
+    message.success(successMessage);
+  } catch (error) {
+    enabled.value = previous.enabled;
+    lockOnWindowShow.value = previous.lockOnWindowShow;
+    message.error(String(error));
+  } finally {
+    toggling.value = false;
+  }
+}
+
 async function onToggleEnabled(checked: boolean) {
   if (toggling.value) return;
   if (checked && !biometryStatus.value?.available) {
@@ -45,22 +66,16 @@ async function onToggleEnabled(checked: boolean) {
     enabled.value = false;
     return;
   }
-  const previous = enabled.value;
   enabled.value = checked;
-  toggling.value = true;
-  try {
-    const view = await saveAppLockSettings({
-      enabled: checked,
-      lockOnStartup,
-    });
-    applyView(view);
-    message.success(checked ? "应用锁已启用" : "应用锁已关闭");
-  } catch (error) {
-    enabled.value = previous;
-    message.error(String(error));
-  } finally {
-    toggling.value = false;
-  }
+  await persistSettings(checked ? "应用锁已启用" : "应用锁已关闭");
+}
+
+async function onToggleLockOnWindowShow(checked: boolean) {
+  if (toggling.value || !enabled.value) return;
+  lockOnWindowShow.value = checked;
+  await persistSettings(
+    checked ? "已开启：每次显示主窗口需解锁" : "已关闭：关闭窗口后再次打开无需解锁",
+  );
 }
 
 async function onTestBiometry() {
@@ -88,8 +103,26 @@ onMounted(() => {
           启用应用锁
         </a-checkbox>
         <a-typography-text type="secondary" class="block text-[12px] leading-snug">
-          开启后，应用启动时需要生物识别或设备密码验证。
+          开启后，应用启动时需生物识别或设备密码验证一次；关闭主窗口后从托盘再次打开，默认无需重新解锁。
         </a-typography-text>
+
+        <div
+          v-if="enabled"
+          class="app-lock-settings__sub app-surface-muted"
+          :class="{ 'app-lock-settings__sub--disabled': toggling }"
+        >
+          <a-checkbox
+            :checked="lockOnWindowShow"
+            :disabled="toggling"
+            @update:checked="onToggleLockOnWindowShow"
+          >
+            每次显示主窗口时需重新解锁
+          </a-checkbox>
+          <a-typography-text type="secondary" class="app-lock-settings__sub-hint">
+            开启后，从托盘或 Dock 重新显示主窗口时也会要求验证。
+          </a-typography-text>
+        </div>
+
         <a-tag :color="enabled ? 'green' : 'default'">
           {{ enabled ? "已启用" : "未启用" }}
         </a-tag>
@@ -113,5 +146,25 @@ onMounted(() => {
 .app-lock-settings {
   width: 100%;
   max-width: 760px;
+}
+
+.app-lock-settings__sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+
+  &--disabled {
+    opacity: 0.55;
+  }
+}
+
+.app-lock-settings__sub-hint {
+  display: block;
+  margin: 0 0 0 24px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>

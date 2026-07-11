@@ -1,5 +1,5 @@
 import { CodeSnippetRecord } from "@/models";
-import { syncSnippetRegistry } from "@/modules/codeSnippets";
+import { syncSnippetRegistry } from "@/modules/codeSnippets/client";
 
 /** 将数据库中的 snippet 同步到 Rust 运行时注册表 */
 export async function syncAllSnippetsToRuntime(): Promise<void> {
@@ -11,6 +11,7 @@ export async function syncAllSnippetsToRuntime(): Promise<void> {
       abbreviation: row.abbreviation,
       shortcut: row.shortcut,
       content: row.content,
+      group: row.meta.group,
     })),
   );
 }

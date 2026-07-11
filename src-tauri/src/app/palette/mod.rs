@@ -7,8 +7,9 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+use crate::app::app_lock::is_session_locked;
 use crate::app::clipboard;
-use crate::app::code_snippets::SnippetRegistry;
+use crate::app::code_snippets::{is_palette_enabled, SnippetRegistry};
 use crate::app::focus_target;
 use crate::app::text_delivery;
 
@@ -19,6 +20,10 @@ const PALETTE_WINDOW_LABEL: &str = "snippet-palette";
 const PALETTE_ROUTE: &str = "/#/snippet-palette";
 
 pub fn register_shortcut(app: &AppHandle) -> Result<(), String> {
+    if !is_palette_enabled() {
+        return Ok(());
+    }
+
     let settings = settings::read_palette_settings(app)?;
     let parsed = Shortcut::try_from(settings.palette_shortcut.as_str())
         .map_err(|err| format!("命令面板快捷键无效：{err}"))?;
@@ -26,6 +31,9 @@ pub fn register_shortcut(app: &AppHandle) -> Result<(), String> {
     app.global_shortcut()
         .on_shortcut(parsed, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
+                if is_session_locked(app) || !is_palette_enabled() {
+                    return;
+                }
                 let _ = toggle_palette_window(app);
             }
         })
@@ -47,6 +55,9 @@ pub fn toggle_palette_window(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn show_palette_window(app: &AppHandle) -> Result<(), String> {
+    if is_session_locked(app) || !is_palette_enabled() {
+        return Ok(());
+    }
     let own_bundle_id = app.config().identifier.clone();
     focus_target::capture(&own_bundle_id);
 
@@ -81,8 +92,8 @@ fn create_palette_window(app: &AppHandle) -> Result<(), String> {
     std::fs::create_dir_all(&data_dir).map_err(|err| format!("创建面板数据目录失败：{err}"))?;
 
     let window = WebviewWindowBuilder::new(app, PALETTE_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
-        .title("代码段")
-        .inner_size(520.0, 420.0)
+        .title("快捷键命令面板")
+        .inner_size(580.0, 480.0)
         .resizable(false)
         .always_on_top(true)
         .visible(true)

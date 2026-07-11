@@ -8,15 +8,14 @@ import { CodeSnippetRecord } from "@/models";
 import {
   CODE_SNIPPET_GROUPS,
   DEFAULT_CODE_SNIPPET_GROUP,
-  type CodeSnippetGroup,
-} from "@/modules/codeSnippets/groups";
-import { encryptText } from "@/modules/crypto";
-import { syncAllSnippetsToRuntime } from "@/pages/code-snippets/syncRuntime";
-import {
+  syncAllSnippetsToRuntime,
   formatAbbreviationTrigger,
+  inlineExpansionTrigger,
   normalizeAbbreviationInput,
   validateAbbreviation,
-} from "@/shared/abbreviation";
+  type CodeSnippetGroup,
+} from "@/modules/codeSnippets";
+import { encryptText } from "@/modules/crypto";
 import { getErrorMessage } from "@/shared/error";
 import { normalizeGlobalShortcut } from "@/shared/shortcut";
 
@@ -28,7 +27,7 @@ const props = defineProps<{
 const emit = defineEmits<{ submitted: [] }>();
 
 const abbreviationTrigger = computed(() =>
-  formatAbbreviationTrigger(form.model.abbreviation),
+  formatAbbreviationTrigger(form.model.abbreviation, inlineExpansionTrigger.value),
 );
 
 function onAbbreviationInput(value: string) {

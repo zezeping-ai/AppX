@@ -3,20 +3,13 @@ use std::path::{Path, PathBuf};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
-use crate::app::app_lock::AppLockSessionState;
+use crate::app::app_lock::{ensure_unlocked, AppLockSessionState};
 use crate::app::editor::passphrase_store::FilePassphraseStore;
 
 use super::cipher;
 use super::convert;
 use super::format;
 use super::tree::{self, EditorTreeNode};
-
-fn ensure_unlocked(state: &AppLockSessionState) -> Result<(), String> {
-    if state.is_locked()? {
-        return Err("应用已锁定，请先解锁".to_string());
-    }
-    Ok(())
-}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +29,11 @@ pub struct UnlockEncryptedFileResult {
 }
 
 #[tauri::command]
-pub async fn editor_pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub async fn editor_pick_folder(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+) -> Result<Option<String>, String> {
+    ensure_unlocked(&state)?;
     let picked = app
         .dialog()
         .file()
@@ -47,7 +44,11 @@ pub async fn editor_pick_folder(app: tauri::AppHandle) -> Result<Option<String>,
 }
 
 #[tauri::command]
-pub async fn editor_pick_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub async fn editor_pick_file(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+) -> Result<Option<String>, String> {
+    ensure_unlocked(&state)?;
     let picked = app
         .dialog()
         .file()

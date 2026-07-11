@@ -1,5 +1,7 @@
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
+
+use crate::app::app_lock::{ensure_unlocked, AppLockSessionState};
 
 use super::expansion;
 use super::registry::SnippetRegistry;
@@ -10,9 +12,13 @@ use crate::app::palette::read_palette_settings;
 pub struct CodeSnippetPermissionsView {
     pub platform: &'static str,
     pub accessibility_granted: Option<bool>,
-    /// 当前平台是否支持 `:缩写;` 全局展开
+    /// 当前平台是否支持 `:缩写` + 触发键 全局展开
     pub abbreviation_supported: bool,
+    pub enabled: bool,
     pub inline_expansion_enabled: bool,
+    pub inline_expansion_trigger: String,
+    pub shortcuts_enabled: bool,
+    pub palette_enabled: bool,
     pub palette_shortcut: String,
     pub listener_active: bool,
     pub registered_abbreviation_count: usize,
@@ -20,7 +26,11 @@ pub struct CodeSnippetPermissionsView {
 }
 
 #[tauri::command]
-pub fn code_snippets_get_permissions(app: AppHandle) -> CodeSnippetPermissionsView {
+pub fn code_snippets_get_permissions(
+    app: AppHandle,
+    state: State<'_, AppLockSessionState>,
+) -> Result<CodeSnippetPermissionsView, String> {
+    ensure_unlocked(&state)?;
     let (registered_abbreviation_count, registered_abbreviations) = app
         .try_state::<SnippetRegistry>()
         .map(|registry| {
@@ -35,62 +45,37 @@ pub fn code_snippets_get_permissions(app: AppHandle) -> CodeSnippetPermissionsVi
     let snippet_settings = super::settings::read_code_snippet_settings(&app).unwrap_or_default();
     let palette_settings = read_palette_settings(&app).unwrap_or_default();
 
-    #[cfg(target_os = "macos")]
-    {
-        CodeSnippetPermissionsView {
-            platform: "macos",
-            accessibility_granted: Some(is_accessibility_trusted()),
-            abbreviation_supported: true,
-            inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
-            palette_shortcut: palette_settings.palette_shortcut,
-            listener_active,
-            registered_abbreviation_count,
-            registered_abbreviations,
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        CodeSnippetPermissionsView {
-            platform: "windows",
-            accessibility_granted: None,
-            abbreviation_supported: false,
-            inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
-            palette_shortcut: palette_settings.palette_shortcut,
-            listener_active,
-            registered_abbreviation_count,
-            registered_abbreviations,
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        CodeSnippetPermissionsView {
-            platform: "linux",
-            accessibility_granted: None,
-            abbreviation_supported: false,
-            inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
-            palette_shortcut: palette_settings.palette_shortcut,
-            listener_active,
-            registered_abbreviation_count,
-            registered_abbreviations,
-        }
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        CodeSnippetPermissionsView {
-            platform: "unknown",
-            accessibility_granted: None,
-            abbreviation_supported: false,
-            inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
-            palette_shortcut: palette_settings.palette_shortcut,
-            listener_active,
-            registered_abbreviation_count,
-            registered_abbreviations,
-        }
-    }
+    let platform = if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    };
+
+    Ok(CodeSnippetPermissionsView {
+        platform,
+        accessibility_granted: accessibility_granted(),
+        abbreviation_supported: cfg!(target_os = "macos"),
+        enabled: snippet_settings.enabled,
+        inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
+        inline_expansion_trigger: snippet_settings.inline_expansion_trigger,
+        shortcuts_enabled: snippet_settings.shortcuts_enabled,
+        palette_enabled: snippet_settings.palette_enabled,
+        palette_shortcut: palette_settings.palette_shortcut,
+        listener_active,
+        registered_abbreviation_count,
+        registered_abbreviations,
+    })
 }
 
 #[tauri::command]
-pub fn code_snippets_open_accessibility_settings() -> Result<(), String> {
+pub fn code_snippets_open_accessibility_settings(
+    state: State<'_, AppLockSessionState>,
+) -> Result<(), String> {
+    ensure_unlocked(&state)?;
     #[cfg(target_os = "macos")]
     {
         const URL: &str =
@@ -105,6 +90,16 @@ pub fn code_snippets_open_accessibility_settings() -> Result<(), String> {
     {
         Err("仅 macOS 支持打开辅助功能设置".to_string())
     }
+}
+
+#[cfg(target_os = "macos")]
+fn accessibility_granted() -> Option<bool> {
+    Some(is_accessibility_trusted())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn accessibility_granted() -> Option<bool> {
+    None
 }
 
 #[cfg(target_os = "macos")]

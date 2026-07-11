@@ -4,6 +4,8 @@ import { useRoute, useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { useThemePreferences } from "@/features/appearance";
 import {
+  APP_PREFERENCE_SECTIONS,
+  FEATURE_PREFERENCE_SECTIONS,
   PREFERENCE_SECTIONS,
   type PreferenceSectionKey,
 } from "@/features/preferences/constants/sections";
@@ -17,7 +19,7 @@ const activeKey = computed<PreferenceSectionKey>({
   get: () =>
     (typeof route.query.section === "string" &&
       (route.query.section as PreferenceSectionKey)) ||
-    "appearance",
+    "app",
   set: (value) => {
     router.replace({
       query: {
@@ -31,7 +33,7 @@ const activeKey = computed<PreferenceSectionKey>({
 const selectedKeys = computed<string[]>({
   get: () => [activeKey.value],
   set: (keys) => {
-    const key = (keys?.[0] || "appearance") as PreferenceSectionKey;
+    const key = (keys?.[0] || "app") as PreferenceSectionKey;
     activeKey.value = key;
   },
 });
@@ -48,7 +50,7 @@ const activeSection = computed(
     <a-layout-sider
       width="220"
       :theme="siderTheme"
-      class="h-screen sticky top-0 overflow-auto border-r border-black/10"
+      class="preferences-sider h-screen sticky top-0 overflow-auto app-border-end"
     >
       <div class="px-3.5 pt-3.5 pb-2.5">
         <a-typography-title :level="5" class="m-0!">偏好设置</a-typography-title>
@@ -57,8 +59,27 @@ const activeSection = computed(
         </a-typography-text>
       </div>
 
-      <a-menu v-model:selected-keys="selectedKeys" mode="inline">
-        <a-menu-item v-for="section in PREFERENCE_SECTIONS" :key="section.key">
+      <a-menu
+        v-model:selected-keys="selectedKeys"
+        mode="inline"
+        class="preferences-menu preferences-menu--app"
+      >
+        <a-menu-item v-for="section in APP_PREFERENCE_SECTIONS" :key="section.key">
+          <a-space>
+            <Icon :icon="section.icon" aria-hidden="true" />
+            <span>{{ section.label }}</span>
+          </a-space>
+        </a-menu-item>
+      </a-menu>
+
+      <div class="app-divider" role="separator" aria-hidden="true" />
+
+      <a-menu
+        v-model:selected-keys="selectedKeys"
+        mode="inline"
+        class="preferences-menu preferences-menu--feature"
+      >
+        <a-menu-item v-for="section in FEATURE_PREFERENCE_SECTIONS" :key="section.key">
           <a-space>
             <Icon :icon="section.icon" aria-hidden="true" />
             <span>{{ section.label }}</span>
@@ -68,7 +89,7 @@ const activeSection = computed(
     </a-layout-sider>
 
     <a-layout class="h-screen overflow-hidden">
-      <a-layout-content class="h-screen overflow-auto p-4 bg-[var(--app-bg,#f5f5f5)]">
+      <a-layout-content class="preferences-content h-screen overflow-auto p-4">
         <div class="mx-auto flex w-full max-w-4xl flex-col">
           <component :is="activeSection.component" />
         </div>
@@ -76,3 +97,17 @@ const activeSection = computed(
     </a-layout>
   </a-layout>
 </template>
+
+<style scoped lang="scss">
+.preferences-menu {
+  border-inline-end: none !important;
+}
+
+.preferences-menu--feature {
+  padding-top: 0;
+}
+
+.preferences-content {
+  background: var(--app-bg);
+}
+</style>

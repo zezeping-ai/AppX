@@ -1,0 +1,77 @@
+// 主题设计 token：组件内优先使用 CSS 变量，避免硬编码颜色与分散的 [data-theme] 分支。
+
+:root {
+  --app-bg: #f5f5f5;
+  --app-fg: rgba(0, 0, 0, 0.88);
+  --app-surface: #fff;
+  --app-surface-muted: rgb(0 0 0 / 3%);
+  --app-layout-sidebar-bg: #fff;
+
+  --app-border: rgba(0, 0, 0, 0.08);
+  --app-divider: rgb(0 0 0 / 12%);
+
+  --app-fg-secondary: rgba(0, 0, 0, 0.55);
+  --app-fg-muted: rgba(0, 0, 0, 0.45);
+  --app-fg-subtle: rgb(0 0 0 / 75%);
+
+  --app-hover-bg: rgba(0, 0, 0, 0.04);
+  --app-hover-bg-strong: rgba(0, 0, 0, 0.05);
+  --app-active-bg: rgba(22, 119, 255, 0.1);
+  --app-active-fg: #1677ff;
+
+  --scrollbar-track: rgba(0, 0, 0, 0.04);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+  --scrollbar-size: 10px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --app-bg: #141414;
+  --app-fg: rgba(255, 255, 255, 0.88);
+  --app-surface: #1f1f1f;
+  --app-surface-muted: rgb(255 255 255 / 4%);
+  --app-layout-sidebar-bg: #1f1f1f;
+
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-divider: rgb(255 255 255 / 14%);
+
+  --app-fg-secondary: rgba(255, 255, 255, 0.55);
+  --app-fg-muted: rgba(255, 255, 255, 0.45);
+  --app-fg-subtle: rgb(255 255 255 / 75%);
+
+  --app-hover-bg: rgba(255, 255, 255, 0.08);
+  --app-hover-bg-strong: rgba(255, 255, 255, 0.08);
+  --app-active-bg: rgba(22, 119, 255, 0.18);
+  --app-active-fg: #69b1ff;
+
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+// Ant Design 深色侧边栏与 app 暗色主题 token 一致
+.ant-layout-sider-dark {
+  --app-divider: rgb(255 255 255 / 14%);
+  --app-border: rgba(255, 255, 255, 0.1);
+}
+
+.app-divider {
+  margin: 6px 16px 8px;
+  border-top: 1px solid var(--app-divider);
+}
+
+.app-border-end {
+  border-right: 1px solid var(--app-border);
+}
+
+.app-surface-muted {
+  background: var(--app-surface-muted);
+}

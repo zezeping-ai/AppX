@@ -38,45 +38,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(database::plugin().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
-            commands::database::database_resolve_path,
-            commands::database::database_reset_dev,
-            app::crypto::commands::crypto_encrypt_text,
-            app::crypto::commands::crypto_decrypt_text,
-            app::code_snippets::code_snippets_sync,
-            app::code_snippets::code_snippets_set_expansion_paused,
-            app::code_snippets::code_snippets_get_permissions,
-            app::code_snippets::code_snippets_open_accessibility_settings,
-            app::code_snippets::code_snippets_get_settings,
-            app::code_snippets::code_snippets_save_settings,
-            app::palette::code_snippets_list_palette_items,
-            app::palette::code_snippets_insert_palette_item,
-            app::palette::code_snippets_copy_palette_item,
-            app::palette::code_snippets_hide_palette,
-            app::app_lock::app_lock_get_settings,
-            app::app_lock::app_lock_save_settings,
-            app::app_lock::app_lock_lock_session,
-            app::app_lock::app_lock_unlock_session,
-            app::editor::editor_pick_folder,
-            app::editor::editor_pick_file,
-            app::editor::editor_list_directory,
-            app::editor::editor_inspect_file,
-            app::editor::editor_read_file,
-            app::editor::editor_write_file,
-            app::editor::editor_create_file,
-            app::editor::editor_create_directory,
-            app::editor::editor_delete_path,
-            app::editor::editor_rename_path,
-            app::editor::editor_convert_to_encrypted,
-            app::editor::editor_convert_to_custom_encrypted,
-            app::editor::editor_convert_custom_to_default_encrypted,
-            app::editor::editor_unlock_encrypted_file,
-            app::editor::editor_convert_to_plain,
-            app::editor::editor_get_settings,
-            app::editor::editor_save_encryption_passphrase,
-            app::security::security_get_settings,
-            app::windows::window_show_preferences,
-        ])
+        .invoke_handler(crate::app_invoke_handler!())
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {

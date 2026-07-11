@@ -4,7 +4,8 @@ import { theme as antdTheme } from "ant-design-vue";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import { useThemePreferences } from "@/features/appearance";
 import { antdProgrammaticRootConfigKey } from "@/hooks/antdProgrammaticContext";
-import { syncAllSnippetsToRuntime } from "@/pages/code-snippets/syncRuntime";
+import { bootstrapAfterUnlock } from "@/modules/codeSnippets";
+import { isAppSessionLocked } from "@/modules/appLock";
 
 const { resolvedTheme } = useThemePreferences();
 
@@ -25,9 +26,14 @@ const antAppConfig = computed(() => ({
 provide(antdProgrammaticRootConfigKey, antAppConfig);
 
 onMounted(() => {
-  void syncAllSnippetsToRuntime().catch((error) => {
-    console.warn("[code_snippets] startup sync failed:", error);
-  });
+  void (async () => {
+    try {
+      if (await isAppSessionLocked()) return;
+      await bootstrapAfterUnlock();
+    } catch (error) {
+      console.warn("[code_snippets] startup sync failed:", error);
+    }
+  })();
 });
 </script>
 
@@ -42,7 +48,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .app-root {
   min-height: 100vh;
-  background: var(--app-bg, #f5f5f5);
-  color: var(--app-fg, rgba(0, 0, 0, 0.88));
+  background: var(--app-bg);
+  color: var(--app-fg);
 }
 </style>

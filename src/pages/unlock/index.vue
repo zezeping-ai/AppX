@@ -9,6 +9,7 @@ import {
   isBiometryUserDismissed,
   unlockAppLockSession,
 } from "@/modules/appLock";
+import { bootstrapAfterUnlock } from "@/modules/codeSnippets";
 
 const router = useRouter();
 const route = useRoute();
@@ -40,6 +41,9 @@ async function refreshBiometryStatus() {
 async function unlockAndRedirect() {
   try {
     await unlockAppLockSession();
+    await bootstrapAfterUnlock().catch((error) => {
+      console.warn("[code_snippets] post-unlock sync failed:", error);
+    });
     await router.replace(redirectTo.value);
   } catch (error) {
     message.error(String(error));
