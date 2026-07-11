@@ -3,6 +3,7 @@ import type { AppRouteRecord } from "@/router/types";
 export const PREFERENCES_ROUTE_PATH = "/preferences";
 export const UNLOCK_ROUTE_PATH = "/unlock";
 export const SNIPPET_PALETTE_ROUTE_PATH = "/snippet-palette";
+export const CLIPBOARD_PALETTE_ROUTE_PATH = "/clipboard-palette";
 
 /** 独立窗口 / 全屏流程页（不走主 Layout） */
 export const standaloneRoutes: AppRouteRecord[] = [
@@ -23,5 +24,11 @@ export const standaloneRoutes: AppRouteRecord[] = [
     name: "snippet-palette",
     component: () => import("@/pages/snippet-palette/index.vue"),
     meta: { feature: "snippet-palette", standalone: true },
+  },
+  {
+    path: CLIPBOARD_PALETTE_ROUTE_PATH,
+    name: "clipboard-palette",
+    component: () => import("@/pages/clipboard-palette/index.vue"),
+    meta: { feature: "clipboard-palette", standalone: true },
   },
 ];

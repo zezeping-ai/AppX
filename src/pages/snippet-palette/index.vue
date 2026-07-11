@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Icon } from "@iconify/vue";
+import { Modal } from "ant-design-vue";
+import type { MenuProps } from "ant-design-vue";
+import { CodeSnippetRecord } from "@/models";
 import {
   CODE_SNIPPET_GROUPS,
   iconOfSnippetGroup,
@@ -13,6 +16,7 @@ import {
   getCodeSnippetSettings,
   inlineExpansionTrigger,
   setInlineExpansionTrigger,
+  syncAllSnippetsToRuntime,
   type CodeSnippetGroup,
   type CodeSnippetPaletteItem,
 } from "@/modules/codeSnippets";
@@ -20,6 +24,7 @@ import { getErrorMessage } from "@/shared/error";
 import { isAppSessionLocked } from "@/modules/appLock";
 
 type PaletteAction = "insert" | "copy";
+type SnippetContextCommand = PaletteAction | "delete";
 
 const paletteSize = "middle" as const;
 
@@ -34,6 +39,13 @@ type SearchInputRef = {
 };
 
 const searchInputRef = ref<SearchInputRef | null>(null);
+
+const snippetContextMenuItems: MenuProps["items"] = [
+  { key: "insert", label: "插入" },
+  { key: "copy", label: "拷贝" },
+  { type: "divider" },
+  { key: "delete", label: "删除", danger: true },
+];
 
 const groupFilters = computed(() => {
   const counts = new Map<CodeSnippetGroup, number>();
@@ -131,6 +143,39 @@ function selectItem(item: CodeSnippetPaletteItem | undefined) {
 function onItemAction(event: MouseEvent, item: CodeSnippetPaletteItem, action: PaletteAction) {
   event.stopPropagation();
   void runAction(item, action);
+}
+
+function removeSnippet(item: CodeSnippetPaletteItem) {
+  Modal.confirm({
+    title: "删除代码段",
+    content: `确认删除「${item.name}」？`,
+    okText: "删除",
+    okButtonProps: { danger: true },
+    cancelText: "取消",
+    onOk: async () => {
+      try {
+        await CodeSnippetRecord.destroy(item.id);
+        await syncAllSnippetsToRuntime();
+        await loadItems();
+      } catch (error) {
+        console.error(getErrorMessage(error, "删除失败"));
+      }
+    },
+  });
+}
+
+function onSnippetContextAction(item: CodeSnippetPaletteItem, command: SnippetContextCommand) {
+  if (command === "delete") {
+    removeSnippet(item);
+    return;
+  }
+  void runAction(item, command);
+}
+
+function createSnippetContextMenuClick(item: CodeSnippetPaletteItem) {
+  return ({ key }: { key: string | number }) => {
+    onSnippetContextAction(item, String(key) as SnippetContextCommand);
+  };
 }
 
 function toggleActionMode() {
@@ -245,40 +290,49 @@ onUnmounted(() => {
         class="snippet-palette__item"
         :class="{ 'snippet-palette__item--active': index === activeIndex }"
         @mouseenter="activeIndex = index"
-        @click="selectItem(item)"
       >
-        <div class="snippet-palette__item-main">
-          <div class="snippet-palette__item-title">
-            <span class="snippet-palette__group-tag">
-              <Icon :icon="iconOfSnippetGroup(item.group)" aria-hidden="true" />
-              {{ labelOfSnippetGroup(item.group) }}
-            </span>
-            <span class="snippet-palette__name">{{ item.name }}</span>
+        <a-dropdown :trigger="['contextmenu']" class="snippet-palette__item-dropdown">
+          <div class="snippet-palette__item-body" @click="selectItem(item)">
+            <div class="snippet-palette__item-main">
+              <div class="snippet-palette__item-title">
+                <span class="snippet-palette__group-tag">
+                  <Icon :icon="iconOfSnippetGroup(item.group)" aria-hidden="true" />
+                  {{ labelOfSnippetGroup(item.group) }}
+                </span>
+                <span class="snippet-palette__name">{{ item.name }}</span>
+              </div>
+              <span class="snippet-palette__abbr">{{
+                formatAbbreviationTrigger(item.abbreviation, inlineExpansionTrigger)
+              }}</span>
+            </div>
+            <div class="snippet-palette__actions">
+              <a-button
+                :type="actionMode === 'insert' ? 'primary' : 'default'"
+                @click="onItemAction($event, item, 'insert')"
+              >
+                <template #icon>
+                  <Icon icon="mdi:keyboard-return" aria-hidden="true" />
+                </template>
+                插入
+              </a-button>
+              <a-button
+                :type="actionMode === 'copy' ? 'primary' : 'default'"
+                @click="onItemAction($event, item, 'copy')"
+              >
+                <template #icon>
+                  <Icon icon="mdi:content-copy" aria-hidden="true" />
+                </template>
+                拷贝
+              </a-button>
+            </div>
           </div>
-          <span class="snippet-palette__abbr">{{
-            formatAbbreviationTrigger(item.abbreviation, inlineExpansionTrigger)
-          }}</span>
-        </div>
-        <div class="snippet-palette__actions">
-          <a-button
-            :type="actionMode === 'insert' ? 'primary' : 'default'"
-            @click="onItemAction($event, item, 'insert')"
-          >
-            <template #icon>
-              <Icon icon="mdi:keyboard-return" aria-hidden="true" />
-            </template>
-            插入
-          </a-button>
-          <a-button
-            :type="actionMode === 'copy' ? 'primary' : 'default'"
-            @click="onItemAction($event, item, 'copy')"
-          >
-            <template #icon>
-              <Icon icon="mdi:content-copy" aria-hidden="true" />
-            </template>
-            拷贝
-          </a-button>
-        </div>
+          <template #overlay>
+            <a-menu
+              :items="snippetContextMenuItems"
+              @click="createSnippetContextMenuClick(item)"
+            />
+          </template>
+        </a-dropdown>
       </li>
     </ul>
 
@@ -412,6 +466,19 @@ onUnmounted(() => {
   &:hover {
     background: rgb(22 119 255 / 10%);
   }
+}
+
+.snippet-palette__item-dropdown {
+  display: block;
+  width: 100%;
+}
+
+.snippet-palette__item-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
 }
 
 .snippet-palette__item-main {

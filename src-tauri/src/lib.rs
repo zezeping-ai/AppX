@@ -11,6 +11,7 @@ pub fn run() {
         .manage(app::app_lock::AppLockSessionState::default())
         .manage(app::editor::FilePassphraseStore::default())
         .manage(app::code_snippets::SnippetRegistry::default());
+    builder = app::clipboard_assistant::register_protocols(builder);
 
     #[cfg(desktop)]
     {
@@ -25,6 +26,7 @@ pub fn run() {
             database::log_db_full_path(app.handle());
             app::app_lock::setup(app.handle(), app.state())?;
             app::code_snippets::setup(app.handle())?;
+            app::clipboard_assistant::setup(app.handle())?;
             app::menu::setup(app)?;
             app::tray::setup(app)?;
             app::updates::schedule_startup_update_check(app.handle());

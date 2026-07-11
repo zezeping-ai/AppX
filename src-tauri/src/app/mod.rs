@@ -1,9 +1,11 @@
 pub mod app_lock;
 pub mod clipboard;
+pub mod clipboard_assistant;
 pub mod code_snippets;
 pub mod crypto;
 pub mod editor;
 pub mod focus_target;
+pub mod global_shortcut;
 pub mod ipc;
 pub mod palette;
 pub mod runtime;

@@ -7,7 +7,17 @@ use enigo::{Direction, Enigo, Key as EnigoKey, Keyboard, Settings};
 
 use crate::app::clipboard;
 
+#[cfg(target_os = "macos")]
+mod macos;
+
 const INSERT_VIA_CLIPBOARD_LEN: usize = 200;
+
+pub fn trigger_paste() {
+    thread::spawn(|| {
+        thread::sleep(Duration::from_millis(120));
+        let _ = paste_shortcut();
+    });
+}
 
 pub fn insert_at_focus(content: &str) {
     if content.is_empty() {
@@ -27,10 +37,13 @@ pub fn insert_at_focus(content: &str) {
 }
 
 fn type_text(text: &str) -> Result<(), String> {
-    let mut enigo = Enigo::new(&Settings::default()).map_err(|err| format!("{err}"))?;
-    enigo
-        .text(text)
-        .map_err(|err| format!("模拟键入失败：{err}"))
+    let text = text.to_string();
+    run_keyboard(move || {
+        let mut enigo = Enigo::new(&Settings::default()).map_err(|err| format!("{err}"))?;
+        enigo
+            .text(&text)
+            .map_err(|err| format!("模拟键入失败：{err}"))
+    })
 }
 
 fn insert_via_clipboard(text: &str) {
@@ -40,7 +53,7 @@ fn insert_via_clipboard(text: &str) {
     };
 
     thread::sleep(Duration::from_millis(20));
-    if paste_shortcut(&mut Enigo::new(&Settings::default()).ok()).is_err() {
+    if paste_shortcut().is_err() {
         let _ = type_text(text);
     }
 
@@ -50,11 +63,14 @@ fn insert_via_clipboard(text: &str) {
     }
 }
 
-fn paste_shortcut(enigo: &mut Option<Enigo>) -> Result<(), String> {
-    let Some(enigo) = enigo else {
-        return Err("Enigo unavailable".to_string());
-    };
+fn paste_shortcut() -> Result<(), String> {
+    run_keyboard(|| {
+        let mut enigo = Enigo::new(&Settings::default()).map_err(|err| format!("{err}"))?;
+        paste_shortcut_with(&mut enigo)
+    })
+}
 
+fn paste_shortcut_with(enigo: &mut Enigo) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         enigo
@@ -91,13 +107,15 @@ pub fn delete_chars(count: usize) {
 
     thread::spawn(move || {
         thread::sleep(Duration::from_millis(35));
-        let Ok(mut enigo) = Enigo::new(&Settings::default()) else {
-            return;
-        };
-        for _ in 0..count {
-            let _ = enigo.key(EnigoKey::Backspace, Direction::Click);
-            thread::sleep(Duration::from_millis(5));
-        }
+        let _ = run_keyboard(move || {
+            let Ok(mut enigo) = Enigo::new(&Settings::default()) else {
+                return Ok(());
+            };
+            for _ in 0..count {
+                let _ = enigo.key(EnigoKey::Backspace, Direction::Click);
+            }
+            Ok::<(), String>(())
+        });
     });
 }
 
@@ -111,4 +129,21 @@ pub fn replace_trigger(abbrev_len: usize, content: &str) {
             insert_at_focus(&content);
         }
     });
+}
+
+#[cfg(target_os = "macos")]
+fn run_keyboard<R, F>(f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    macos::run_on_main_thread(f)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_keyboard<R, F>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    f()
 }

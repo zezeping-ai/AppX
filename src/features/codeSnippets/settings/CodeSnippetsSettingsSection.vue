@@ -7,11 +7,11 @@ import {
   getCodeSnippetSettings,
   openAccessibilitySettings,
   saveCodeSnippetSettings,
-  setExpansionPaused,
   setInlineExpansionTrigger,
   type CodeSnippetPermissionsView,
   type CodeSnippetSettingsView,
 } from "@/modules/codeSnippets";
+import { setGlobalShortcutsPaused } from "@/modules/globalShortcut";
 import { formatShortcutLabel, normalizeGlobalShortcut } from "@/shared/shortcut";
 
 const loading = ref(false);
@@ -188,7 +188,7 @@ onMounted(() => {
             <span class="feature-switches__trigger-label">展开触发键</span>
             <ShortcutRecorder
               v-model:value="inlineExpansionTrigger"
-              :on-recording-change="setExpansionPaused"
+              :on-recording-change="setGlobalShortcutsPaused"
               @update:value="onInlineExpansionTriggerChange"
             />
           </div>

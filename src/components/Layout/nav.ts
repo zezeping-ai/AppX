@@ -13,7 +13,14 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     key: "code-snippets",
     label: "代码段",
     to: "/code-snippets",
-    icon: "mdi:lightning-bolt-outline",
+    icon: "mdi:code-braces",
+    enabled: true,
+  },
+  {
+    key: "clipboard-assistant",
+    label: "剪切助手",
+    to: "/clipboard-assistant",
+    icon: "mdi:clipboard-text-clock-outline",
     enabled: true,
   },
 ];

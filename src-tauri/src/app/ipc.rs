@@ -22,6 +22,17 @@ macro_rules! app_invoke_handler {
             $crate::app::palette::code_snippets_insert_palette_item,
             $crate::app::palette::code_snippets_copy_palette_item,
             $crate::app::palette::code_snippets_hide_palette,
+            // clipboard_assistant
+            $crate::app::clipboard_assistant::clipboard_assistant_list_items,
+            $crate::app::clipboard_assistant::clipboard_assistant_apply_item,
+            $crate::app::clipboard_assistant::clipboard_assistant_mutate_items,
+            $crate::app::clipboard_assistant::clipboard_assistant_get_content,
+            $crate::app::clipboard_assistant::clipboard_assistant_get_settings,
+            $crate::app::clipboard_assistant::clipboard_assistant_save_settings,
+            $crate::app::clipboard_assistant::clipboard_assistant_get_status,
+            $crate::app::clipboard_assistant::clipboard_assistant_hide_palette,
+            $crate::app::clipboard_assistant::clipboard_assistant_save_palette_geometry,
+            $crate::app::clipboard_assistant::clipboard_assistant_sync_runtime,
             // app_lock
             $crate::app::app_lock::app_lock_get_settings,
             $crate::app::app_lock::app_lock_save_settings,
@@ -49,6 +60,8 @@ macro_rules! app_invoke_handler {
             $crate::app::security::security_get_settings,
             // windows
             $crate::app::windows::window_show_preferences,
+            // global_shortcut
+            $crate::app::global_shortcut::global_shortcuts_set_paused,
         ]
     };
 }

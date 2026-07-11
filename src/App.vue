@@ -4,7 +4,7 @@ import { theme as antdTheme } from "ant-design-vue";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import { useThemePreferences } from "@/features/appearance";
 import { antdProgrammaticRootConfigKey } from "@/hooks/antdProgrammaticContext";
-import { bootstrapAfterUnlock } from "@/modules/codeSnippets";
+import { bootstrapAfterUnlock } from "@/modules/bootstrapAfterUnlock";
 import { isAppSessionLocked } from "@/modules/appLock";
 
 const { resolvedTheme } = useThemePreferences();
@@ -31,7 +31,7 @@ onMounted(() => {
       if (await isAppSessionLocked()) return;
       await bootstrapAfterUnlock();
     } catch (error) {
-      console.warn("[code_snippets] startup sync failed:", error);
+      console.warn("[bootstrap] startup sync failed:", error);
     }
   })();
 });

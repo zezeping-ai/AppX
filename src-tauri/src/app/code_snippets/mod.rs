@@ -38,5 +38,6 @@ pub fn refresh_runtime(app: &AppHandle) -> Result<(), String> {
 
     expansion::set_expansion_paused(false);
     expansion::refresh_shortcuts(app)?;
-    crate::app::palette::register_shortcut(app)
+    crate::app::palette::register_shortcut(app)?;
+    crate::app::clipboard_assistant::register_shortcut(app)
 }

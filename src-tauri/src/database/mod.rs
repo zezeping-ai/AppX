@@ -58,5 +58,17 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../../migrations/0002_create_code_snippets.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "create_clipboard_assistant",
+            sql: include_str!("../../migrations/0003_create_clipboard_assistant.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "create_clipboard_fts",
+            sql: include_str!("../../migrations/0004_create_clipboard_fts.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
