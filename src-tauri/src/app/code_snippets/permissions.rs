@@ -58,7 +58,7 @@ pub fn code_snippets_get_permissions(
     Ok(CodeSnippetPermissionsView {
         platform,
         accessibility_granted: accessibility_granted(),
-        abbreviation_supported: cfg!(target_os = "macos"),
+        abbreviation_supported: abbreviation_supported(),
         enabled: snippet_settings.enabled,
         inline_expansion_enabled: snippet_settings.inline_expansion_enabled,
         inline_expansion_trigger: snippet_settings.inline_expansion_trigger,
@@ -88,8 +88,44 @@ pub fn code_snippets_open_accessibility_settings(
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Err("仅 macOS 支持打开辅助功能设置".to_string())
+        open_accessibility_settings_non_macos()
     }
+}
+
+fn abbreviation_supported() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        return true;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        return true;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        return crate::app::platform::is_x11_session();
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
+    {
+        false
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn open_accessibility_settings_non_macos() -> Result<(), String> {
+    std::process::Command::new("ms-settings:privacy-accessibility")
+        .spawn()
+        .map_err(|err| format!("打开无障碍设置失败：{err}"))?;
+    Ok(())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_accessibility_settings_non_macos() -> Result<(), String> {
+    // 各桌面环境入口不同，优先尝试 GNOME 设置。
+    let _ = std::process::Command::new("xdg-open")
+        .arg("gnome-control-center universal-access")
+        .spawn();
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -97,9 +133,18 @@ fn accessibility_granted() -> Option<bool> {
     Some(is_accessibility_trusted())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 fn accessibility_granted() -> Option<bool> {
+    // Windows UIA 无统一查询 API，由用户自行确认。
     None
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn accessibility_granted() -> Option<bool> {
+    std::env::var("AT_SPI_BUS_ADDRESS")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .map(|_| true)
 }
 
 #[cfg(target_os = "macos")]

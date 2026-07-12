@@ -1,9 +1,13 @@
-//! 将 Tauri global-shortcut 字符串解析为 CGEventTap 可匹配的键码与修饰键。
+//! 将 Tauri global-shortcut 字符串解析为可匹配的触发键配置。
 
+#[cfg(target_os = "macos")]
+use once_cell::sync::Lazy;
+use once_cell::sync::Lazy as TriggerLazy;
 use std::sync::RwLock;
 
+#[cfg(target_os = "macos")]
 use keyboard_types::{Code, Modifiers};
-use once_cell::sync::Lazy;
+#[cfg(target_os = "macos")]
 use tauri_plugin_global_shortcut::Shortcut;
 
 #[cfg(target_os = "macos")]
@@ -11,6 +15,10 @@ use core_graphics::event::CGEventFlags;
 
 const DEFAULT_TRIGGER: &str = "F12";
 
+static TRIGGER_SHORTCUT: TriggerLazy<RwLock<String>> =
+    TriggerLazy::new(|| RwLock::new(DEFAULT_TRIGGER.to_string()));
+
+#[cfg(target_os = "macos")]
 #[derive(Debug, Clone, Copy, Default)]
 struct TriggerConfig {
     keycode: Option<i64>,
@@ -20,15 +28,37 @@ struct TriggerConfig {
     command: bool,
 }
 
+#[cfg(target_os = "macos")]
 static TRIGGER: Lazy<RwLock<TriggerConfig>> = Lazy::new(|| {
     RwLock::new(parse_trigger(DEFAULT_TRIGGER).unwrap_or_default())
 });
 
 pub fn apply_trigger_shortcut(raw: &str) {
-    let parsed = parse_trigger(raw).unwrap_or_else(|_| parse_trigger(DEFAULT_TRIGGER).unwrap());
-    if let Ok(mut guard) = TRIGGER.write() {
-        *guard = parsed;
+    let shortcut = raw.trim();
+    let stored = if shortcut.is_empty() {
+        DEFAULT_TRIGGER.to_string()
+    } else {
+        shortcut.to_string()
+    };
+    if let Ok(mut guard) = TRIGGER_SHORTCUT.write() {
+        *guard = stored;
     }
+
+    #[cfg(target_os = "macos")]
+    {
+        let parsed = parse_trigger(raw).unwrap_or_else(|_| parse_trigger(DEFAULT_TRIGGER).unwrap());
+        if let Ok(mut guard) = TRIGGER.write() {
+            *guard = parsed;
+        }
+    }
+}
+
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+pub fn current_trigger_shortcut() -> String {
+    TRIGGER_SHORTCUT
+        .read()
+        .map(|guard| guard.clone())
+        .unwrap_or_else(|_| DEFAULT_TRIGGER.to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -51,11 +81,6 @@ pub fn is_expand_trigger_key(keycode: i64, flags: CGEventFlags) -> bool {
     active == required
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn is_expand_trigger_key(_keycode: i64, _flags: u32) -> bool {
-    false
-}
-
 #[cfg(target_os = "macos")]
 fn trigger_flags(config: &TriggerConfig) -> CGEventFlags {
     let mut flags = CGEventFlags::empty();
@@ -74,6 +99,7 @@ fn trigger_flags(config: &TriggerConfig) -> CGEventFlags {
     flags
 }
 
+#[cfg(target_os = "macos")]
 fn parse_trigger(raw: &str) -> Result<TriggerConfig, String> {
     let shortcut = raw.trim();
     if shortcut.is_empty() {
@@ -93,6 +119,7 @@ fn parse_trigger(raw: &str) -> Result<TriggerConfig, String> {
 }
 
 /// macOS 虚拟键码（HIToolbox/Events.h），与 global-hotkey 一致。
+#[cfg(target_os = "macos")]
 fn code_to_keycode(code: Code) -> Option<u32> {
     Some(match code {
         Code::KeyA => 0x00,
@@ -183,6 +210,7 @@ fn code_to_keycode(code: Code) -> Option<u32> {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "macos")]
 mod tests {
     use super::*;
 

@@ -1,7 +1,6 @@
 //! `:缩写` + 可配置触发键 全局缩写展开。
-//! macOS：触发键按下时通过 Accessibility 回溯光标前文本解析缩写。
+//! macOS：CGEventTap；Windows / Linux X11：global-shortcut + 无障碍 API 读光标前文本。
 
-#[cfg(target_os = "macos")]
 mod context;
 
 #[cfg(target_os = "macos")]
@@ -10,7 +9,14 @@ mod foreground;
 #[cfg(target_os = "macos")]
 mod macos;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+mod global_shortcut_listener;
+
+#[cfg(not(any(
+    target_os = "macos",
+    target_os = "windows",
+    all(unix, not(target_os = "macos"))
+)))]
 mod stub;
 
 pub mod trigger;
@@ -47,21 +53,15 @@ pub fn is_expansion_paused() -> bool {
     EXPANSION_PAUSED.load(Ordering::Relaxed)
 }
 
-pub(crate) use trigger::is_expand_trigger_key;
-
 /// 触发键按下时从光标前文本回溯解析 `:缩写`，命中 registry 则展开。
 pub(crate) fn try_expand_on_trigger(app: &AppHandle) {
     if is_session_locked(app) || is_expansion_paused() || !is_inline_expansion_enabled() {
         return;
     }
 
-    #[cfg(target_os = "macos")]
     let Some(text_before) = context::read_text_before_cursor(LOOKBACK_LEN) else {
         return;
     };
-
-    #[cfg(not(target_os = "macos"))]
-    let text_before = String::new();
 
     let Some(abbrev) = parse_abbrev_from_context(&text_before) else {
         return;
@@ -133,9 +133,40 @@ pub fn start_listener(app: AppHandle) -> Result<(), String> {
     macos::start_listener(app)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+pub fn start_listener(app: AppHandle) -> Result<(), String> {
+    global_shortcut_listener::start_listener(app)
+}
+
+#[cfg(not(any(
+    target_os = "macos",
+    target_os = "windows",
+    all(unix, not(target_os = "macos"))
+)))]
 pub fn start_listener(app: AppHandle) -> Result<(), String> {
     stub::start_listener(app)
+}
+
+/// 在 refresh_runtime 中于 snippet 快捷键重注册之后调用。
+pub fn refresh_trigger(app: &AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app;
+        Ok(())
+    }
+    #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+    {
+        global_shortcut_listener::refresh_trigger(app)
+    }
+    #[cfg(not(any(
+        target_os = "macos",
+        target_os = "windows",
+        all(unix, not(target_os = "macos"))
+    )))]
+    {
+        let _ = app;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -183,11 +214,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn expand_trigger_matches_f12() {
         use core_graphics::event::CGEventFlags;
 
         trigger::apply_trigger_shortcut("F12");
-        assert!(is_expand_trigger_key(0x6f, CGEventFlags::empty()));
-        assert!(!is_expand_trigger_key(0x29, CGEventFlags::empty()));
+        assert!(trigger::is_expand_trigger_key(0x6f, CGEventFlags::empty()));
+        assert!(!trigger::is_expand_trigger_key(0x29, CGEventFlags::empty()));
     }
 }

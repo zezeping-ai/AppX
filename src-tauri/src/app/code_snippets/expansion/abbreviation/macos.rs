@@ -12,7 +12,8 @@ use core_graphics::event::{
 };
 use tauri::AppHandle;
 
-use super::{foreground, is_expand_trigger_key, set_listener_active, try_expand_on_trigger};
+use super::{foreground, set_listener_active, try_expand_on_trigger};
+use super::trigger::is_expand_trigger_key;
 
 thread_local! {
     static TAP_MACH_PORT: Cell<CFMachPortRef> = const { Cell::new(std::ptr::null_mut()) };

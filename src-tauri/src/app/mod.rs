@@ -8,6 +8,7 @@ pub mod focus_target;
 pub mod global_shortcut;
 pub mod ipc;
 pub mod palette;
+pub mod platform;
 pub mod runtime;
 pub mod security;
 pub mod settings;

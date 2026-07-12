@@ -114,19 +114,5 @@ fn read_macos_files() -> Option<Vec<String>> {
 }
 
 pub fn frontmost_app() -> (Option<String>, Option<String>) {
-  #[cfg(target_os = "macos")]
-  {
-    use objc2_app_kit::NSWorkspace;
-    let workspace = NSWorkspace::sharedWorkspace();
-    let Some(app) = workspace.frontmostApplication() else {
-      return (None, None);
-    };
-    let bundle = app.bundleIdentifier().map(|s| s.to_string());
-    let name = app.localizedName().map(|s| s.to_string());
-    (bundle, name)
-  }
-  #[cfg(not(target_os = "macos"))]
-  {
-    (None, None)
-  }
+    crate::app::platform::frontmost_app()
 }

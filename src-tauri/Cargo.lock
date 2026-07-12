@@ -145,6 +145,9 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-sql",
  "tauri-plugin-updater",
+ "windows 0.58.0",
+ "x11rb",
+ "zbus",
 ]
 
 [[package]]

@@ -15,7 +15,8 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn refresh_shortcuts(app: &AppHandle) -> Result<(), String> {
-    shortcut::refresh_shortcuts(app)
+    shortcut::refresh_shortcuts(app)?;
+    abbreviation::refresh_trigger(app)
 }
 
 pub fn set_expansion_paused(paused: bool) {
