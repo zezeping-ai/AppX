@@ -54,6 +54,7 @@ export type ClipboardItemSummary = {
   badges: ContentBadge[];
   thumbUrl?: string;
   relativeTime: string;
+  hasRichFormat: boolean;
 };
 
 export type ListItemsQuery = {
@@ -73,6 +74,8 @@ export type ListItemsResult = {
 };
 
 export type ApplyAction = "paste" | "copy";
+
+export type ApplyFormat = "plain" | "rich";
 
 export type MutateOp = "pin" | "unpin" | "delete" | "clearUnpinned";
 
@@ -101,7 +104,6 @@ export type ClipboardAssistantSettings = {
   paletteEnabled: boolean;
   paletteShortcut: string;
   maxHistoryItems: number;
-  pasteAsPlainText: boolean;
   paletteLayout: PaletteLayout;
   paletteAnchor: string;
   paletteWidth: number;
@@ -111,12 +113,9 @@ export type ClipboardAssistantSettings = {
   autoHideOnPaste: boolean;
   autoHideOnClickOutside: boolean;
   openSearchOnShow: boolean;
-  quickPasteModifiers: boolean;
   dedupeMode: string;
   paletteMaxItems: number;
-  cardColorMode: string;
   showSourceAppIcon: boolean;
-  showContentBadges: boolean;
   autoSweepOrphansOnStartup: boolean;
   textInlineThreshold: number;
   maxTextBytes: number;

@@ -35,15 +35,28 @@ const emit = defineEmits<{
   hover: [number | null];
 }>();
 
+/** 条目底部与滚动条/面板底边的间距 */
+const ITEM_BOTTOM_GAP = 6;
+/** 无横向滚动条时模拟滚动条占用高度（macOS overlay 滚动条不占位） */
+const SCROLLBAR_RESERVE = 10;
+
 const scrollEl = ref<HTMLElement | null>(null);
 const viewportHeight = ref(0);
+const horizontalContentOverflows = ref(false);
 
-function updateViewportHeight() {
-  viewportHeight.value = scrollEl.value?.clientHeight ?? 0;
+function updateViewportMetrics() {
+  const el = scrollEl.value;
+  if (!el) return;
+  viewportHeight.value = el.clientHeight;
+  horizontalContentOverflows.value = el.scrollWidth > el.clientWidth + 1;
 }
 
-useResizeObserver(scrollEl, updateViewportHeight);
-watch(scrollEl, updateViewportHeight);
+useResizeObserver(scrollEl, updateViewportMetrics);
+watch(scrollEl, updateViewportMetrics);
+watch(
+  () => props.items.length,
+  () => void nextTick(updateViewportMetrics),
+);
 
 const source = computed(() => props.items);
 
@@ -56,10 +69,14 @@ const { list, containerProps, wrapperProps, scrollTo } = useVirtualList(source, 
 /** 顶部/底部横条：useVirtualList 只认 scrollTop，横向滚动无法正确虚拟化，直接全量渲染 */
 const horizontalItemStride = computed(() => props.itemWidth + PALETTE_ITEM_GAP);
 
+const horizontalBottomInset = computed(() =>
+  horizontalContentOverflows.value ? ITEM_BOTTOM_GAP : SCROLLBAR_RESERVE + ITEM_BOTTOM_GAP,
+);
+
 const resolvedItemHeight = computed(() => {
   if (!props.horizontal) return props.itemHeight;
-  if (viewportHeight.value > 0) return viewportHeight.value;
-  return props.itemHeight;
+  if (viewportHeight.value <= 0) return props.itemHeight;
+  return Math.max(props.itemHeight, viewportHeight.value - horizontalBottomInset.value);
 });
 
 const containerBind = computed(() => {
@@ -70,7 +87,7 @@ const containerBind = computed(() => {
 function setScrollContainerRef(el: Element | ComponentPublicInstance | null) {
   const node = el instanceof Element ? (el as HTMLElement) : null;
   scrollEl.value = node;
-  updateViewportHeight();
+  updateViewportMetrics();
   if (!props.horizontal) {
     containerProps.ref.value = node;
   }

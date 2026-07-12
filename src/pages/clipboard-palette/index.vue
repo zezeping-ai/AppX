@@ -94,12 +94,20 @@ function onItemAction(event: MouseEvent, item: ClipboardItemSummary, action: App
 }
 
 function onItemCommand(item: ClipboardItemSummary, command: PaletteItemCommand) {
-  if (command === "paste") {
-    void runAction(item, "paste");
+  if (command === "pastePlain") {
+    void runAction(item, "paste", "plain");
     return;
   }
-  if (command === "copy") {
-    void runAction(item, "copy");
+  if (command === "pasteRich") {
+    void runAction(item, "paste", "rich");
+    return;
+  }
+  if (command === "copyPlain") {
+    void runAction(item, "copy", "plain");
+    return;
+  }
+  if (command === "copyRich") {
+    void runAction(item, "copy", "rich");
     return;
   }
   if (command === "pin") {

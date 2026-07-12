@@ -1,12 +1,14 @@
 use arboard::Clipboard;
 
 use crate::app::clipboard;
+use crate::app::clipboard::rich::{self, RichFormats};
 
 #[derive(Debug, Clone)]
 pub struct ClipboardRead {
     pub text: Option<String>,
     pub image: Option<ImageCapture>,
     pub files: Option<Vec<String>>,
+    pub rich_formats: RichFormats,
 }
 
 #[derive(Debug, Clone)]
@@ -40,8 +42,14 @@ fn read_once_inner() -> Result<ClipboardRead, String> {
     };
 
     let text = clipboard.get_text().ok().filter(|t| !t.is_empty());
+    let rich_formats = rich::read_system_unlocked();
 
-    Ok(ClipboardRead { text, image, files })
+    Ok(ClipboardRead {
+        text,
+        image,
+        files,
+        rich_formats,
+    })
 }
 
 pub fn fingerprint(read: &ClipboardRead) -> String {
@@ -60,6 +68,15 @@ pub fn fingerprint(read: &ClipboardRead) -> String {
     if let Some(text) = &read.text {
         hasher.update(b"text:");
         hasher.update(text.as_bytes());
+    }
+    if read.rich_formats.has_content() {
+        hasher.update(b"rich:");
+        if let Some(html) = &read.rich_formats.html {
+            hasher.update(html.as_bytes());
+        }
+        if let Some(rtf) = &read.rich_formats.rtf {
+            hasher.update(&rtf[..rtf.len().min(4096)]);
+        }
     }
     if read.files.is_none() && read.image.is_none() && read.text.is_none() {
         hasher.update(b"empty");

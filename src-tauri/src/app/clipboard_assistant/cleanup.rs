@@ -3,7 +3,7 @@ use std::path::Path;
 
 use rusqlite::{params, Connection};
 
-use super::db::{blob_path, delete_items_by_ids, thumb_path};
+use super::db::{blob_path, delete_items_by_ids, rich_path, thumb_path};
 use super::state::ClipboardAssistantState;
 
 pub fn remove_ids(state: &ClipboardAssistantState, ids: &[i64]) -> Result<(), String> {
@@ -34,6 +34,7 @@ pub fn remove_ids(state: &ClipboardAssistantState, ids: &[i64]) -> Result<(), St
     for (id, pinned) in ids.iter().zip(pinned_flags.iter()) {
         let _ = fs::remove_file(blob_path(&state.blobs_dir, *id));
         let _ = fs::remove_file(thumb_path(&state.blobs_dir, *id));
+        let _ = fs::remove_file(rich_path(&state.blobs_dir, *id));
         state.dec_counts(*pinned);
     }
 

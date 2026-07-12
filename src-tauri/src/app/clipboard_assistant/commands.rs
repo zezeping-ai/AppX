@@ -7,6 +7,7 @@ use super::cleanup::{blob_dir_size, sweep_orphan_blobs};
 use super::history::{clear_unpinned, get_content, list_items, toggle_pin};
 use super::model::{
     ApplyItemInput, AssistantStatus, ListItemsQuery, ListItemsResult, MutateItemsInput, MutateOp,
+    ApplyFormat,
 };
 use super::palette::save_palette_geometry;
 use super::palette_geometry::PaletteGeometry;
@@ -40,7 +41,7 @@ pub fn clipboard_assistant_apply_item(
         state.inner(),
         input.id,
         input.action,
-        input.plain_text.unwrap_or(false),
+        input.format.unwrap_or(ApplyFormat::Plain),
     )
 }
 
@@ -123,7 +124,6 @@ pub fn clipboard_assistant_save_settings(
         palette_enabled: input.palette_enabled,
         palette_shortcut: input.palette_shortcut,
         max_history_items: input.max_history_items,
-        paste_as_plain_text: input.paste_as_plain_text,
         palette_layout: normalize_palette_layout(&input.palette_layout),
         palette_anchor: input.palette_anchor,
         palette_width: input.palette_width,
@@ -133,12 +133,9 @@ pub fn clipboard_assistant_save_settings(
         auto_hide_on_paste: input.auto_hide_on_paste,
         auto_hide_on_click_outside: input.auto_hide_on_click_outside,
         open_search_on_show: input.open_search_on_show,
-        quick_paste_modifiers: input.quick_paste_modifiers,
         dedupe_mode: input.dedupe_mode,
         palette_max_items: input.palette_max_items,
-        card_color_mode: input.card_color_mode,
         show_source_app_icon: input.show_source_app_icon,
-        show_content_badges: input.show_content_badges,
         auto_sweep_orphans_on_startup: input.auto_sweep_orphans_on_startup,
         text_inline_threshold: input.text_inline_threshold,
         max_text_bytes: input.max_text_bytes,

@@ -13,8 +13,6 @@ pub struct ClipboardAssistantSettings {
     pub palette_shortcut: String,
     #[serde(default = "default_max_history")]
     pub max_history_items: u32,
-    #[serde(default)]
-    pub paste_as_plain_text: bool,
     #[serde(default = "default_palette_layout")]
     pub palette_layout: String,
     #[serde(default = "default_palette_anchor")]
@@ -33,18 +31,12 @@ pub struct ClipboardAssistantSettings {
     pub auto_hide_on_click_outside: bool,
     #[serde(default = "default_true")]
     pub open_search_on_show: bool,
-    #[serde(default = "default_true")]
-    pub quick_paste_modifiers: bool,
     #[serde(default = "default_dedupe")]
     pub dedupe_mode: String,
     #[serde(default = "default_u32_500")]
     pub palette_max_items: u32,
-    #[serde(default = "default_card_color_mode")]
-    pub card_color_mode: String,
     #[serde(default = "default_true")]
     pub show_source_app_icon: bool,
-    #[serde(default = "default_true")]
-    pub show_content_badges: bool,
     #[serde(default = "default_true")]
     pub auto_sweep_orphans_on_startup: bool,
     #[serde(default = "default_text_inline_threshold")]
@@ -102,9 +94,6 @@ fn default_u32_500() -> u32 {
 fn default_dedupe() -> String {
     "consecutive".to_string()
 }
-fn default_card_color_mode() -> String {
-    "both".to_string()
-}
 fn default_text_inline_threshold() -> u32 {
     64 * 1024
 }
@@ -132,7 +121,6 @@ pub struct SaveClipboardAssistantSettingsInput {
     pub palette_enabled: bool,
     pub palette_shortcut: String,
     pub max_history_items: u32,
-    pub paste_as_plain_text: bool,
     pub palette_layout: String,
     pub palette_anchor: String,
     pub palette_width: u32,
@@ -142,12 +130,9 @@ pub struct SaveClipboardAssistantSettingsInput {
     pub auto_hide_on_paste: bool,
     pub auto_hide_on_click_outside: bool,
     pub open_search_on_show: bool,
-    pub quick_paste_modifiers: bool,
     pub dedupe_mode: String,
     pub palette_max_items: u32,
-    pub card_color_mode: String,
     pub show_source_app_icon: bool,
-    pub show_content_badges: bool,
     pub auto_sweep_orphans_on_startup: bool,
     pub text_inline_threshold: u32,
     pub max_text_bytes: u32,

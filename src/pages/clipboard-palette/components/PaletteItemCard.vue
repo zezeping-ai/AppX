@@ -10,7 +10,13 @@ import {
   type ClipboardItemSummary,
 } from "@/modules/clipboardAssistant";
 
-export type PaletteItemCommand = "paste" | "copy" | "pin" | "delete";
+export type PaletteItemCommand =
+  | "pastePlain"
+  | "pasteRich"
+  | "copyPlain"
+  | "copyRich"
+  | "pin"
+  | "delete";
 
 const props = defineProps<{
   item: ClipboardItemSummary;
@@ -23,14 +29,26 @@ const emit = defineEmits<{
   command: [PaletteItemCommand];
 }>();
 
-const contextMenuItems = computed<MenuProps["items"]>(() => [
-  { key: "paste", label: "粘贴" },
-  { key: "copy", label: "拷贝" },
-  { type: "divider" },
-  { key: "pin", label: props.item.pinned ? "取消固定" : "固定" },
-  { type: "divider" },
-  { key: "delete", label: "删除", danger: true },
-]);
+const contextMenuItems = computed<MenuProps["items"]>(() => {
+  const items: MenuProps["items"] = [];
+  if (props.item.hasRichFormat) {
+    items.push(
+      { key: "pastePlain", label: "粘贴" },
+      { key: "pasteRich", label: "粘贴为富文本" },
+      { key: "copyPlain", label: "复制" },
+      { key: "copyRich", label: "复制为富文本" },
+    );
+  } else {
+    items.push({ key: "pastePlain", label: "粘贴" }, { key: "copyPlain", label: "复制" });
+  }
+  items.push(
+    { type: "divider" },
+    { key: "pin", label: props.item.pinned ? "取消固定" : "固定" },
+    { type: "divider" },
+    { key: "delete", label: "删除", danger: true },
+  );
+  return items;
+});
 
 function onContextMenuClick({ key }: { key: string | number }) {
   emit("command", String(key) as PaletteItemCommand);

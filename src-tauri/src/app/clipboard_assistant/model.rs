@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::app::clipboard::rich::RichFormats;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PayloadKind {
@@ -36,6 +38,7 @@ pub struct CapturedPayload {
     pub image_bytes: Option<Vec<u8>>,
     /// arboard 返回的原始 RGBA 像素尺寸（非 PNG/JPEG 文件头时使用）
     pub image_dimensions: Option<(u32, u32)>,
+    pub rich_formats: Option<RichFormats>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +80,29 @@ impl ContentType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PayloadMeta {
+    #[serde(default)]
+    pub has_rich_format: bool,
+}
+
+impl PayloadMeta {
+    pub fn parse(raw: &str) -> Self {
+        serde_json::from_str(raw).unwrap_or_default()
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).unwrap_or_else(|_| "{}".into())
+    }
+
+    pub fn from_rich(formats: Option<&RichFormats>) -> Self {
+        Self {
+            has_rich_format: formats.is_some_and(|value| value.has_content()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentBadge {
@@ -102,6 +128,7 @@ pub struct ItemSummary {
     pub badges: Vec<ContentBadge>,
     pub thumb_url: Option<String>,
     pub relative_time: String,
+    pub has_rich_format: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -150,12 +177,21 @@ pub struct GetContentResult {
     pub has_blob: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ApplyFormat {
+    #[default]
+    Plain,
+    Rich,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplyItemInput {
     pub id: i64,
     pub action: ApplyAction,
-    pub plain_text: Option<bool>,
+    #[serde(default)]
+    pub format: Option<ApplyFormat>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

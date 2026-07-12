@@ -1,5 +1,6 @@
 export type {
   ApplyAction,
+  ApplyFormat,
   ClipboardAssistantSettings,
   ClipboardAssistantStatus,
   ClipboardItemSummary,

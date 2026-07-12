@@ -26,7 +26,6 @@ const monitoringEnabled = ref(true);
 const paletteEnabled = ref(true);
 const paletteShortcut = ref("CommandOrControl+Shift+V");
 const maxHistoryItems = ref(500);
-const pasteAsPlainText = ref(false);
 const paletteLayout = ref<PaletteLayout>("bottomPanel");
 const paletteMaxItems = ref(80);
 const autoHideOnPaste = ref(true);
@@ -45,7 +44,6 @@ function applySettings(settings: ClipboardAssistantSettings) {
   paletteEnabled.value = settings.paletteEnabled;
   paletteShortcut.value = settings.paletteShortcut;
   maxHistoryItems.value = settings.maxHistoryItems;
-  pasteAsPlainText.value = settings.pasteAsPlainText;
   paletteLayout.value = normalizePaletteLayout(settings.paletteLayout);
   paletteMaxItems.value = settings.paletteMaxItems;
   autoHideOnPaste.value = settings.autoHideOnPaste;
@@ -62,7 +60,6 @@ function currentInput(): ClipboardAssistantSettings {
     paletteEnabled: paletteEnabled.value,
     paletteShortcut: normalizeGlobalShortcut(paletteShortcut.value) ?? paletteShortcut.value,
     maxHistoryItems: maxHistoryItems.value,
-    pasteAsPlainText: pasteAsPlainText.value,
     paletteLayout: paletteLayout.value,
     paletteMaxItems: paletteMaxItems.value,
     autoHideOnPaste: autoHideOnPaste.value,
@@ -156,11 +153,6 @@ async function onPaletteMaxItemsChange(value: number | string | null) {
 async function onToggleAutoHideOnPaste(checked: boolean) {
   autoHideOnPaste.value = checked;
   await persistSettings(checked ? "已开启：粘贴后自动关闭浮层" : "已关闭：粘贴后自动关闭浮层");
-}
-
-async function onTogglePasteAsPlainText(checked: boolean) {
-  pasteAsPlainText.value = checked;
-  await persistSettings(checked ? "已开启：粘贴为纯文本" : "已关闭：粘贴为纯文本");
 }
 
 async function onToggleClearOnLock(checked: boolean) {
@@ -262,13 +254,6 @@ onMounted(() => {
               :checked="autoHideOnPaste"
               :disabled="!featuresActive || saving || loading"
               @update:checked="onToggleAutoHideOnPaste"
-            />
-          </a-form-item>
-          <a-form-item label="粘贴为纯文本（默认）">
-            <a-switch
-              :checked="pasteAsPlainText"
-              :disabled="!featuresActive || saving || loading"
-              @update:checked="onTogglePasteAsPlainText"
             />
           </a-form-item>
           <a-form-item label="锁定时清空未固定">

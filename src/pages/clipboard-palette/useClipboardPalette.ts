@@ -7,6 +7,7 @@ import {
   listItems,
   mutateItems,
   type ApplyAction,
+  type ApplyFormat,
   type ClipboardItemSummary,
   normalizePaletteLayout,
   type PaletteLayout,
@@ -106,10 +107,18 @@ export function useClipboardPalette() {
     }
   });
 
-  async function runAction(item: ClipboardItemSummary | undefined, action: ApplyAction) {
+  function resolveFormat(format?: ApplyFormat): ApplyFormat {
+    return format ?? "plain";
+  }
+
+  async function runAction(
+    item: ClipboardItemSummary | undefined,
+    action: ApplyAction,
+    format?: ApplyFormat,
+  ) {
     if (!item) return;
     try {
-      await applyItem(item.id, action);
+      await applyItem(item.id, action, resolveFormat(format));
     } catch (error) {
       console.error(getErrorMessage(error, action === "copy" ? "拷贝失败" : "粘贴失败"));
     }

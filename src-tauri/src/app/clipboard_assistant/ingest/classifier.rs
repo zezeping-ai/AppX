@@ -1,10 +1,16 @@
 use super::reader::ClipboardRead;
+use super::super::enricher::plain_text_from_html;
 use super::super::model::CapturedPayload;
 use super::super::model::PayloadKind;
 
 pub fn classify(read: ClipboardRead) -> Option<CapturedPayload> {
     let text = read.text.filter(|t| !t.trim().is_empty());
     let files = read.files.filter(|f| !f.is_empty());
+    let rich_formats = if read.rich_formats.has_content() {
+        Some(read.rich_formats)
+    } else {
+        None
+    };
 
     let prefer_text = match (&text, &files) {
         (Some(value), Some(paths)) => !text_is_redundant_with_files(value, paths),
@@ -19,6 +25,7 @@ pub fn classify(read: ClipboardRead) -> Option<CapturedPayload> {
             file_paths: None,
             image_bytes: None,
             image_dimensions: None,
+            rich_formats,
         });
     }
 
@@ -29,6 +36,7 @@ pub fn classify(read: ClipboardRead) -> Option<CapturedPayload> {
             file_paths: Some(files),
             image_bytes: None,
             image_dimensions: None,
+            rich_formats: None,
         });
     }
 
@@ -39,6 +47,7 @@ pub fn classify(read: ClipboardRead) -> Option<CapturedPayload> {
             file_paths: None,
             image_bytes: Some(image.bytes),
             image_dimensions: Some((image.width, image.height)),
+            rich_formats: None,
         });
     }
 
@@ -49,6 +58,24 @@ pub fn classify(read: ClipboardRead) -> Option<CapturedPayload> {
             file_paths: None,
             image_bytes: None,
             image_dimensions: None,
+            rich_formats,
+        });
+    }
+
+    if let Some(rich) = rich_formats.filter(|formats| formats.has_content()) {
+        let text = rich
+            .html
+            .as_ref()
+            .map(|html| plain_text_from_html(html))
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "富文本".to_string());
+        return Some(CapturedPayload {
+            kind: PayloadKind::Inline,
+            text: Some(text),
+            file_paths: None,
+            image_bytes: None,
+            image_dimensions: None,
+            rich_formats: Some(rich),
         });
     }
 
@@ -136,6 +163,7 @@ mod tests {
             text: Some("hello from document".into()),
             image: None,
             files: Some(vec!["/Users/me/doc.txt".into()]),
+            rich_formats: Default::default(),
         };
         let payload = classify(read).unwrap();
         assert_eq!(payload.kind, PayloadKind::Inline);
@@ -149,6 +177,7 @@ mod tests {
             text: Some(path.into()),
             image: None,
             files: Some(vec![path.into()]),
+            rich_formats: Default::default(),
         };
         let payload = classify(read).unwrap();
         assert_eq!(payload.kind, PayloadKind::FileRef);
@@ -160,8 +189,26 @@ mod tests {
             text: Some("report.pdf".into()),
             image: None,
             files: Some(vec!["/Users/me/report.pdf".into()]),
+            rich_formats: Default::default(),
         };
         let payload = classify(read).unwrap();
         assert_eq!(payload.kind, PayloadKind::FileRef);
+    }
+
+    #[test]
+    fn captures_rich_only_as_inline_text() {
+        let read = ClipboardRead {
+            text: None,
+            image: None,
+            files: None,
+            rich_formats: crate::app::clipboard::rich::RichFormats {
+                html: Some("<p><b>Hello</b> world</p>".into()),
+                rtf: None,
+            },
+        };
+        let payload = classify(read).unwrap();
+        assert_eq!(payload.kind, PayloadKind::Inline);
+        assert_eq!(payload.text.as_deref(), Some("Hello world"));
+        assert!(payload.rich_formats.as_ref().is_some_and(|rich| rich.has_content()));
     }
 }

@@ -1,5 +1,9 @@
 //! 系统剪贴板唯一入口；剪切助手历史监听在此挂接。
 
+pub mod rich;
+pub mod image;
+pub mod files;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 

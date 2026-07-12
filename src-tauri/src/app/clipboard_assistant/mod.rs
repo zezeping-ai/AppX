@@ -14,6 +14,7 @@ mod palette_geometry;
 mod payload;
 mod protocol;
 mod session;
+mod storage;
 pub mod settings;
 mod state;
 mod thumb;

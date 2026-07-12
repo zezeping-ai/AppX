@@ -47,6 +47,24 @@ pub fn thumb_path(blobs: &Path, id: i64) -> PathBuf {
     blobs.join(format!("{id}_thumb.webp"))
 }
 
+pub fn rich_path(blobs: &Path, id: i64) -> PathBuf {
+    blobs.join(format!("{id}_rich.json"))
+}
+
+pub fn write_rich_formats(path: &Path, formats: &crate::app::clipboard::rich::RichFormats) -> Result<(), String> {
+    let raw = serde_json::to_string(formats).map_err(|e| format!("序列化富文本失败：{e}"))?;
+    std::fs::write(path, raw).map_err(|e| format!("写入富文本失败：{e}"))
+}
+
+pub fn read_rich_formats(path: &Path) -> Result<Option<crate::app::clipboard::rich::RichFormats>, String> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let raw = std::fs::read_to_string(path).map_err(|e| format!("读取富文本失败：{e}"))?;
+    let formats = serde_json::from_str(&raw).map_err(|e| format!("解析富文本失败：{e}"))?;
+    Ok(Some(formats))
+}
+
 pub fn count_items(conn: &Connection, pinned_only: Option<bool>) -> Result<u64, String> {
     let sql = match pinned_only {
         Some(true) => "SELECT COUNT(*) FROM clipboard_items WHERE pinned = 1",

@@ -19,8 +19,44 @@ pub fn hash_bytes(data: &[u8]) -> String {
     digest[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
 
+#[allow(dead_code)]
 pub fn hash_text(text: &str) -> String {
     hash_bytes(text.as_bytes())
+}
+
+/// 内容指纹：纯文本 + 可选富文本摘要（与监听 fingerprint 语义对齐）。
+pub fn hash_content(text: &str, rich: Option<&crate::app::clipboard::rich::RichFormats>) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(b"text:");
+    hasher.update(text.as_bytes());
+    if let Some(rich) = rich.filter(|value| value.has_content()) {
+        if let Some(html) = &rich.html {
+            hasher.update(b"html:");
+            hasher.update(html.as_bytes());
+        }
+        if let Some(rtf) = &rich.rtf {
+            hasher.update(b"rtf:");
+            hasher.update(&rtf[..rtf.len().min(4096)]);
+        }
+    }
+    let digest = hasher.finalize();
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// 从 HTML 提取可读纯文本（用于 preview / 富文本-only 入库）。
+pub fn plain_text_from_html(html: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 pub fn hash_paths(paths: &[String]) -> String {
@@ -39,7 +75,11 @@ pub fn make_preview(text: &str) -> String {
     normalized.chars().take(PREVIEW_MAX).collect()
 }
 
-pub fn enrich_text(text: &str, bundle: Option<&str>) -> EnrichedMeta {
+pub fn enrich_text(
+    text: &str,
+    bundle: Option<&str>,
+    rich: Option<&crate::app::clipboard::rich::RichFormats>,
+) -> EnrichedMeta {
     let trimmed = text.trim();
     let content_type = detect_text_type(trimmed);
     let group_key = group_for_type(content_type);
@@ -68,6 +108,12 @@ pub fn enrich_text(text: &str, bundle: Option<&str>) -> EnrichedMeta {
             label: "颜色".into(),
         });
     }
+    if rich.is_some_and(|value| value.has_content()) {
+        badges.push(ContentBadge {
+            kind: "rich".into(),
+            label: "富文本".into(),
+        });
+    }
     EnrichedMeta {
         preview: make_preview(trimmed),
         content_type,
@@ -75,7 +121,7 @@ pub fn enrich_text(text: &str, bundle: Option<&str>) -> EnrichedMeta {
         accent_color: accent_color(content_type, bundle),
         badges,
         char_count: Some(trimmed.chars().count() as i64),
-        content_hash: hash_text(trimmed),
+        content_hash: hash_content(trimmed, rich),
     }
 }
 
@@ -215,7 +261,15 @@ fn is_image_path(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{make_preview, normalize_color};
+    use super::{make_preview, normalize_color, plain_text_from_html};
+
+    #[test]
+    fn strips_html_for_plain_preview() {
+        assert_eq!(
+            plain_text_from_html("<p><b>Hello</b> world</p>"),
+            "Hello world"
+        );
+    }
 
     #[test]
     fn preview_keeps_multiple_lines() {
