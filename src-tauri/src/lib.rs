@@ -20,6 +20,11 @@ pub fn run() {
         }));
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.plugin(tauri_nspanel::init());
+    }
+
     builder
         .setup(|app| {
             paths::ensure_profile_scaffold(app.handle())?;

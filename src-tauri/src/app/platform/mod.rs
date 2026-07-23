@@ -2,6 +2,8 @@
 
 mod app_icon;
 mod foreground;
+#[cfg(target_os = "macos")]
+pub mod macos_ax;
 
 pub use app_icon::fetch_icon_bytes;
 pub use foreground::{frontmost_app, is_own_app_foreground};

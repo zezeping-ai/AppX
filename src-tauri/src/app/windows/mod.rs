@@ -5,6 +5,8 @@ use crate::app::app_lock::{ensure_unlocked, relock_on_show, AppLockSessionState}
 
 #[cfg(target_os = "macos")]
 mod macos_close;
+#[cfg(target_os = "macos")]
+mod macos_clipboard_panel;
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const PREFERENCES_WINDOW_LABEL: &str = "preferences";
@@ -114,6 +116,12 @@ pub fn schedule_preferences_window(app: &tauri::AppHandle) -> tauri::Result<()> 
         });
     });
     Ok(())
+}
+
+/// macOS 剪切面板：转 NSPanel / Cocoa 定位 / 显示隐藏。
+#[cfg(target_os = "macos")]
+pub mod clipboard_panel {
+    pub use super::macos_clipboard_panel::*;
 }
 
 #[cfg(target_os = "macos")]

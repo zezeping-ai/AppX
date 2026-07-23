@@ -18,6 +18,15 @@ pub fn capture(own_app_id: &str) {
     }
 }
 
+/// 打开浮层前是否已记录外部前台应用。
+pub fn has_captured_target() -> bool {
+    FOCUS_TARGET_APP_ID
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .is_some()
+}
+
 /// 将焦点切回打开浮层前的应用。
 pub fn restore() {
     #[cfg(target_os = "macos")]

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Monitor};
+use tauri::AppHandle;
+#[cfg(not(target_os = "macos"))]
+use tauri::Monitor;
 
 use super::settings::{normalize_palette_layout, ClipboardAssistantSettings};
 
@@ -16,6 +18,7 @@ pub struct PaletteGeometry {
     pub height: Option<f64>,
 }
 
+#[cfg(not(target_os = "macos"))]
 #[derive(Debug, Clone, Copy)]
 pub struct PaletteRect {
     pub x: f64,
@@ -24,6 +27,7 @@ pub struct PaletteRect {
     pub height: f64,
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn read_geometry(app: &AppHandle) -> Result<PaletteGeometry, String> {
     Ok(crate::app::settings::storage::read_json_settings(app, GEOMETRY_FILE, "浮层位置")?.unwrap_or_default())
 }
@@ -57,21 +61,6 @@ fn panel_height_for_layout(layout: &str, settings: &ClipboardAssistantSettings) 
     }
 }
 
-fn work_area_logical(monitor: &Monitor) -> (f64, f64, f64, f64) {
-    let scale = monitor.scale_factor();
-    let work = monitor.work_area();
-    (
-        work.position.x as f64 / scale,
-        work.position.y as f64 / scale,
-        work.size.width as f64 / scale,
-        work.size.height as f64 / scale,
-    )
-}
-
-fn is_top_panel(layout: &str) -> bool {
-    layout == "topPanel"
-}
-
 fn is_horizontal_panel(layout: &str) -> bool {
     matches!(layout, "topPanel" | "bottomPanel")
 }
@@ -84,54 +73,8 @@ fn side_panel_width(_settings: &ClipboardAssistantSettings) -> f64 {
     SIDE_PANEL_WINDOW_WIDTH
 }
 
-fn edge_margin(_settings: &ClipboardAssistantSettings) -> f64 {
-    0.0
-}
-
-fn compute_side_rect(
-    settings: &ClipboardAssistantSettings,
-    monitor: &Monitor,
-    right: bool,
-) -> PaletteRect {
-    let (wa_x, wa_y, wa_w, wa_h) = work_area_logical(monitor);
-    let margin = edge_margin(settings);
-    let width = side_panel_width(settings);
-    PaletteRect {
-        x: if right {
-            wa_x + wa_w - width - margin
-        } else {
-            wa_x + margin
-        },
-        y: wa_y + margin,
-        width,
-        height: wa_h - margin * 2.0,
-    }
-}
-
-fn horizontal_panel_span(monitor: &Monitor) -> (f64, f64) {
-    let (wa_x, _, wa_w, _) = work_area_logical(monitor);
-    (wa_x, wa_w)
-}
-
-fn bottom_panel_y(monitor: &Monitor, settings: &ClipboardAssistantSettings, height: f64) -> f64 {
-    let (_, wa_y, _, wa_h) = work_area_logical(monitor);
-    let margin = edge_margin(settings);
-    wa_y + wa_h - height - margin
-}
-
-fn top_panel_y(monitor: &Monitor, settings: &ClipboardAssistantSettings) -> f64 {
-    let (_, wa_y, _, _) = work_area_logical(monitor);
-    let margin = edge_margin(settings);
-    wa_y + margin
-}
-
 fn panel_height(settings: &ClipboardAssistantSettings) -> f64 {
     panel_height_for_layout(&layout_key(settings), settings)
-}
-
-/// 持久化前校正 geometry，避免写入与布局不符的尺寸。
-fn geometry_matches_layout(geometry: &PaletteGeometry, layout: &str) -> bool {
-    geometry.layout.as_deref() == Some(layout)
 }
 
 pub fn invalidate_geometry_for_layout(app: &AppHandle, layout: &str) -> Result<(), String> {
@@ -156,6 +99,93 @@ fn sanitize_geometry(settings: &ClipboardAssistantSettings, geometry: &mut Palet
     }
 }
 
+pub fn capture_from_window(
+    window: &tauri::WebviewWindow,
+    layout: &str,
+) -> Result<PaletteGeometry, String> {
+    let pos = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    Ok(PaletteGeometry {
+        layout: Some(normalize_palette_layout(layout)),
+        x: Some(pos.x as f64 / scale),
+        y: Some(pos.y as f64 / scale),
+        width: Some(size.width as f64 / scale),
+        height: Some(size.height as f64 / scale),
+    })
+}
+
+// macOS 剪切面板用 Cocoa visible/Dock 定位；下列 Tauri Monitor 几何仅非 macOS 使用。
+
+#[cfg(not(target_os = "macos"))]
+fn work_area_logical(monitor: &Monitor) -> (f64, f64, f64, f64) {
+    let scale = monitor.scale_factor();
+    let work = monitor.work_area();
+    (
+        work.position.x as f64 / scale,
+        work.position.y as f64 / scale,
+        work.size.width as f64 / scale,
+        work.size.height as f64 / scale,
+    )
+}
+
+#[cfg(not(target_os = "macos"))]
+fn is_top_panel(layout: &str) -> bool {
+    layout == "topPanel"
+}
+
+#[cfg(not(target_os = "macos"))]
+fn edge_margin(_settings: &ClipboardAssistantSettings) -> f64 {
+    0.0
+}
+
+#[cfg(not(target_os = "macos"))]
+fn compute_side_rect(
+    settings: &ClipboardAssistantSettings,
+    monitor: &Monitor,
+    right: bool,
+) -> PaletteRect {
+    let (wa_x, wa_y, wa_w, wa_h) = work_area_logical(monitor);
+    let margin = edge_margin(settings);
+    let width = side_panel_width(settings);
+    PaletteRect {
+        x: if right {
+            wa_x + wa_w - width - margin
+        } else {
+            wa_x + margin
+        },
+        y: wa_y + margin,
+        width,
+        height: wa_h - margin * 2.0,
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn horizontal_panel_span(monitor: &Monitor) -> (f64, f64) {
+    let (wa_x, _, wa_w, _) = work_area_logical(monitor);
+    (wa_x, wa_w)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn bottom_panel_y(monitor: &Monitor, settings: &ClipboardAssistantSettings, height: f64) -> f64 {
+    let (_, wa_y, _, wa_h) = work_area_logical(monitor);
+    let margin = edge_margin(settings);
+    wa_y + wa_h - height - margin
+}
+
+#[cfg(not(target_os = "macos"))]
+fn top_panel_y(monitor: &Monitor, settings: &ClipboardAssistantSettings) -> f64 {
+    let (_, wa_y, _, _) = work_area_logical(monitor);
+    let margin = edge_margin(settings);
+    wa_y + margin
+}
+
+#[cfg(not(target_os = "macos"))]
+fn geometry_matches_layout(geometry: &PaletteGeometry, layout: &str) -> bool {
+    geometry.layout.as_deref() == Some(layout)
+}
+
+#[cfg(not(target_os = "macos"))]
 fn clamp_rect_to_work_area(monitor: &Monitor, rect: PaletteRect) -> PaletteRect {
     let (wa_x, wa_y, wa_w, wa_h) = work_area_logical(monitor);
     let width = rect.width.min(wa_w);
@@ -170,6 +200,7 @@ fn clamp_rect_to_work_area(monitor: &Monitor, rect: PaletteRect) -> PaletteRect 
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 fn resolve_horizontal_panel_rect(
     monitor: &Monitor,
     settings: &ClipboardAssistantSettings,
@@ -193,6 +224,7 @@ fn resolve_horizontal_panel_rect(
     )
 }
 
+#[cfg(not(target_os = "macos"))]
 fn resolve_rect(
     monitor: &Monitor,
     settings: &ClipboardAssistantSettings,
@@ -222,6 +254,7 @@ fn resolve_rect(
 }
 
 /// 按布局计算默认窗口矩形（相对当前显示器 work area，避开 Dock / 菜单栏）。
+#[cfg(not(target_os = "macos"))]
 pub fn compute_rect(settings: &ClipboardAssistantSettings, monitor: &Monitor) -> PaletteRect {
     let (wa_x, wa_y, wa_w, wa_h) = work_area_logical(monitor);
     let margin = edge_margin(settings);
@@ -251,6 +284,7 @@ pub fn compute_rect(settings: &ClipboardAssistantSettings, monitor: &Monitor) ->
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn apply_to_window(
     window: &tauri::WebviewWindow,
     app: &AppHandle,
@@ -313,20 +347,4 @@ pub fn apply_to_window(
         .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(rect.x, rect.y)))
         .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-pub fn capture_from_window(
-    window: &tauri::WebviewWindow,
-    layout: &str,
-) -> Result<PaletteGeometry, String> {
-    let pos = window.outer_position().map_err(|e| e.to_string())?;
-    let size = window.outer_size().map_err(|e| e.to_string())?;
-    let scale = window.scale_factor().map_err(|e| e.to_string())?;
-    Ok(PaletteGeometry {
-        layout: Some(normalize_palette_layout(layout)),
-        x: Some(pos.x as f64 / scale),
-        y: Some(pos.y as f64 / scale),
-        width: Some(size.width as f64 / scale),
-        height: Some(size.height as f64 / scale),
-    })
 }
