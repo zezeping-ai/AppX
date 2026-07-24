@@ -18,6 +18,13 @@ pub fn touch_item(
     let mut item = conn
         .query_row("SELECT * FROM clipboard_items WHERE id = ?1", params![id], row_to_summary)
         .map_err(|_| format!("条目 #{id} 不存在"))?;
+    let content_hash: String = conn
+        .query_row(
+            "SELECT content_hash FROM clipboard_items WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("读取条目 hash 失败：{e}"))?;
 
     if let Some(formats) = rich_formats.filter(|value| value.has_content()) {
         persist_rich_formats(state, &conn, id, formats)?;
@@ -34,6 +41,7 @@ pub fn touch_item(
     item.created_at = created_at.clone();
     item.relative_time = relative_time(&created_at);
     if let Ok(mut cache) = state.cache.write() {
+        cache.set_last_hash(Some(content_hash));
         cache.push_front(item);
     }
     Ok(())

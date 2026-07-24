@@ -24,9 +24,8 @@ pub fn hash_text(text: &str) -> String {
     hash_bytes(text.as_bytes())
 }
 
-/// 内容指纹：纯文本 + 可选富文本摘要（与监听 fingerprint 语义对齐）。
+/// 内容指纹：纯文本 + 可选富文本。纯文本与富文本视为不同条目。
 pub fn hash_content(text: &str, rich: Option<&crate::app::clipboard::rich::RichFormats>) -> String {
-    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(b"text:");
     hasher.update(text.as_bytes());

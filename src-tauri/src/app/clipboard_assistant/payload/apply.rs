@@ -1,6 +1,3 @@
-use std::thread;
-use std::time::Duration;
-
 use tauri::AppHandle;
 
 use crate::app::clipboard;
@@ -41,13 +38,12 @@ pub fn apply_item(
     focus_target::restore();
     super::super::sounds::play(app, super::super::sounds::SoundKind::Paste, None, false);
 
-    if format == ApplyFormat::Rich
-        && rich_formats.as_ref().is_some_and(|formats| formats.has_content())
-    {
-        rich::write_system(rich_formats.as_ref().unwrap(), plain_text.as_deref())?;
-        text_delivery::trigger_paste();
-        touch_item(state, id, None)?;
-        return Ok(());
+    if format == ApplyFormat::Rich {
+        if let Some(formats) = rich_formats.filter(|value| value.has_content()) {
+            text_delivery::insert_rich_at_focus(formats, plain_text);
+            touch_item(state, id, None)?;
+            return Ok(());
+        }
     }
 
     match kind {
@@ -55,12 +51,12 @@ pub fn apply_item(
             let Some(text) = text else {
                 return Err("文本内容缺失".to_string());
             };
-            deliver_text(text);
+            text_delivery::insert_at_focus(&text);
         }
         PayloadKind::Blob => {
             if let Some(ref bytes) = blob {
                 if let Ok(text) = std::str::from_utf8(bytes) {
-                    deliver_text(text.to_string());
+                    text_delivery::insert_at_focus(text);
                 } else {
                     clipboard::image::write_image_bytes(bytes)?;
                     text_delivery::trigger_paste();
@@ -110,11 +106,4 @@ fn write_to_clipboard(
             clipboard::files::write_file_paths(paths)
         }
     }
-}
-
-fn deliver_text(text: String) {
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis(120));
-        text_delivery::insert_at_focus(&text);
-    });
 }

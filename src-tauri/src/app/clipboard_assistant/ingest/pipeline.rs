@@ -36,9 +36,11 @@ pub fn start_monitoring(app: AppHandle, state: Arc<ClipboardAssistantState>) -> 
             if rx.try_recv().is_ok() {
                 break;
             }
+            // suppress：本进程粘贴会话写板中；Transient：OS 瞬时标记（不改 last_fp）
             if is_session_locked(&app)
                 || !settings::is_monitoring_enabled()
                 || clipboard::is_record_suppressed()
+                || clipboard::transient::is_marked_transient()
             {
                 thread::sleep(Duration::from_millis(350));
                 continue;

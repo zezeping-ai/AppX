@@ -47,18 +47,26 @@ pub fn read_system_unlocked() -> RichFormats {
     }
 }
 
-/// 写入系统剪贴板富文本（已加 pasteboard 锁）。
+/// 写入系统剪贴板富文本（锁 + 抑制入库）。
 pub fn write_system(formats: &RichFormats, plain_text: Option<&str>) -> Result<(), String> {
     if formats.is_empty() {
         return Err("富文本内容缺失".to_string());
     }
-    crate::app::clipboard::with_pasteboard_lock(|| write_system_unlocked(formats, plain_text))
+    crate::app::clipboard::with_pasteboard_lock(|| {
+        crate::app::clipboard::with_record_suppressed(|| {
+            write_system_unlocked(formats, plain_text)
+        })
+    })
 }
 
-fn write_system_unlocked(
+/// 已持锁写入；不抑制、不打 Transient（由调用方 / transient 负责）。
+pub(crate) fn write_system_unlocked(
     formats: &RichFormats,
     plain_text: Option<&str>,
 ) -> Result<(), String> {
+    if formats.is_empty() {
+        return Err("富文本内容缺失".to_string());
+    }
     #[cfg(target_os = "macos")]
     {
         return macos::write_unlocked(formats, plain_text);
@@ -87,7 +95,6 @@ mod macos {
     use objc2_foundation::{NSData, NSString};
 
     use super::RichFormats;
-    use crate::app::clipboard;
 
     fn read_type(pasteboard: &NSPasteboard, ty: &objc2_app_kit::NSPasteboardType) -> Option<Vec<u8>> {
         let data = pasteboard.dataForType(ty)?;
@@ -107,33 +114,31 @@ mod macos {
     }
 
     pub fn write_unlocked(formats: &RichFormats, plain_text: Option<&str>) -> Result<(), String> {
-        clipboard::with_record_suppressed(|| {
-            let pasteboard = NSPasteboard::generalPasteboard();
-            pasteboard.clearContents();
+        let pasteboard = NSPasteboard::generalPasteboard();
+        pasteboard.clearContents();
 
-            if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
-                let data = NSData::with_bytes(html.as_bytes());
-                if !unsafe { pasteboard.setData_forType(Some(&data), NSPasteboardTypeHTML) } {
-                    return Err("写入 HTML 剪贴板失败".to_string());
-                }
+        if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
+            let data = NSData::with_bytes(html.as_bytes());
+            if !unsafe { pasteboard.setData_forType(Some(&data), NSPasteboardTypeHTML) } {
+                return Err("写入 HTML 剪贴板失败".to_string());
             }
+        }
 
-            if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
-                let data = NSData::with_bytes(rtf);
-                if !unsafe { pasteboard.setData_forType(Some(&data), NSPasteboardTypeRTF) } {
-                    return Err("写入 RTF 剪贴板失败".to_string());
-                }
+        if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
+            let data = NSData::with_bytes(rtf);
+            if !unsafe { pasteboard.setData_forType(Some(&data), NSPasteboardTypeRTF) } {
+                return Err("写入 RTF 剪贴板失败".to_string());
             }
+        }
 
-            if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
-                let ns = NSString::from_str(text);
-                if !unsafe { pasteboard.setString_forType(&ns, NSPasteboardTypeString) } {
-                    return Err("写入纯文本剪贴板失败".to_string());
-                }
+        if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
+            let ns = NSString::from_str(text);
+            if !unsafe { pasteboard.setString_forType(&ns, NSPasteboardTypeString) } {
+                return Err("写入纯文本剪贴板失败".to_string());
             }
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 }
 
@@ -153,7 +158,6 @@ mod windows {
     };
 
     use super::RichFormats;
-    use crate::app::clipboard;
 
     fn register_format(name: &str) -> u32 {
         let wide: Vec<u16> = name.encode_utf16().chain([0]).collect();
@@ -208,36 +212,34 @@ mod windows {
     }
 
     pub fn write_unlocked(formats: &RichFormats, plain_text: Option<&str>) -> Result<(), String> {
-        clipboard::with_record_suppressed(|| {
-            unsafe {
-                OpenClipboard(None).map_err(|e| format!("打开剪贴板失败：{e}"))?;
-                EmptyClipboard()
-                    .map_err(|e| format!("清空剪贴板失败：{e}"))?;
+        unsafe {
+            OpenClipboard(None).map_err(|e| format!("打开剪贴板失败：{e}"))?;
+            EmptyClipboard()
+                .map_err(|e| format!("清空剪贴板失败：{e}"))?;
 
-                let html_format = register_format("HTML Format");
-                let rtf_format = register_format("Rich Text Format");
-                let unicode_format = 13u32; // CF_UNICODETEXT
+            let html_format = register_format("HTML Format");
+            let rtf_format = register_format("Rich Text Format");
+            let unicode_format = 13u32; // CF_UNICODETEXT
 
-                if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
-                    write_format(html_format, html.as_bytes())?;
-                }
-                if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
-                    write_format(rtf_format, rtf)?;
-                }
-                if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
-                    let wide: Vec<u16> = text.encode_utf16().chain([0]).collect();
-                    let mut bytes = Vec::with_capacity(wide.len() * 2);
-                    for unit in &wide {
-                        bytes.extend_from_slice(&unit.to_le_bytes());
-                    }
-                    write_format(unicode_format, &bytes)?;
-                }
-
-                CloseClipboard()
-                    .map_err(|e| format!("关闭剪贴板失败：{e}"))?;
-                Ok(())
+            if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
+                write_format(html_format, html.as_bytes())?;
             }
-        })
+            if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
+                write_format(rtf_format, rtf)?;
+            }
+            if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
+                let wide: Vec<u16> = text.encode_utf16().chain([0]).collect();
+                let mut bytes = Vec::with_capacity(wide.len() * 2);
+                for unit in &wide {
+                    bytes.extend_from_slice(&unit.to_le_bytes());
+                }
+                write_format(unicode_format, &bytes)?;
+            }
+
+            CloseClipboard()
+                .map_err(|e| format!("关闭剪贴板失败：{e}"))?;
+            Ok(())
+        }
     }
 }
 
@@ -249,7 +251,6 @@ mod linux {
     use arboard::Clipboard;
 
     use super::RichFormats;
-    use crate::app::clipboard;
 
     fn read_mime(mime: &str) -> Option<Vec<u8>> {
         for (bin, args) in [
@@ -312,26 +313,24 @@ mod linux {
     }
 
     pub fn write_unlocked(formats: &RichFormats, plain_text: Option<&str>) -> Result<(), String> {
-        clipboard::with_record_suppressed(|| {
-            let wrote_html = formats
-                .html
-                .as_ref()
-                .is_some_and(|value| !value.trim().is_empty());
-            if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
-                write_mime("text/html", html.as_bytes())?;
+        let wrote_html = formats
+            .html
+            .as_ref()
+            .is_some_and(|value| !value.trim().is_empty());
+        if let Some(html) = formats.html.as_ref().filter(|s| !s.trim().is_empty()) {
+            write_mime("text/html", html.as_bytes())?;
+        }
+        if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
+            write_mime("text/rtf", rtf)?;
+        }
+        if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
+            if !wrote_html {
+                Clipboard::new()
+                    .map_err(|err| format!("无法访问剪贴板：{err}"))?
+                    .set_text(text.to_string())
+                    .map_err(|err| format!("写入剪贴板失败：{err}"))?;
             }
-            if let Some(rtf) = formats.rtf.as_ref().filter(|b| !b.is_empty()) {
-                write_mime("text/rtf", rtf)?;
-            }
-            if let Some(text) = plain_text.filter(|s| !s.is_empty()) {
-                if !wrote_html {
-                    Clipboard::new()
-                        .map_err(|err| format!("无法访问剪贴板：{err}"))?
-                        .set_text(text.to_string())
-                        .map_err(|err| format!("写入剪贴板失败：{err}"))?;
-                }
-            }
-            Ok(())
-        })
+        }
+        Ok(())
     }
 }

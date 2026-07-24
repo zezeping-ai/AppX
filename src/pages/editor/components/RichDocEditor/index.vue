@@ -10,6 +10,7 @@ import {
   parseAxdocContent,
   serializeAxdoc,
 } from "@/modules/editor/axdoc";
+import { RichDocCodeBlock } from "./CodeBlock/extension";
 import RichDocToolbar from "./Toolbar.vue";
 
 const props = withDefaults(
@@ -35,7 +36,10 @@ const editor = useEditor({
   content: initialParse.doc,
   editable: canEdit.value,
   extensions: [
-    StarterKit,
+    StarterKit.configure({
+      codeBlock: false,
+    }),
+    RichDocCodeBlock,
     Placeholder.configure({
       placeholder: "开始写作…",
     }),
@@ -174,18 +178,96 @@ tryOnScopeDispose(() => {
       color: var(--app-fg-secondary);
     }
 
-    pre {
-      padding: 10px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--app-border);
-      background: var(--app-code-bg);
-      color: var(--app-code-fg);
-      overflow-x: auto;
-      font-size: 13px;
+    /* 代码块外壳由 CodeBlockView 负责；此处只保留语法高亮 token */
+    .code-block pre code .hljs-comment,
+    .code-block pre code .hljs-quote {
+      color: var(--app-fg-muted);
+      font-style: italic;
     }
 
-    code {
+    .code-block pre code .hljs-keyword,
+    .code-block pre code .hljs-selector-tag {
+      color: #7c3aed;
+    }
+
+    .code-block pre code .hljs-string,
+    .code-block pre code .hljs-doctag,
+    .code-block pre code .hljs-template-variable {
+      color: #059669;
+    }
+
+    .code-block pre code .hljs-number,
+    .code-block pre code .hljs-literal {
+      color: #d97706;
+    }
+
+    .code-block pre code .hljs-title,
+    .code-block pre code .hljs-section,
+    .code-block pre code .hljs-selector-id {
+      color: #2563eb;
+    }
+
+    .code-block pre code .hljs-attr,
+    .code-block pre code .hljs-attribute,
+    .code-block pre code .hljs-variable,
+    .code-block pre code .hljs-template-tag {
+      color: #0891b2;
+    }
+
+    .code-block pre code .hljs-built_in,
+    .code-block pre code .hljs-type,
+    .code-block pre code .hljs-params {
+      color: #db2777;
+    }
+
+    .code-block pre code .hljs-meta,
+    .code-block pre code .hljs-regexp {
+      color: #ea580c;
+    }
+
+    [data-theme="dark"] & {
+      .code-block pre code .hljs-keyword,
+      .code-block pre code .hljs-selector-tag {
+        color: #c4b5fd;
+      }
+
+      .code-block pre code .hljs-string,
+      .code-block pre code .hljs-doctag {
+        color: #6ee7b7;
+      }
+
+      .code-block pre code .hljs-number {
+        color: #fbbf24;
+      }
+
+      .code-block pre code .hljs-title,
+      .code-block pre code .hljs-section {
+        color: #93c5fd;
+      }
+
+      .code-block pre code .hljs-attr,
+      .code-block pre code .hljs-attribute,
+      .code-block pre code .hljs-variable {
+        color: #67e8f9;
+      }
+
+      .code-block pre code .hljs-built_in,
+      .code-block pre code .hljs-type {
+        color: #f9a8d4;
+      }
+
+      .code-block pre code .hljs-meta,
+      .code-block pre code .hljs-regexp {
+        color: #fdba74;
+      }
+    }
+
+    /* 行内 code（非代码块） */
+    :not(pre) > code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      background: var(--app-surface-muted);
     }
 
     p.is-editor-empty:first-child::before {
