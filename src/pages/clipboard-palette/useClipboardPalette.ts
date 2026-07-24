@@ -118,6 +118,7 @@ export function useClipboardPalette() {
   ) {
     if (!item) return;
     try {
+      // 音效由 Rust apply / ingest 播放
       await applyItem(item.id, action, resolveFormat(format));
     } catch (error) {
       console.error(getErrorMessage(error, action === "copy" ? "拷贝失败" : "粘贴失败"));

@@ -52,11 +52,8 @@ const activeSection = computed(
       :theme="siderTheme"
       class="preferences-sider h-screen sticky top-0 overflow-auto app-border-end"
     >
-      <div class="px-3.5 pt-3.5 pb-2.5">
+      <div class="px-3 pt-3 pb-2">
         <a-typography-title :level="5" class="m-0!">偏好设置</a-typography-title>
-        <a-typography-text type="secondary" class="block mt-1.5 text-[11px] leading-snug">
-          配置会自动保存到本地
-        </a-typography-text>
       </div>
 
       <a-menu
@@ -89,8 +86,8 @@ const activeSection = computed(
     </a-layout-sider>
 
     <a-layout class="h-screen overflow-hidden">
-      <a-layout-content class="preferences-content h-screen overflow-auto p-4">
-        <div class="mx-auto flex w-full max-w-4xl flex-col">
+      <a-layout-content class="preferences-content h-screen overflow-auto p-3">
+        <div class="mx-auto flex w-full max-w-2xl flex-col">
           <component :is="activeSection.component" />
         </div>
       </a-layout-content>

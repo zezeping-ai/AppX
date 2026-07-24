@@ -14,6 +14,7 @@ mod palette_geometry;
 mod payload;
 mod protocol;
 mod session;
+mod sounds;
 mod storage;
 pub mod settings;
 mod state;
@@ -52,6 +53,11 @@ pub fn setup(app: &AppHandle) -> Result<(), String> {
         ingest::start_monitoring(app.clone(), state)?;
     }
 
+    // 仅未锁定时预创建；锁定启动时创建会干扰主窗口激活/解锁页
+    if !is_session_locked(app) {
+        palette::ensure_window_ready(app);
+    }
+
     Ok(())
 }
 
@@ -75,5 +81,6 @@ pub fn refresh_runtime(app: &AppHandle) -> Result<(), String> {
 /// 解锁后或设置变更时，由前端触发同步运行时（监听 / 快捷键链）。
 pub fn sync_runtime(app: &AppHandle) -> Result<(), String> {
     refresh_runtime(app)?;
+    palette::ensure_window_ready(app);
     crate::app::code_snippets::refresh_runtime(app)
 }

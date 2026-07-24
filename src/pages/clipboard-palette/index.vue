@@ -196,12 +196,9 @@ function onClipboardChanged() {
 onMounted(() => {
   window.addEventListener("appx:clipboard-palette-open", onPaletteOpen);
   window.addEventListener("appx:clipboard-changed", onClipboardChanged);
-  void (async () => {
-    if (!(await ensureUsableOrHide())) return;
-    await bootstrapPalette();
-    focusSearch(searchInputRef.value, openSearchOnShow.value);
-  })();
   window.addEventListener("keydown", onKeydown);
+  // 预创建的隐藏窗口仅暖机；勿在挂载时因瞬时 IPC 失败把面板关掉
+  void bootstrapPalette().catch(() => {});
 });
 
 onUnmounted(() => {

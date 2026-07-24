@@ -7,8 +7,12 @@ import {
   getStatus,
   saveSettings,
   normalizePaletteLayout,
+  pickClipboardSoundFile,
+  playClipboardSound,
+  soundFileLabel,
   type ClipboardAssistantSettings,
   type ClipboardAssistantStatus,
+  type ClipboardSoundKind,
   type PaletteLayout,
 } from "@/modules/clipboardAssistant";
 import { setGlobalShortcutsPaused } from "@/modules/globalShortcut";
@@ -30,6 +34,10 @@ const paletteLayout = ref<PaletteLayout>("bottomPanel");
 const paletteMaxItems = ref(80);
 const autoHideOnPaste = ref(true);
 const clearOnLock = ref(false);
+const copySoundEnabled = ref(true);
+const pasteSoundEnabled = ref(true);
+const copySoundPath = ref("");
+const pasteSoundPath = ref("");
 
 let lastPersistedShortcut = paletteShortcut.value;
 
@@ -48,6 +56,10 @@ function applySettings(settings: ClipboardAssistantSettings) {
   paletteMaxItems.value = settings.paletteMaxItems;
   autoHideOnPaste.value = settings.autoHideOnPaste;
   clearOnLock.value = settings.clearOnLock;
+  copySoundEnabled.value = settings.copySoundEnabled ?? true;
+  pasteSoundEnabled.value = settings.pasteSoundEnabled ?? true;
+  copySoundPath.value = settings.copySoundPath ?? "";
+  pasteSoundPath.value = settings.pasteSoundPath ?? "";
   lastPersistedShortcut = settings.paletteShortcut;
 }
 
@@ -64,6 +76,10 @@ function currentInput(): ClipboardAssistantSettings {
     paletteMaxItems: paletteMaxItems.value,
     autoHideOnPaste: autoHideOnPaste.value,
     clearOnLock: clearOnLock.value,
+    copySoundEnabled: copySoundEnabled.value,
+    pasteSoundEnabled: pasteSoundEnabled.value,
+    copySoundPath: copySoundPath.value,
+    pasteSoundPath: pasteSoundPath.value,
   } as ClipboardAssistantSettings;
 }
 
@@ -160,6 +176,49 @@ async function onToggleClearOnLock(checked: boolean) {
   await persistSettings(checked ? "已开启：锁定时清空未固定" : "已关闭：锁定时清空未固定");
 }
 
+async function onToggleCopySound(checked: boolean) {
+  copySoundEnabled.value = checked;
+  await persistSettings(checked ? "已开启复制音效" : "已关闭复制音效");
+}
+
+async function onTogglePasteSound(checked: boolean) {
+  pasteSoundEnabled.value = checked;
+  await persistSettings(checked ? "已开启粘贴音效" : "已关闭粘贴音效");
+}
+
+async function onPreviewSound(kind: ClipboardSoundKind) {
+  await playClipboardSound(kind, {
+    force: true,
+    path: kind === "copy" ? copySoundPath.value : pasteSoundPath.value,
+  });
+}
+
+async function onPickSound(kind: ClipboardSoundKind) {
+  if (saving.value || loading.value || !featuresActive.value) return;
+  try {
+    const picked = await pickClipboardSoundFile();
+    if (!picked) return;
+    if (kind === "copy") copySoundPath.value = picked;
+    else pasteSoundPath.value = picked;
+    await persistSettings(kind === "copy" ? "复制音效已更新" : "粘贴音效已更新");
+    await onPreviewSound(kind);
+  } catch (error) {
+    message.error(getErrorMessage(error, "选择音效失败"));
+  }
+}
+
+async function onResetSound(kind: ClipboardSoundKind) {
+  if (kind === "copy") {
+    if (!copySoundPath.value) return;
+    copySoundPath.value = "";
+  } else {
+    if (!pasteSoundPath.value) return;
+    pasteSoundPath.value = "";
+  }
+  await persistSettings(kind === "copy" ? "已恢复默认复制音效" : "已恢复默认粘贴音效");
+  await onPreviewSound(kind);
+}
+
 onMounted(() => {
   void refresh();
 });
@@ -167,9 +226,9 @@ onMounted(() => {
 
 <template>
   <a-spin :spinning="loading">
-    <div class="clipboard-settings">
-      <a-card title="全局功能" size="small" class="clipboard-settings__card">
-        <a-space direction="vertical" size="middle" class="w-full">
+    <a-space direction="vertical" size="small" class="clipboard-settings">
+      <a-card title="全局功能" size="small" :bordered="false">
+        <a-space direction="vertical" size="small" class="w-full">
           <a-checkbox
             :checked="enabled"
             :disabled="saving || loading"
@@ -177,9 +236,6 @@ onMounted(() => {
           >
             启用剪切助手
           </a-checkbox>
-          <a-typography-text type="secondary" class="clipboard-settings__desc">
-            关闭后，剪贴板监听与浮层快捷键将全部停用；须先解锁应用后才会生效。子项开关保留配置，重新开启总开关后按各自状态恢复。
-          </a-typography-text>
 
           <div
             class="clipboard-settings__switches app-surface-muted"
@@ -197,123 +253,281 @@ onMounted(() => {
               :disabled="!featuresActive || saving || loading"
               @update:checked="onTogglePalette"
             >
-              启用浮层快捷键（默认 {{ paletteShortcutLabel }}）
+              浮层快捷键（{{ paletteShortcutLabel }}）
             </a-checkbox>
           </div>
         </a-space>
       </a-card>
 
-      <a-card title="历史与浮层" size="small" class="clipboard-settings__card">
-        <a-form layout="vertical">
-          <a-form-item label="历史条数上限">
-            <a-input-number
-              :value="maxHistoryItems"
-              :min="50"
-              :max="5000"
-              :disabled="!featuresActive || saving || loading"
-              style="width: 100%"
-              @update:value="onMaxHistoryItemsChange"
-            />
-          </a-form-item>
-          <a-form-item label="呼出快捷键">
-            <ShortcutRecorder
-              v-model:value="paletteShortcut"
-              :on-recording-change="setGlobalShortcutsPaused"
-              @update:value="onPaletteShortcutChange"
-            />
-          </a-form-item>
-          <a-form-item label="浮层布局">
-            <a-radio-group
-              :value="paletteLayout"
-              :disabled="!paletteActive || saving || loading"
-              @change="onPaletteLayoutChange"
-            >
-              <a-radio value="topPanel">顶部</a-radio>
-              <a-radio value="bottomPanel">底部</a-radio>
-              <a-radio value="leftPanel">左侧</a-radio>
-              <a-radio value="rightPanel">右侧</a-radio>
-            </a-radio-group>
-          </a-form-item>
-          <a-form-item label="浮层最大条目">
-            <a-input-number
-              :value="paletteMaxItems"
-              :min="20"
-              :max="200"
-              :disabled="!paletteActive || saving || loading"
-              style="width: 100%"
-              @update:value="onPaletteMaxItemsChange"
-            />
-          </a-form-item>
-        </a-form>
+      <a-card title="历史与浮层" size="small" :bordered="false">
+        <div class="clipboard-settings__rows">
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">历史条数上限</span>
+            <div class="clipboard-settings__value">
+              <a-input-number
+                :value="maxHistoryItems"
+                size="small"
+                :min="50"
+                :max="5000"
+                :disabled="!featuresActive || saving || loading"
+                class="clipboard-settings__number"
+                @update:value="onMaxHistoryItemsChange"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">呼出快捷键</span>
+            <div class="clipboard-settings__value">
+              <ShortcutRecorder
+                v-model:value="paletteShortcut"
+                :on-recording-change="setGlobalShortcutsPaused"
+                @update:value="onPaletteShortcutChange"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">浮层布局</span>
+            <div class="clipboard-settings__value">
+              <a-radio-group
+                :value="paletteLayout"
+                size="small"
+                :disabled="!paletteActive || saving || loading"
+                @change="onPaletteLayoutChange"
+              >
+                <a-radio-button value="topPanel">上</a-radio-button>
+                <a-radio-button value="bottomPanel">下</a-radio-button>
+                <a-radio-button value="leftPanel">左</a-radio-button>
+                <a-radio-button value="rightPanel">右</a-radio-button>
+              </a-radio-group>
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">浮层最大条目</span>
+            <div class="clipboard-settings__value">
+              <a-input-number
+                :value="paletteMaxItems"
+                size="small"
+                :min="20"
+                :max="200"
+                :disabled="!paletteActive || saving || loading"
+                class="clipboard-settings__number"
+                @update:value="onPaletteMaxItemsChange"
+              />
+            </div>
+          </div>
+        </div>
       </a-card>
 
-      <a-card title="行为与隐私" size="small" class="clipboard-settings__card">
-        <a-form layout="vertical">
-          <a-form-item label="粘贴后自动关闭浮层">
-            <a-switch
-              :checked="autoHideOnPaste"
-              :disabled="!featuresActive || saving || loading"
-              @update:checked="onToggleAutoHideOnPaste"
-            />
-          </a-form-item>
-          <a-form-item label="锁定时清空未固定">
-            <a-switch
-              :checked="clearOnLock"
-              :disabled="!featuresActive || saving || loading"
-              @update:checked="onToggleClearOnLock"
-            />
-          </a-form-item>
-        </a-form>
+      <a-card title="行为" size="small" :bordered="false">
+        <div class="clipboard-settings__rows">
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">粘贴后关闭浮层</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="autoHideOnPaste"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleAutoHideOnPaste"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">锁定时清空未固定</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="clearOnLock"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleClearOnLock"
+              />
+            </div>
+          </div>
+        </div>
       </a-card>
 
-      <a-card v-if="status" title="状态" size="small" class="clipboard-settings__card">
-        <a-descriptions :column="1" size="small">
-          <a-descriptions-item label="功能">
+      <a-card title="音效" size="small" :bordered="false">
+        <div class="clipboard-settings__rows">
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">
+              复制音效
+              <span
+                v-if="copySoundPath"
+                class="clipboard-settings__hint"
+                :title="copySoundPath"
+              >
+                · {{ soundFileLabel(copySoundPath) }}
+              </span>
+            </span>
+            <div class="clipboard-settings__value">
+              <a-space size="small">
+                <a-button
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onPreviewSound('copy')"
+                >
+                  试听
+                </a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onPickSound('copy')"
+                >
+                  更换
+                </a-button>
+                <a-button
+                  v-if="copySoundPath"
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onResetSound('copy')"
+                >
+                  默认
+                </a-button>
+                <a-switch
+                  size="small"
+                  :checked="copySoundEnabled"
+                  :disabled="!featuresActive || saving || loading"
+                  @update:checked="onToggleCopySound"
+                />
+              </a-space>
+            </div>
+          </div>
+
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">
+              粘贴音效
+              <span
+                v-if="pasteSoundPath"
+                class="clipboard-settings__hint"
+                :title="pasteSoundPath"
+              >
+                · {{ soundFileLabel(pasteSoundPath) }}
+              </span>
+            </span>
+            <div class="clipboard-settings__value">
+              <a-space size="small">
+                <a-button
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onPreviewSound('paste')"
+                >
+                  试听
+                </a-button>
+                <a-button
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onPickSound('paste')"
+                >
+                  更换
+                </a-button>
+                <a-button
+                  v-if="pasteSoundPath"
+                  type="link"
+                  size="small"
+                  class="clipboard-settings__link"
+                  :disabled="!featuresActive || saving || loading"
+                  @click="onResetSound('paste')"
+                >
+                  默认
+                </a-button>
+                <a-switch
+                  size="small"
+                  :checked="pasteSoundEnabled"
+                  :disabled="!featuresActive || saving || loading"
+                  @update:checked="onTogglePasteSound"
+                />
+              </a-space>
+            </div>
+          </div>
+        </div>
+      </a-card>
+
+      <a-card v-if="status" title="状态" size="small" :bordered="false">
+        <a-space size="small" wrap>
+          <a-tag :color="status.paletteActive || status.monitoringActive ? 'success' : 'default'">
             {{ status.paletteActive || status.monitoringActive ? "运行中" : "已停用" }}
-          </a-descriptions-item>
-          <a-descriptions-item label="监听">
-            {{ status.monitoringActive ? "运行中" : "已暂停" }}
-          </a-descriptions-item>
-          <a-descriptions-item label="浮层快捷键">
-            {{ formatShortcutLabel(status.paletteShortcut) }}
-          </a-descriptions-item>
-          <a-descriptions-item label="条目">
-            {{ status.totalCount }}（固定 {{ status.pinnedCount }}）
-          </a-descriptions-item>
-        </a-descriptions>
+          </a-tag>
+          <a-tag :color="status.monitoringActive ? 'success' : 'default'">
+            监听 {{ status.monitoringActive ? "运行中" : "暂停" }}
+          </a-tag>
+          <a-tag>{{ formatShortcutLabel(status.paletteShortcut) }}</a-tag>
+          <a-tag>{{ status.totalCount }} 条（固定 {{ status.pinnedCount }}）</a-tag>
+        </a-space>
       </a-card>
-    </div>
+    </a-space>
   </a-spin>
 </template>
 
 <style scoped lang="scss">
 .clipboard-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   width: 100%;
-  max-width: 760px;
-}
-
-.clipboard-settings__card {
-  background: var(--app-surface);
-}
-
-.clipboard-settings__desc {
-  display: block;
-  font-size: 12px;
-  line-height: 1.45;
+  max-width: 640px;
 }
 
 .clipboard-settings__switches {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
 
   &--disabled {
     opacity: 0.55;
   }
+}
+
+.clipboard-settings__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.clipboard-settings__row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 36px;
+  padding: 2px 0;
+
+  & + & {
+    border-top: 1px solid var(--app-border, rgba(0, 0, 0, 0.06));
+  }
+}
+
+.clipboard-settings__label {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--app-fg);
+}
+
+.clipboard-settings__value {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.clipboard-settings__number {
+  width: 112px;
+}
+
+.clipboard-settings__hint {
+  margin-left: 4px;
+  color: var(--app-fg-subtle);
+  font-weight: 400;
+}
+
+.clipboard-settings__link {
+  padding-inline: 0 !important;
+  height: auto !important;
 }
 </style>

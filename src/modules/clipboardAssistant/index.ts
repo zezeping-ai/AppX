@@ -41,4 +41,10 @@ export {
   saveSettings,
   syncClipboardAssistantRuntime,
 } from "@/modules/clipboardAssistant/client";
+export {
+  pickClipboardSoundFile,
+  playClipboardSound,
+  soundFileLabel,
+  type ClipboardSoundKind,
+} from "@/modules/clipboardAssistant/sounds";
 export { bootstrapClipboardAssistantAfterUnlock } from "@/modules/clipboardAssistant/bootstrap";

@@ -30,6 +30,7 @@ pub fn apply_item(
     if action == ApplyAction::Copy {
         write_to_clipboard(kind, format, plain_text.as_deref(), paths.as_deref(), blob.as_deref(), rich_formats.as_ref())?;
         touch_item(state, id, None)?;
+        super::super::sounds::play(app, super::super::sounds::SoundKind::Copy, None, false);
         if settings.auto_hide_on_paste {
             hide_palette_window(app)?;
         }
@@ -38,6 +39,7 @@ pub fn apply_item(
 
     hide_palette_window(app)?;
     focus_target::restore();
+    super::super::sounds::play(app, super::super::sounds::SoundKind::Paste, None, false);
 
     if format == ApplyFormat::Rich
         && rich_formats.as_ref().is_some_and(|formats| formats.has_content())

@@ -124,6 +124,14 @@ export type ClipboardAssistantSettings = {
   compressOversizedImages: boolean;
   excludedApps: string[];
   clearOnLock: boolean;
+  /** 复制音效开关，默认开启 */
+  copySoundEnabled: boolean;
+  /** 粘贴音效开关，默认开启 */
+  pasteSoundEnabled: boolean;
+  /** 自定义复制音效路径；空则用内置默认 */
+  copySoundPath: string;
+  /** 自定义粘贴音效路径；空则用内置默认 */
+  pasteSoundPath: string;
 };
 
 export type SaveClipboardAssistantSettingsInput = ClipboardAssistantSettings;

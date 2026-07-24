@@ -24,5 +24,6 @@ fn on_unlocked(app: &AppHandle) -> Result<(), String> {
     if !is_session_locked(app) && settings::is_monitoring_enabled() {
         ingest::restart_monitoring(app)?;
     }
+    palette::ensure_window_ready(app);
     crate::app::code_snippets::refresh_runtime(app)
 }

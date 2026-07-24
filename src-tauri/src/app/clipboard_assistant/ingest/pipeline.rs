@@ -26,52 +26,31 @@ pub fn start_monitoring(app: AppHandle, state: Arc<ClipboardAssistantState>) -> 
     MONITORING.store(true, Ordering::Relaxed);
 
     let handle = thread::spawn(move || {
-        let mut last_fp = String::new();
+        // 以当前剪贴板为基线：启动/解锁重启只对齐状态，不视为一次「新复制」
+        let mut last_fp = read_once()
+            .ok()
+            .map(|read| fingerprint(&read))
+            .unwrap_or_default();
+
         while MONITORING.load(Ordering::Relaxed) {
             if rx.try_recv().is_ok() {
                 break;
             }
-            if is_session_locked(&app) || !settings::is_monitoring_enabled() || clipboard::is_record_suppressed() {
+            if is_session_locked(&app)
+                || !settings::is_monitoring_enabled()
+                || clipboard::is_record_suppressed()
+            {
                 thread::sleep(Duration::from_millis(350));
                 continue;
             }
             if let Ok(read) = read_once() {
                 let fp = fingerprint(&read);
-                if fp != last_fp {
-                    last_fp = fp;
-                    let Some(mut payload) = classify(read) else {
-                        thread::sleep(Duration::from_millis(350));
-                        continue;
-                    };
-                    if let Some(bytes) = payload.image_bytes.take() {
-                        let dimensions = payload.image_dimensions.take();
-                        let bytes = match super::super::thumb::normalize_image_bytes(bytes, dimensions)
-                        {
-                            Ok(bytes) => bytes,
-                            Err(_) => {
-                                thread::sleep(Duration::from_millis(350));
-                                continue;
-                            }
-                        };
-                        let snap = state
-                            .settings()
-                            .unwrap_or_else(|_| super::super::settings::snapshot(&state.app));
-                        let compressed = maybe_compress_image(
-                            bytes,
-                            snap.max_image_blob_bytes,
-                            snap.max_image_blob_hard_bytes,
-                            snap.compress_oversized_images,
-                        );
-                        let Some(bytes) = compressed else {
-                            thread::sleep(Duration::from_millis(350));
-                            continue;
-                        };
-                        payload.image_bytes = Some(bytes);
-                    }
-                    let (bundle, name) = frontmost_app();
-                    let _ = ingest_capture(&state, payload, bundle, name);
-                    let _ = app.emit("appx:clipboard-changed", ());
+                if fp == last_fp {
+                    thread::sleep(Duration::from_millis(350));
+                    continue;
                 }
+                last_fp = fp;
+                handle_clipboard_change(&app, &state, read);
             }
             thread::sleep(Duration::from_millis(350));
         }
@@ -82,6 +61,39 @@ pub fn start_monitoring(app: AppHandle, state: Arc<ClipboardAssistantState>) -> 
         .map_err(|_| "监控线程锁失败".to_string())? = Some(handle);
 
     Ok(())
+}
+
+fn handle_clipboard_change(
+    app: &AppHandle,
+    state: &Arc<ClipboardAssistantState>,
+    read: super::reader::ClipboardRead,
+) {
+    let Some(mut payload) = classify(read) else {
+        return;
+    };
+    if let Some(bytes) = payload.image_bytes.take() {
+        let dimensions = payload.image_dimensions.take();
+        let Ok(bytes) = super::super::thumb::normalize_image_bytes(bytes, dimensions) else {
+            return;
+        };
+        let snap = state
+            .settings()
+            .unwrap_or_else(|_| super::super::settings::snapshot(&state.app));
+        let Some(bytes) = maybe_compress_image(
+            bytes,
+            snap.max_image_blob_bytes,
+            snap.max_image_blob_hard_bytes,
+            snap.compress_oversized_images,
+        ) else {
+            return;
+        };
+        payload.image_bytes = Some(bytes);
+    }
+    let (bundle, name) = frontmost_app();
+    let _ = ingest_capture(state, payload, bundle, name);
+    // 仅真实变化（相对基线）才播复制音效
+    super::super::sounds::play(app, super::super::sounds::SoundKind::Copy, None, false);
+    let _ = app.emit("appx:clipboard-changed", ());
 }
 
 pub fn stop_monitoring() {

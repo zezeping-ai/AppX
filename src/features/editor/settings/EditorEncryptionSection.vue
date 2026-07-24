@@ -18,10 +18,6 @@ const canSave = computed(
   () => passphrase.value.trim() !== savedPassphrase.value.trim(),
 );
 
-const globalPassphraseHint = computed(
-  () => `未单独配置，使用「${SECURITY_PASSPHRASE_SOURCE}」`,
-);
-
 async function refresh() {
   loading.value = true;
   try {
@@ -86,62 +82,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <a-card :bordered="false" :loading="loading" class="editor-encryption">
-    <div class="editor-encryption__header">
-      <a-typography-title :level="5" class="editor-encryption__title">加密（.x）</a-typography-title>
-    </div>
-
-    <a-typography-text
-      v-if="usesGlobalPassphrase"
-      type="secondary"
-      class="editor-encryption__status"
-    >
-      {{ globalPassphraseHint }}
-    </a-typography-text>
-
-    <div class="editor-encryption__body">
-      <a-input-password
-        v-model:value="passphrase"
-        :placeholder="`留空则使用「${SECURITY_PASSPHRASE_SOURCE}」`"
-        autocomplete="new-password"
-        allow-clear
-      />
-      <a-button type="primary" :loading="saving" :disabled="!canSave" @click="onSave">
-        保存
-      </a-button>
-    </div>
+  <a-card title="加密（.x）" size="small" :bordered="false" :loading="loading">
+    <a-space direction="vertical" size="small" class="w-full">
+      <a-typography-text v-if="usesGlobalPassphrase" type="secondary" class="text-[12px]">
+        使用全局默认口令
+      </a-typography-text>
+      <div class="editor-encryption__body">
+        <a-input-password
+          v-model:value="passphrase"
+          size="small"
+          placeholder="留空则使用全局默认口令"
+          autocomplete="new-password"
+          allow-clear
+        />
+        <a-button type="primary" size="small" :loading="saving" :disabled="!canSave" @click="onSave">
+          保存
+        </a-button>
+      </div>
+    </a-space>
   </a-card>
 </template>
 
 <style scoped lang="scss">
-.editor-encryption {
-  width: 100%;
-  border-radius: 10px;
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-}
-
-.editor-encryption__header {
-  margin-bottom: 8px;
-}
-
-.editor-encryption__title {
-  margin: 0;
-}
-
-.editor-encryption__status {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .editor-encryption__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 

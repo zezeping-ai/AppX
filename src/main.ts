@@ -12,6 +12,7 @@ import {
   Dropdown,
   Form,
   Input,
+  InputNumber,
   Layout,
   Menu,
   Modal,
@@ -19,9 +20,11 @@ import {
   Row,
   Select,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from "ant-design-vue";
 import "ant-design-vue/dist/reset.css";
@@ -58,6 +61,7 @@ const register = (name: string, component: any) => {
   Input,
   Input.Password,
   Input.TextArea,
+  InputNumber,
   Layout,
   Layout.Content,
   Layout.Sider,
@@ -71,10 +75,12 @@ const register = (name: string, component: any) => {
   Select,
   Select.Option,
   Space,
+  Spin,
   Switch,
   Table,
   Table.Column,
   Tag,
+  Tooltip,
   Typography,
   Typography.Title,
   Typography.Text,
@@ -92,6 +98,7 @@ register("ARadioButton", Radio.Button);
 register("ARadioGroup", Radio.Group);
 register("AInputPassword", Input.Password);
 register("ATextarea", Input.TextArea);
+register("AInputNumber", InputNumber);
 register("AMenuItem", Menu.Item);
 register("ADropdown", Dropdown);
 register("ADropdownButton", Dropdown.Button);
@@ -100,6 +107,8 @@ register("ALayoutContent", Layout.Content);
 register("AFormItem", Form.Item);
 register("ATableColumn", Table.Column);
 register("ASelectOption", Select.Option);
+register("ASpin", Spin);
+register("ATooltip", Tooltip);
 register("AApp", App);
 
 app.mount("#app");

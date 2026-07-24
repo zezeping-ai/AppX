@@ -53,6 +53,16 @@ pub struct ClipboardAssistantSettings {
     pub excluded_apps: Vec<String>,
     #[serde(default)]
     pub clear_on_lock: bool,
+    #[serde(default = "default_true")]
+    pub copy_sound_enabled: bool,
+    #[serde(default = "default_true")]
+    pub paste_sound_enabled: bool,
+    /// 空字符串表示使用内置默认音效
+    #[serde(default)]
+    pub copy_sound_path: String,
+    /// 空字符串表示使用内置默认音效
+    #[serde(default)]
+    pub paste_sound_path: String,
 }
 
 fn default_true() -> bool {
@@ -141,4 +151,8 @@ pub struct SaveClipboardAssistantSettingsInput {
     pub compress_oversized_images: bool,
     pub excluded_apps: Vec<String>,
     pub clear_on_lock: bool,
+    pub copy_sound_enabled: bool,
+    pub paste_sound_enabled: bool,
+    pub copy_sound_path: String,
+    pub paste_sound_path: String,
 }

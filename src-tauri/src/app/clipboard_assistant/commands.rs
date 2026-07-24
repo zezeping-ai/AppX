@@ -1,6 +1,10 @@
+use std::path::Path;
 use std::sync::Arc;
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use serde::Serialize;
 use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 
 use super::access::ensure_usable;
 use super::cleanup::{blob_dir_size, sweep_orphan_blobs};
@@ -144,6 +148,10 @@ pub fn clipboard_assistant_save_settings(
         compress_oversized_images: input.compress_oversized_images,
         excluded_apps: input.excluded_apps,
         clear_on_lock: input.clear_on_lock,
+        copy_sound_enabled: input.copy_sound_enabled,
+        paste_sound_enabled: input.paste_sound_enabled,
+        copy_sound_path: input.copy_sound_path.trim().to_string(),
+        paste_sound_path: input.paste_sound_path.trim().to_string(),
     };
     write_settings(&app, &settings)?;
     state.inner().reload_settings()?;
@@ -195,6 +203,75 @@ pub fn clipboard_assistant_get_status(
 #[tauri::command]
 pub fn clipboard_assistant_hide_palette(app: AppHandle) -> Result<(), String> {
     hide_palette_window(&app)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SoundFileData {
+    pub mime_type: String,
+    pub base64: String,
+}
+
+fn sound_mime(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("wav") => "audio/wav",
+        Some("ogg") => "audio/ogg",
+        Some("m4a") | Some("aac") => "audio/mp4",
+        Some("flac") => "audio/flac",
+        _ => "audio/mpeg",
+    }
+}
+
+#[tauri::command]
+pub async fn clipboard_assistant_pick_sound_file(app: AppHandle) -> Result<Option<String>, String> {
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("选择音效文件")
+        .add_filter("音频", &["mp3", "wav", "ogg", "m4a", "aac", "flac"])
+        .blocking_pick_file();
+
+    Ok(picked.map(|path| path.to_string()))
+}
+
+#[tauri::command]
+pub fn clipboard_assistant_read_sound_file(path: String) -> Result<SoundFileData, String> {
+    let path = Path::new(path.trim());
+    if !path.is_file() {
+        return Err("音效文件不存在".into());
+    }
+    let bytes = std::fs::read(path).map_err(|e| format!("读取音效失败：{e}"))?;
+    if bytes.len() > 2 * 1024 * 1024 {
+        return Err("音效文件过大（上限 2MB）".into());
+    }
+    Ok(SoundFileData {
+        mime_type: sound_mime(path).to_string(),
+        base64: BASE64.encode(bytes),
+    })
+}
+
+/// 试听或调试播放；`force` 忽略开关。
+#[tauri::command]
+pub fn clipboard_assistant_play_sound(
+    app: AppHandle,
+    kind: String,
+    path: Option<String>,
+    force: Option<bool>,
+) -> Result<(), String> {
+    let kind = super::sounds::SoundKind::parse(kind.trim())
+        .ok_or_else(|| "无效音效类型".to_string())?;
+    super::sounds::play(
+        &app,
+        kind,
+        path.as_deref(),
+        force.unwrap_or(false),
+    );
+    Ok(())
 }
 
 pub fn sweep_on_startup(state: &ClipboardAssistantState) -> Result<(), String> {

@@ -26,18 +26,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <a-card title="默认加密口令" :bordered="false" :loading="loading">
+  <a-card title="默认加密口令" size="small" :bordered="false" :loading="loading">
     <a-space direction="vertical" size="small" class="w-full">
       <a-input-password
         :value="passphrase"
+        size="small"
         :disabled="!editable"
         autocomplete="new-password"
         readonly
       />
-      <a-typography-text type="secondary" class="block text-[12px] leading-snug">
-        应用内统一使用的默认加密口令；各功能未单独配置时，将使用此口令。
-      </a-typography-text>
-      <a-tag color="default">暂不可修改</a-tag>
+      <a-tag v-if="!editable" color="default">暂不可修改</a-tag>
     </a-space>
   </a-card>
 </template>

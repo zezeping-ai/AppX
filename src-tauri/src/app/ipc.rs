@@ -33,6 +33,9 @@ macro_rules! app_invoke_handler {
             $crate::app::clipboard_assistant::clipboard_assistant_hide_palette,
             $crate::app::clipboard_assistant::clipboard_assistant_save_palette_geometry,
             $crate::app::clipboard_assistant::clipboard_assistant_sync_runtime,
+            $crate::app::clipboard_assistant::clipboard_assistant_pick_sound_file,
+            $crate::app::clipboard_assistant::clipboard_assistant_read_sound_file,
+            $crate::app::clipboard_assistant::clipboard_assistant_play_sound,
             // app_lock
             $crate::app::app_lock::app_lock_get_settings,
             $crate::app::app_lock::app_lock_save_settings,

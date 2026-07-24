@@ -54,21 +54,18 @@ onMounted(() => {
 </script>
 
 <template>
-  <a-space direction="vertical" size="middle" class="app-settings">
-    <a-card title="主题" :bordered="false">
-      <a-radio-group :value="themeMode" @change="onThemeGroupChange">
+  <a-space direction="vertical" size="small" class="app-settings">
+    <a-card title="主题" size="small" :bordered="false">
+      <a-radio-group :value="themeMode" size="small" @change="onThemeGroupChange">
         <a-radio-button value="system">跟随系统</a-radio-button>
         <a-radio-button value="light">浅色</a-radio-button>
         <a-radio-button value="dark">深色</a-radio-button>
       </a-radio-group>
     </a-card>
 
-    <a-card title="数据存储" :bordered="false" :loading="dbLoading">
+    <a-card title="数据存储" size="small" :bordered="false" :loading="dbLoading">
       <a-space direction="vertical" size="small" class="w-full">
-        <a-typography-text type="secondary" class="block text-[12px] leading-snug">
-          本地 SQLite 数据库，存储代码段等应用数据。
-        </a-typography-text>
-        <a-input :value="dbPath" readonly>
+        <a-input :value="dbPath" size="small" readonly>
           <template #suffix>
             <a-tooltip title="复制路径">
               <a-button type="text" size="small" :disabled="!dbPath" @click="onCopyPath">
@@ -77,14 +74,14 @@ onMounted(() => {
             </a-tooltip>
           </template>
         </a-input>
-        <a-space>
-          <a-button :loading="revealing" :disabled="!dbPath" @click="onRevealInFolder">
+        <a-space size="small">
+          <a-button size="small" :loading="revealing" :disabled="!dbPath" @click="onRevealInFolder">
             <template #icon>
               <Icon icon="mdi:folder-open-outline" width="14" height="14" />
             </template>
             在文件管理器中显示
           </a-button>
-          <a-button :disabled="dbLoading" @click="refreshDatabasePath">刷新路径</a-button>
+          <a-button size="small" :disabled="dbLoading" @click="refreshDatabasePath">刷新</a-button>
         </a-space>
       </a-space>
     </a-card>
@@ -94,6 +91,6 @@ onMounted(() => {
 <style scoped lang="scss">
 .app-settings {
   width: 100%;
-  max-width: 760px;
+  max-width: 640px;
 }
 </style>

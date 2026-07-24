@@ -13,9 +13,9 @@ use std::sync::{Mutex, OnceLock};
 
 use block2::RcBlock;
 use dispatch::Queue;
-use objc2_app_kit::{NSEventMask, NSRunningApplication, NSScreen};
+use objc2_app_kit::{NSApp, NSApplicationActivationPolicy, NSEventMask, NSRunningApplication, NSScreen};
 use objc2_foundation::NSString;
-use tauri::{Manager, WebviewWindow};
+use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_nspanel::{
     tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
 };
@@ -97,6 +97,42 @@ pub fn ensure_panel(window: &WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+/// 创建普通 WebviewWindow 前临时禁止激活，避免 `NSApp.hide()` 后 unhide 把主窗口带出。
+/// 应用当前可见时不要用 Prohibited，否则会抢走主窗口焦点（解锁页/启动会坏掉）。
+pub fn with_no_activate<R>(f: impl FnOnce() -> R) -> R {
+    let mtm = MainThreadMarker::new().expect("with_no_activate 须在主线程调用");
+    let app = NSApp(mtm);
+    if !app.isHidden() {
+        return f();
+    }
+    let original = app.activationPolicy();
+    let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Prohibited);
+    let result = f();
+    let _ = app.setActivationPolicy(original);
+    result
+}
+
+/// 应用处于 hide 时，无激活解隐藏并压住主窗口，否则首次浮层会“创建成功但看不见”。
+pub fn ensure_app_ready_for_overlay(app: &AppHandle) {
+    let mtm = MainThreadMarker::new().expect("ensure_app_ready_for_overlay 须在主线程调用");
+    let ns_app = NSApp(mtm);
+    if !ns_app.isHidden() {
+        return;
+    }
+    ns_app.unhideWithoutActivation();
+    order_out_main(app);
+}
+
+fn order_out_main(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if let Ok(ns_window) = window.ns_window() {
+        let ns_window: &NSWindow = unsafe { &*ns_window.cast() };
+        ns_window.orderOut(None);
+    }
+}
+
 /// 抢焦点前：按鼠标所在屏 Cocoa frame 铺边缘面板。
 pub fn place_on_mouse_screen(window: &WebviewWindow, layout: &str, thickness: f64) -> Result<(), String> {
     let window = window.clone();
@@ -149,6 +185,7 @@ fn place_on_mouse_screen_main(window: &WebviewWindow, layout: &str, thickness: f
 /// 显示面板：只前置，不 make_key，保留原应用/输入框焦点。
 pub fn show_panel(window: &WebviewWindow) -> Result<(), String> {
     let app = window.app_handle();
+    ensure_app_ready_for_overlay(&app);
     let panel = app
         .get_webview_panel(window.label())
         .map_err(|_| "剪切面板尚未转换为 NSPanel".to_string())?;

@@ -31,7 +31,8 @@ function startRecording() {
   recording.value = true;
 }
 
-function clear() {
+function clear(event: MouseEvent) {
+  event.stopPropagation();
   value.value = "";
   recording.value = false;
 }
@@ -64,46 +65,40 @@ useEventListener(
 </script>
 
 <template>
-  <div class="shortcut-recorder">
+  <div
+    class="shortcut-recorder"
+    :class="{ 'shortcut-recorder--recording': recording }"
+    @click="startRecording"
+  >
+    <span class="shortcut-recorder__label">{{ displayText }}</span>
     <button
+      v-if="value && !recording"
       type="button"
-      class="shortcut-recorder__trigger"
-      :class="{ 'shortcut-recorder__trigger--recording': recording }"
-      @click="startRecording"
-    >
-      <span class="shortcut-recorder__label">{{ displayText }}</span>
-    </button>
-    <a-button
-      v-if="value"
-      type="text"
-      size="small"
       class="shortcut-recorder__clear"
       aria-label="清除快捷键"
       @click="clear"
     >
       <Icon icon="mdi:close" width="14" height="14" />
-    </a-button>
+    </button>
   </div>
 </template>
 
 <style scoped lang="scss">
 .shortcut-recorder {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-
-.shortcut-recorder__trigger {
-  flex: 1;
-  min-width: 0;
+  gap: 2px;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 7.5rem;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 4px 0 8px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   background: #fff;
   color: rgba(0, 0, 0, 0.88);
   font-size: 12px;
-  text-align: left;
   cursor: pointer;
   transition:
     border-color 0.2s,
@@ -111,6 +106,10 @@ useEventListener(
 
   &:hover {
     border-color: #4096ff;
+
+    .shortcut-recorder__clear {
+      opacity: 0.65;
+    }
   }
 
   &--recording {
@@ -121,18 +120,42 @@ useEventListener(
 }
 
 .shortcut-recorder__label {
-  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
+  line-height: 22px;
 }
 
 .shortcut-recorder__clear {
+  display: inline-flex;
   flex-shrink: 0;
-  padding: 0 4px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.45);
+  opacity: 0.45;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+
+  &:hover {
+    opacity: 1 !important;
+    color: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.06);
+  }
 }
 
-[data-theme="dark"] .shortcut-recorder__trigger {
+[data-theme="dark"] .shortcut-recorder {
   border-color: #424242;
   background: #141414;
   color: rgba(255, 255, 255, 0.85);
@@ -145,6 +168,15 @@ useEventListener(
     border-color: #1668dc;
     box-shadow: 0 0 0 2px rgba(22, 104, 220, 0.2);
     color: #69b1ff;
+  }
+}
+
+[data-theme="dark"] .shortcut-recorder__clear {
+  color: rgba(255, 255, 255, 0.55);
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.08);
   }
 }
 </style>
