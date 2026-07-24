@@ -11,7 +11,12 @@ export interface EditorTreeNode {
   encrypted?: boolean;
   customEncrypted?: boolean;
   language?: string;
-  children?: EditorTreeNode[];
+  /** 点文件 / 点目录 */
+  hidden?: boolean;
+  /** 被 .gitignore 忽略 */
+  ignored?: boolean;
+  /** 目录未加载时为 null/undefined；已加载空目录为 [] */
+  children?: EditorTreeNode[] | null;
 }
 
 export interface OpenedEditorFile {

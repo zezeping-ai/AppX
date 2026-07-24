@@ -67,6 +67,8 @@ const register = (name: string, component: any) => {
   Layout.Sider,
   Menu,
   Menu.Item,
+  Menu.ItemGroup,
+  Menu.Divider,
   Modal,
   Radio,
   Radio.Button,
@@ -100,6 +102,8 @@ register("AInputPassword", Input.Password);
 register("ATextarea", Input.TextArea);
 register("AInputNumber", InputNumber);
 register("AMenuItem", Menu.Item);
+register("AMenuItemGroup", Menu.ItemGroup);
+register("AMenuDivider", Menu.Divider);
 register("ADropdown", Dropdown);
 register("ADropdownButton", Dropdown.Button);
 register("ALayoutSider", Layout.Sider);

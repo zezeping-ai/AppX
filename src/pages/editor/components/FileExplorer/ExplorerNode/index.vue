@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
-import { encryptionFileIcon } from "@/modules/editor/encryption";
 import ExplorerInlineInput from "@/pages/editor/components/FileExplorer/ExplorerInlineInput/index.vue";
 import type { ExplorerTreeItem } from "@/pages/editor/components/FileExplorer/normalizeTree";
 import type { InlineEditState } from "@/pages/editor/components/FileExplorer/types";
+import {
+  resolveExplorerFileIcon,
+  resolveExplorerFolderIcon,
+} from "@/pages/editor/components/FileExplorer/fileIcon";
 import ExplorerNode from "@/pages/editor/components/FileExplorer/ExplorerNode/index.vue";
 
 defineOptions({ name: "ExplorerNode" });
@@ -28,6 +31,7 @@ const emit = defineEmits<{
 const isDirectory = computed(() => props.node.kind === "directory");
 const isExpanded = computed(() => props.expandedKeys.includes(props.node.path));
 const isActive = computed(() => props.activePath === props.node.path);
+const isDimmed = computed(() => Boolean(props.node.hidden || props.node.ignored));
 const isRenaming = computed(
   () => props.inlineEdit?.mode === "rename" && props.inlineEdit.targetPath === props.node.path,
 );
@@ -44,18 +48,11 @@ const createInlineKind = computed(() =>
   props.inlineEdit?.mode === "create-folder" ? "folder" : "file",
 );
 
-const iconName = computed(() => {
-  if (isDirectory.value) {
-    return isExpanded.value ? "mdi:folder-open-outline" : "mdi:folder-outline";
-  }
-  if (props.node.customEncrypted || props.node.encrypted) {
-    return encryptionFileIcon({
-      encrypted: Boolean(props.node.encrypted),
-      customEncrypted: Boolean(props.node.customEncrypted),
-    });
-  }
-  return "mdi:file-document-outline";
-});
+const fileIcon = computed(() =>
+  isDirectory.value
+    ? resolveExplorerFolderIcon(isExpanded.value)
+    : resolveExplorerFileIcon(props.node),
+);
 
 function onRowClick() {
   if (isRenaming.value) {
@@ -99,6 +96,7 @@ function onContextMenu(event: MouseEvent) {
       :class="{
         'explorer-row--active': isActive,
         'explorer-row--folder': isDirectory,
+        'explorer-row--dimmed': isDimmed,
       }"
       :style="{ paddingLeft: `${depth * 12 + 8}px` }"
       @click="onRowClick"
@@ -114,7 +112,13 @@ function onContextMenu(event: MouseEvent) {
       </button>
       <span v-else class="explorer-chevron explorer-chevron--placeholder" />
 
-      <Icon :icon="iconName" width="15" height="15" class="explorer-icon" />
+      <Icon
+        :icon="fileIcon.icon"
+        width="15"
+        height="15"
+        class="explorer-icon"
+        :style="!isDimmed && fileIcon.color ? { color: fileIcon.color } : undefined"
+      />
       <span class="explorer-label">{{ node.title }}</span>
     </div>
 
@@ -166,6 +170,24 @@ function onContextMenu(event: MouseEvent) {
     background: #e8f0fe;
     color: #1d4ed8;
   }
+
+  /* 隐藏文件 / gitignore 忽略：保持可点，但视觉降权 */
+  &--dimmed {
+    color: #9ca3af;
+
+    .explorer-icon,
+    .explorer-chevron {
+      color: #c0c4cc;
+    }
+  }
+
+  &--dimmed.explorer-row--active {
+    color: #93c5fd;
+
+    .explorer-icon {
+      color: #93c5fd;
+    }
+  }
 }
 
 .explorer-chevron {
@@ -191,7 +213,7 @@ function onContextMenu(event: MouseEvent) {
   color: #6b7280;
 }
 
-.explorer-row--active .explorer-icon {
+.explorer-row--active:not(.explorer-row--dimmed) .explorer-icon {
   color: #1d4ed8;
 }
 

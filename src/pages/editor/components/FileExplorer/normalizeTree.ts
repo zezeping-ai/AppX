@@ -8,6 +8,8 @@ export interface ExplorerTreeItem {
   encrypted?: boolean;
   customEncrypted?: boolean;
   language?: string;
+  hidden?: boolean;
+  ignored?: boolean;
   isLeaf: boolean;
   children?: ExplorerTreeItem[];
 }
@@ -21,7 +23,15 @@ export function toExplorerTree(nodes: EditorTreeNode[]): ExplorerTreeItem[] {
     encrypted: node.encrypted,
     customEncrypted: node.customEncrypted,
     language: node.language,
+    hidden: Boolean(node.hidden),
+    ignored: Boolean(node.ignored),
     isLeaf: node.kind === "file",
-    children: node.children ? toExplorerTree(node.children) : undefined,
+    // 目录：null/undefined = 未加载；[] = 已加载空目录
+    children:
+      node.kind === "directory"
+        ? node.children == null
+          ? undefined
+          : toExplorerTree(node.children)
+        : undefined,
   }));
 }

@@ -6,6 +6,12 @@ import { uniq } from "lodash-es";
 import EditorTabs from "@/pages/editor/components/EditorTabs/index.vue";
 import FileExplorer from "@/pages/editor/components/FileExplorer/index.vue";
 import { toExplorerTree } from "@/pages/editor/components/FileExplorer/normalizeTree";
+import {
+  ancestorDirectories,
+  findNode,
+  isDirectoryUnloaded,
+  setDirectoryChildren,
+} from "@/pages/editor/components/FileExplorer/treeHelpers";
 import { confirmDiscardUnsaved } from "./confirmDiscardUnsaved";
 import OpenWithRecent from "./OpenWithRecent/index.vue";
 import { useRecentOpens } from "./useRecentOpens";
@@ -51,6 +57,9 @@ const workspaceRoot = ref<string | null>(null);
 const treeData = ref<ReturnType<typeof toExplorerTree>>([]);
 const loadingTree = ref(false);
 const saving = ref(false);
+/** 刷新会使进行中的子目录加载失效 */
+let treeLoadGeneration = 0;
+const loadingDirectoryPromises = new Map<string, Promise<void>>();
 
 const tabByPath = ref<Map<string, OpenedEditorFile>>(new Map());
 const activePath = ref<string | null>(null);
@@ -93,15 +102,81 @@ function updateActiveTabContent(content: string, dirty?: boolean) {
   tabByPath.value = new Map(tabByPath.value).set(activePath.value, nextTab);
 }
 
+async function loadDirectoryChildren(path: string) {
+  if (!path) {
+    return;
+  }
+
+  // 已加载则跳过（刷新会重置为未加载）
+  if (path !== workspaceRoot.value) {
+    const node = findNode(treeData.value, path);
+    if (node && !isDirectoryUnloaded(node)) {
+      return;
+    }
+  }
+
+  const inflight = loadingDirectoryPromises.get(path);
+  if (inflight) {
+    await inflight;
+    return;
+  }
+
+  const generation = treeLoadGeneration;
+  const task = (async () => {
+    try {
+      const nodes = await listDirectory(path, workspaceRoot.value);
+      if (generation !== treeLoadGeneration) {
+        return;
+      }
+      if (path === workspaceRoot.value) {
+        treeData.value = toExplorerTree(nodes);
+        return;
+      }
+      treeData.value = setDirectoryChildren(
+        treeData.value,
+        path,
+        toExplorerTree(nodes),
+      );
+    } catch (error) {
+      message.error(String(error));
+      throw error;
+    }
+  })();
+
+  loadingDirectoryPromises.set(path, task);
+  try {
+    await task;
+  } finally {
+    loadingDirectoryPromises.delete(path);
+  }
+}
+
+async function ensureAncestorsLoaded(filePath: string) {
+  const root = workspaceRoot.value;
+  if (!root) {
+    return;
+  }
+  for (const dir of ancestorDirectories(root, filePath)) {
+    try {
+      await loadDirectoryChildren(dir);
+    } catch {
+      // 目录加载失败不阻断打开文件；树侧已提示错误
+      return;
+    }
+  }
+}
+
 async function refreshTree() {
   if (!workspaceRoot.value) {
     treeData.value = [];
     return;
   }
 
+  treeLoadGeneration += 1;
+  loadingDirectoryPromises.clear();
   loadingTree.value = true;
   try {
-    const nodes = await listDirectory(workspaceRoot.value);
+    const nodes = await listDirectory(workspaceRoot.value, workspaceRoot.value);
     treeData.value = toExplorerTree(nodes);
   } catch (error) {
     message.error(String(error));
@@ -135,6 +210,7 @@ async function openFileByPath(path: string): Promise<boolean> {
 
   const existing = tabByPath.value.get(path);
   if (existing) {
+    await ensureAncestorsLoaded(path);
     activePath.value = path;
     syncEditorFromActiveTab();
     return true;
@@ -164,6 +240,7 @@ async function openFileByPath(path: string): Promise<boolean> {
     }
     const tab = createOpenedEditorFile(resolved.path, nextInspect, resolved.content);
     tabByPath.value = new Map(tabByPath.value).set(resolved.path, tab);
+    await ensureAncestorsLoaded(resolved.path);
     activePath.value = resolved.path;
     editorContent.value = resolved.content;
     return true;
@@ -171,7 +248,7 @@ async function openFileByPath(path: string): Promise<boolean> {
     message.error(String(error));
     return false;
   }
-};
+}
 
 async function reopenAfterConvert(nextPath: string | null) {
   if (nextPath) {
@@ -221,6 +298,13 @@ async function openSingleFile() {
   const opened = await openFileByPath(picked);
   if (opened) {
     rememberRecentFile(picked);
+  }
+}
+
+async function openRecentFile(path: string) {
+  const opened = await openFileByPath(path);
+  if (opened) {
+    rememberRecentFile(path);
   }
 }
 
@@ -477,24 +561,16 @@ watch(editorContent, (value) => {
 <template>
   <div class="encrypted-workspace">
     <header class="encrypted-workspace__toolbar">
-      <a-space wrap>
-        <OpenWithRecent
-          label="打开文件夹"
-          icon="mdi:folder-open-outline"
-          :recent-paths="recentFolders"
-          @primary="openFolder"
-          @select-recent="openWorkspace"
-          @remove-recent="removeRecentFolder"
-        />
-        <OpenWithRecent
-          label="打开文件"
-          icon="mdi:file-document-outline"
-          :recent-paths="recentFiles"
-          @primary="openSingleFile"
-          @select-recent="openFileByPath"
-          @remove-recent="removeRecentFile"
-        />
-      </a-space>
+      <OpenWithRecent
+        :recent-folders="recentFolders"
+        :recent-files="recentFiles"
+        @open-folder="openFolder"
+        @open-file="openSingleFile"
+        @select-recent-folder="openWorkspace"
+        @select-recent-file="openRecentFile"
+        @remove-recent-folder="removeRecentFolder"
+        @remove-recent-file="removeRecentFile"
+      />
       <a-typography-text
         v-if="statusText"
         type="secondary"
@@ -511,6 +587,7 @@ watch(editorContent, (value) => {
           :workspace-root="workspaceRoot"
           :active-path="activePath"
           :loading="loadingTree"
+          :load-children="loadDirectoryChildren"
           @open="openFileByPath"
           @refresh="refreshTree"
           @create-file="onExplorerCreateFile"

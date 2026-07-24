@@ -5,10 +5,11 @@ import ExplorerInlineInput from "@/pages/editor/components/FileExplorer/Explorer
 import ExplorerNode from "@/pages/editor/components/FileExplorer/ExplorerNode/index.vue";
 import type { ExplorerTreeItem } from "@/pages/editor/components/FileExplorer/normalizeTree";
 import type { ContextMenuAction, InlineEditState } from "@/pages/editor/components/FileExplorer/types";
+import { useExplorerExpandedKeys } from "@/pages/editor/components/FileExplorer/useExplorerExpandedKeys";
 import {
-  collectDirectoryPaths,
-  useExplorerExpandedKeys,
-} from "@/pages/editor/components/FileExplorer/useExplorerExpandedKeys";
+  findNode,
+  isDirectoryUnloaded,
+} from "@/pages/editor/components/FileExplorer/treeHelpers";
 import {
   DEFAULT_AXDOC_FILE_NAME,
   DEFAULT_TEXT_FILE_NAME,
@@ -19,6 +20,8 @@ const props = defineProps<{
   workspaceRoot?: string | null;
   activePath?: string | null;
   loading?: boolean;
+  /** 按需加载某目录子节点（懒加载） */
+  loadChildren?: (path: string) => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -40,7 +43,7 @@ const DEFAULT_FOLDER_NAME = "新建文件夹";
 const CREATE_CONTEXT_ACTIONS: ContextMenuAction[] = [
   {
     key: "new-file",
-    label: "新建文件",
+    label: "新建文本",
     hint: ".txt.x",
     icon: "mdi:file-code-outline",
   },
@@ -65,21 +68,6 @@ const contextMenu = ref({
   rootTarget: false,
 });
 
-function findNode(nodes: ExplorerTreeItem[], path: string): ExplorerTreeItem | null {
-  for (const node of nodes) {
-    if (node.path === path) {
-      return node;
-    }
-    if (node.children?.length) {
-      const matched = findNode(node.children, path);
-      if (matched) {
-        return matched;
-      }
-    }
-  }
-  return null;
-}
-
 function findAncestorKeys(
   nodes: ExplorerTreeItem[],
   targetPath: string,
@@ -89,7 +77,7 @@ function findAncestorKeys(
     if (node.path === targetPath) {
       return ancestors;
     }
-    if (node.children?.length) {
+    if (node.children) {
       const nextAncestors =
         node.kind === "directory" ? [...ancestors, node.path] : ancestors;
       const matched = findAncestorKeys(node.children, targetPath, nextAncestors);
@@ -101,12 +89,26 @@ function findAncestorKeys(
   return null;
 }
 
+function depthOfPath(path: string): number {
+  return path.split(/[/\\]/).filter(Boolean).length;
+}
+
+async function ensureChildrenLoaded(path: string) {
+  if (!props.loadChildren || path === props.workspaceRoot) {
+    return;
+  }
+  const node = findNode(props.treeData, path);
+  if (node && isDirectoryUnloaded(node)) {
+    await props.loadChildren(path);
+  }
+}
+
 function resolveParentDirectory(node: ExplorerTreeItem | null): string | null {
   if (node?.kind === "directory") {
     return node.path;
   }
   if (node?.kind === "file") {
-    const index = node.path.lastIndexOf("/");
+    const index = Math.max(node.path.lastIndexOf("/"), node.path.lastIndexOf("\\"));
     if (index > 0) {
       return node.path.slice(0, index);
     }
@@ -115,12 +117,25 @@ function resolveParentDirectory(node: ExplorerTreeItem | null): string | null {
   return props.workspaceRoot ?? null;
 }
 
-function toggleExpand(path: string) {
+async function toggleExpand(path: string) {
+  const expanding = !expandedKeys.value.includes(path);
+  if (expanding) {
+    try {
+      await ensureChildrenLoaded(path);
+    } catch {
+      return;
+    }
+  }
   toggleExpanded(path);
 }
 
-function startCreateEntry(parentPath: string, defaultName: string) {
+async function startCreateEntry(parentPath: string, defaultName: string) {
   if (!parentPath) {
+    return;
+  }
+  try {
+    await ensureChildrenLoaded(parentPath);
+  } catch {
     return;
   }
   expandForSession([parentPath]);
@@ -133,15 +148,20 @@ function startCreateEntry(parentPath: string, defaultName: string) {
 }
 
 function startCreateFile(parentPath: string) {
-  startCreateEntry(parentPath, DEFAULT_TEXT_FILE_NAME);
+  void startCreateEntry(parentPath, DEFAULT_TEXT_FILE_NAME);
 }
 
 function startCreateDoc(parentPath: string) {
-  startCreateEntry(parentPath, DEFAULT_AXDOC_FILE_NAME);
+  void startCreateEntry(parentPath, DEFAULT_AXDOC_FILE_NAME);
 }
 
-function startCreateFolder(parentPath: string) {
+async function startCreateFolder(parentPath: string) {
   if (!parentPath) {
+    return;
+  }
+  try {
+    await ensureChildrenLoaded(parentPath);
+  } catch {
     return;
   }
   expandForSession([parentPath]);
@@ -234,9 +254,27 @@ watch(
     if (!props.workspaceRoot) {
       return;
     }
-    pruneExpandedKeys(collectDirectoryPaths(nodes));
+    pruneExpandedKeys(nodes);
   },
   { deep: true },
+);
+
+/** 恢复持久化展开时，按深度顺序补齐未加载的子目录 */
+watch(
+  [expandedKeys, () => props.treeData],
+  async () => {
+    if (!props.loadChildren || !props.workspaceRoot) {
+      return;
+    }
+    const sorted = [...expandedKeys.value].sort((a, b) => depthOfPath(a) - depthOfPath(b));
+    for (const path of sorted) {
+      try {
+        await ensureChildrenLoaded(path);
+      } catch {
+        // 单个目录失败不影响其余展开恢复
+      }
+    }
+  },
 );
 
 watch(
@@ -421,13 +459,14 @@ function onOpenFile(path: string) {
   emit("open", path);
 }
 
-const showRootInline = computed(
-  () =>
-    inlineEdit.value &&
-    (inlineEdit.value.mode === "create-file" || inlineEdit.value.mode === "create-folder") &&
-    inlineEdit.value.parentPath === props.workspaceRoot &&
-    props.treeData.length === 0,
-);
+const showRootInline = computed(() => {
+  const edit = inlineEdit.value;
+  return (
+    Boolean(edit) &&
+    (edit!.mode === "create-file" || edit!.mode === "create-folder") &&
+    edit!.parentPath === props.workspaceRoot
+  );
+});
 </script>
 
 <template>
@@ -437,7 +476,7 @@ const showRootInline = computed(
         <button
           type="button"
           class="file-explorer__action"
-          title="新建文件 (.txt.x)"
+          title="新建文本 (.txt.x)"
           :disabled="!workspaceRoot"
           @click="onHeaderNewFile"
         >
@@ -498,7 +537,10 @@ const showRootInline = computed(
         @confirm="onInlineConfirm"
         @cancel="cancelInline"
       />
-      <div v-else-if="treeData.length === 0" class="file-explorer__empty file-explorer__empty--in-tree" />
+      <div
+        v-if="!showRootInline && treeData.length === 0"
+        class="file-explorer__empty file-explorer__empty--in-tree"
+      />
       <ExplorerNode
         v-for="node in treeData"
         :key="node.path"

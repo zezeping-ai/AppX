@@ -13,8 +13,14 @@ export async function pickFile(): Promise<string | null> {
   return invoke<string | null>("editor_pick_file");
 }
 
-export async function listDirectory(path: string): Promise<EditorTreeNode[]> {
-  return invoke<EditorTreeNode[]>("editor_list_directory", { path });
+export async function listDirectory(
+  path: string,
+  workspaceRoot?: string | null,
+): Promise<EditorTreeNode[]> {
+  return invoke<EditorTreeNode[]>("editor_list_directory", {
+    path,
+    workspaceRoot: workspaceRoot ?? null,
+  });
 }
 
 export async function inspectFile(path: string): Promise<FileInspect> {

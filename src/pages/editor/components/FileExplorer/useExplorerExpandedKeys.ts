@@ -1,25 +1,9 @@
 import { useLocalStorage } from "@vueuse/core";
 import { computed, ref, watch, type Ref } from "vue";
 import type { ExplorerTreeItem } from "@/pages/editor/components/FileExplorer/normalizeTree";
+import { shouldKeepExpandedKey } from "@/pages/editor/components/FileExplorer/treeHelpers";
 
 const STORAGE_KEY = "appx.explorer.expanded";
-
-export function collectDirectoryPaths(nodes: ExplorerTreeItem[]): Set<string> {
-  const paths = new Set<string>();
-  const walk = (items: ExplorerTreeItem[]) => {
-    for (const node of items) {
-      if (node.kind !== "directory") {
-        continue;
-      }
-      paths.add(node.path);
-      if (node.children?.length) {
-        walk(node.children);
-      }
-    }
-  };
-  walk(nodes);
-  return paths;
-}
 
 /** 按工作区根目录持久化用户手动展开状态；程序性展开仅当前会话生效 */
 export function useExplorerExpandedKeys(workspaceRoot: Ref<string | null | undefined>) {
@@ -82,8 +66,10 @@ export function useExplorerExpandedKeys(workspaceRoot: Ref<string | null | undef
     sessionExpandedKeys.value = [];
   }
 
-  function pruneExpandedKeys(validPaths: Set<string>) {
-    const prune = (keys: string[]) => keys.filter((key) => validPaths.has(key));
+  function pruneExpandedKeys(nodes: ExplorerTreeItem[]) {
+    const root = workspaceRoot.value;
+    const prune = (keys: string[]) =>
+      keys.filter((key) => shouldKeepExpandedKey(key, nodes, root));
     const nextManual = prune(manualExpandedKeys.value);
     const nextSession = prune(sessionExpandedKeys.value);
 

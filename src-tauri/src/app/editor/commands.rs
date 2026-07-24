@@ -62,9 +62,16 @@ pub async fn editor_pick_file(
 pub fn editor_list_directory(
     state: State<'_, AppLockSessionState>,
     path: String,
+    workspace_root: Option<String>,
 ) -> Result<Vec<EditorTreeNode>, String> {
     ensure_unlocked(&state)?;
-    tree::list_directory(PathBuf::from(path.trim()).as_path())
+    let root = PathBuf::from(path.trim());
+    let workspace = workspace_root
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    tree::list_directory(root.as_path(), workspace.as_deref())
 }
 
 fn parse_path(path: String) -> PathBuf {

@@ -1,4 +1,6 @@
+use ignore::{IncrementalIgnore, WalkBuilder};
 use serde::Serialize;
+use std::cmp::Ordering;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,13 +15,26 @@ pub struct EditorTreeNode {
     pub encrypted: Option<bool>,
     pub custom_encrypted: Option<bool>,
     pub language: Option<String>,
+    /// 点文件 / 点目录（如 `.env`、`.git`）
+    pub hidden: bool,
+    /// 被 `.gitignore` / `.git/info/exclude` / 全局 excludes 忽略
+    pub ignored: bool,
+    /// 目录：未加载时为 `None`（前端按需拉取）；已加载为空目录时为 `Some([])`。
+    /// 文件：始终为 `None`。
     pub children: Option<Vec<EditorTreeNode>>,
 }
 
-pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
+/// 仅列出一层目录内容（懒加载）。目录节点 `children = None` 表示尚未展开加载。
+/// `workspace_root` 用于构建 ignore 匹配器；未提供时仅标记 hidden。
+pub fn list_directory(
+    root: &Path,
+    workspace_root: Option<&Path>,
+) -> Result<Vec<EditorTreeNode>, String> {
     if !root.is_dir() {
         return Err(format!("不是有效目录：{}", root.display()));
     }
+
+    let mut ignore = workspace_root.and_then(build_ignore_matcher);
 
     let mut entries: Vec<_> = fs::read_dir(root)
         .map_err(|err| format!("读取目录失败：{err}"))?
@@ -37,7 +52,15 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
             continue;
         }
 
-        if path.is_dir() {
+        let hidden = is_hidden_name(&name);
+        let is_dir = path.is_dir();
+        let ignored = ignore
+            .as_mut()
+            .zip(workspace_root)
+            .map(|(matcher, ws)| is_ignored(matcher, ws, &path, is_dir))
+            .unwrap_or(false);
+
+        if is_dir {
             nodes.push(EditorTreeNode {
                 name,
                 path: path_to_string(&path),
@@ -45,7 +68,9 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
                 encrypted: None,
                 custom_encrypted: None,
                 language: None,
-                children: Some(list_directory(&path)?),
+                hidden,
+                ignored,
+                children: None,
             });
             continue;
         }
@@ -61,6 +86,8 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
             encrypted: Some(format::is_encrypted_path(&path)),
             custom_encrypted: Some(format::is_custom_encrypted_path(&path)),
             language: Some(format::language_from_path(&path)),
+            hidden,
+            ignored,
             children: None,
         });
     }
@@ -68,13 +95,48 @@ pub fn list_directory(root: &Path) -> Result<Vec<EditorTreeNode>, String> {
     Ok(nodes)
 }
 
+fn is_hidden_name(name: &str) -> bool {
+    name.starts_with('.') && name != "." && name != ".."
+}
+
+/// BurntSushi `ignore`（ripgrep 同款）：`WalkBuilder::build_matchers` → `IncrementalIgnore`
+/// 支持嵌套 `.gitignore`、`.git/info/exclude`、全局 excludes，以及祖先目录规则。
+fn build_ignore_matcher(workspace_root: &Path) -> Option<IncrementalIgnore> {
+    if !workspace_root.is_dir() {
+        return None;
+    }
+    let mut builder = WalkBuilder::new(workspace_root);
+    builder
+        .hidden(false)
+        .parents(true)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        // 工作区未必是 git 仓库，仍尊重目录内 `.gitignore`
+        .require_git(false);
+    builder.build_matchers().into_iter().next()
+}
+
+fn is_ignored(
+    matcher: &mut IncrementalIgnore,
+    workspace_root: &Path,
+    path: &Path,
+    is_dir: bool,
+) -> bool {
+    let relative = match path.strip_prefix(workspace_root) {
+        Ok(rel) if !rel.as_os_str().is_empty() => rel,
+        _ => return false,
+    };
+    matcher.matched(relative, is_dir).is_ignore()
+}
+
 /// VS Code 默认：文件夹在前，同类型按名称不区分大小写 + 数字自然序。
-fn compare_dir_entries(a: &fs::DirEntry, b: &fs::DirEntry) -> std::cmp::Ordering {
+fn compare_dir_entries(a: &fs::DirEntry, b: &fs::DirEntry) -> Ordering {
     let a_is_dir = a.path().is_dir();
     let b_is_dir = b.path().is_dir();
     match (a_is_dir, b_is_dir) {
-        (true, false) => std::cmp::Ordering::Less,
-        (false, true) => std::cmp::Ordering::Greater,
+        (true, false) => Ordering::Less,
+        (false, true) => Ordering::Greater,
         _ => compare_file_names(
             &a.file_name().to_string_lossy(),
             &b.file_name().to_string_lossy(),
@@ -82,7 +144,8 @@ fn compare_dir_entries(a: &fs::DirEntry, b: &fs::DirEntry) -> std::cmp::Ordering
     }
 }
 
-fn compare_file_names(a: &str, b: &str) -> std::cmp::Ordering {
+/// 全序自然排序：数字段按数值比较；相等时再比数字串长度；其余按不区分大小写字符比较。
+fn compare_file_names(a: &str, b: &str) -> Ordering {
     let a_chars: Vec<char> = a.chars().collect();
     let b_chars: Vec<char> = b.chars().collect();
     let mut i = 0;
@@ -91,40 +154,46 @@ fn compare_file_names(a: &str, b: &str) -> std::cmp::Ordering {
     while i < a_chars.len() && j < b_chars.len() {
         let ac = a_chars[i];
         let bc = b_chars[j];
-        let a_digit = ac.is_ascii_digit();
-        let b_digit = bc.is_ascii_digit();
 
-        if a_digit && b_digit {
+        if ac.is_ascii_digit() && bc.is_ascii_digit() {
             let (a_num, a_end) = parse_number_run(&a_chars, i);
             let (b_num, b_end) = parse_number_run(&b_chars, j);
-            if a_num != b_num {
-                return a_num.cmp(&b_num);
+            // 数值相同仍比较位数，保证 "1" 与 "01" 有确定全序，避免 sort panic
+            match a_num
+                .cmp(&b_num)
+                .then_with(|| (a_end - i).cmp(&(b_end - j)))
+            {
+                Ordering::Equal => {
+                    i = a_end;
+                    j = b_end;
+                }
+                ord => return ord,
             }
-            i = a_end;
-            j = b_end;
             continue;
         }
 
-        if a_digit != b_digit {
-            return if a_digit {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            };
-        }
-
         let ord = compare_chars_case_insensitive(ac, bc);
-        if ord != std::cmp::Ordering::Equal {
+        if ord != Ordering::Equal {
             return ord;
         }
         i += 1;
         j += 1;
     }
 
-    a_chars.len().cmp(&b_chars.len())
+    a_chars
+        .len()
+        .cmp(&b_chars.len())
+        .then_with(|| a.cmp(b))
 }
 
-fn compare_chars_case_insensitive(a: char, b: char) -> std::cmp::Ordering {
+fn compare_chars_case_insensitive(a: char, b: char) -> Ordering {
+    // ASCII 快路径，避免 Unicode 大小写折叠多字符破坏直觉的同时保持全序
+    if a.is_ascii() && b.is_ascii() {
+        return a
+            .to_ascii_lowercase()
+            .cmp(&b.to_ascii_lowercase())
+            .then_with(|| a.cmp(&b));
+    }
     let a_lower: String = a.to_lowercase().collect();
     let b_lower: String = b.to_lowercase().collect();
     a_lower.cmp(&b_lower).then_with(|| a.cmp(&b))
@@ -140,18 +209,6 @@ fn parse_number_run(chars: &[char], start: usize) -> (u64, usize) {
         i += 1;
     }
     (value, i)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::compare_file_names;
-
-    #[test]
-    fn names_sort_case_insensitive_with_natural_numbers() {
-        assert_eq!(compare_file_names("Alpha", "beta"), std::cmp::Ordering::Less);
-        assert_eq!(compare_file_names("file2", "file10"), std::cmp::Ordering::Less);
-        assert_eq!(compare_file_names("a", "A"), std::cmp::Ordering::Greater);
-    }
 }
 
 fn should_list_file(path: &Path) -> bool {
@@ -245,4 +302,93 @@ pub fn rename_path(path: &Path, new_name: &str) -> Result<String, String> {
     }
     fs::rename(path, &new_path).map_err(|err| format!("重命名失败：{err}"))?;
     Ok(path_to_string(&new_path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_ignore_matcher, compare_file_names, is_hidden_name, is_ignored, list_directory,
+    };
+    use std::cmp::Ordering;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "appx-{}-{}",
+            tag,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn names_sort_case_insensitive_with_natural_numbers() {
+        assert_eq!(compare_file_names("Alpha", "beta"), Ordering::Less);
+        assert_eq!(compare_file_names("file2", "file10"), Ordering::Less);
+        assert_eq!(compare_file_names("a", "A"), Ordering::Greater);
+    }
+
+    #[test]
+    fn natural_sort_is_total_order_for_common_project_names() {
+        let mut names = vec![
+            "file10.ts",
+            "file2.ts",
+            "file.ts",
+            "file01.ts",
+            "File3.ts",
+            "1a",
+            "a1",
+            "a01",
+            "README.md",
+            "package.json",
+            "src",
+            ".env",
+        ];
+        names.sort_by(|a, b| compare_file_names(a, b));
+        let mut again = names.clone();
+        again.sort_by(|a, b| compare_file_names(a, b));
+        assert_eq!(names, again);
+        assert_eq!(compare_file_names("file01.ts", "file1.ts"), Ordering::Greater);
+    }
+
+    #[test]
+    fn hidden_names_start_with_dot() {
+        assert!(is_hidden_name(".env"));
+        assert!(is_hidden_name(".git"));
+        assert!(!is_hidden_name("src"));
+    }
+
+    #[test]
+    fn incremental_ignore_respects_gitignore_directories() {
+        let dir = temp_dir("gitignore");
+        fs::create_dir_all(dir.join("src")).unwrap();
+        fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
+        fs::write(dir.join(".gitignore"), "node_modules/\ndist\n*.log\n").unwrap();
+        fs::write(dir.join("src/app.ts"), "").unwrap();
+        fs::write(dir.join("debug.log"), "").unwrap();
+
+        let mut matcher = build_ignore_matcher(&dir).expect("matcher");
+        assert!(is_ignored(&mut matcher, &dir, &dir.join("node_modules"), true));
+        assert!(is_ignored(
+            &mut matcher,
+            &dir,
+            &dir.join("node_modules/pkg"),
+            true
+        ));
+        assert!(is_ignored(&mut matcher, &dir, &dir.join("debug.log"), false));
+        assert!(!is_ignored(&mut matcher, &dir, &dir.join("src/app.ts"), false));
+
+        let nodes = list_directory(&dir, Some(&dir)).unwrap();
+        let node_modules = nodes.iter().find(|n| n.name == "node_modules").unwrap();
+        assert!(node_modules.ignored);
+        let src = nodes.iter().find(|n| n.name == "src").unwrap();
+        assert!(!src.ignored);
+        let log = nodes.iter().find(|n| n.name == "debug.log").unwrap();
+        assert!(log.ignored);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

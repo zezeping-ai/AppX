@@ -1,31 +1,60 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
-import type { MenuProps } from "ant-design-vue";
+import { computed } from "vue";
 
-defineProps<{
-  label: string;
-  icon: string;
-  recentPaths: string[];
+const props = defineProps<{
+  recentFolders: string[];
+  recentFiles: string[];
 }>();
 
 const emit = defineEmits<{
-  primary: [];
-  selectRecent: [path: string];
-  removeRecent: [path: string];
+  openFolder: [];
+  openFile: [];
+  selectRecentFolder: [path: string];
+  selectRecentFile: [path: string];
+  removeRecentFolder: [path: string];
+  removeRecentFile: [path: string];
 }>();
 
-function splitPath(path: string) {
-  const name = path.split(/[/\\]/).pop() ?? path;
-  const parent = path.slice(0, Math.max(0, path.length - name.length)).replace(/[/\\]$/, "");
-  return { name, parent };
+type RecentKind = "folder" | "file";
+
+type RecentEntry = {
+  path: string;
+  name: string;
+  parent: string;
+};
+
+function toEntries(paths: string[]): RecentEntry[] {
+  return paths.map((path) => {
+    const name = path.split(/[/\\]/).pop() ?? path;
+    const parent = path
+      .slice(0, Math.max(0, path.length - name.length))
+      .replace(/[/\\]$/, "");
+    return { path, name, parent };
+  });
 }
 
-const onMenuClick: MenuProps["onClick"] = ({ key }) => {
-  if (key === "__empty__") {
+const folderEntries = computed(() => toEntries(props.recentFolders));
+const fileEntries = computed(() => toEntries(props.recentFiles));
+const hasRecent = computed(
+  () => folderEntries.value.length > 0 || fileEntries.value.length > 0,
+);
+
+function onSelectRecent(kind: RecentKind, path: string) {
+  if (kind === "folder") {
+    emit("selectRecentFolder", path);
     return;
   }
-  emit("selectRecent", String(key));
-};
+  emit("selectRecentFile", path);
+}
+
+function onRemoveRecent(kind: RecentKind, path: string) {
+  if (kind === "folder") {
+    emit("removeRecentFolder", path);
+    return;
+  }
+  emit("removeRecentFile", path);
+}
 </script>
 
 <template>
@@ -33,39 +62,107 @@ const onMenuClick: MenuProps["onClick"] = ({ key }) => {
     trigger="click"
     placement="bottomLeft"
     class="open-with-recent"
-    @click="emit('primary')"
+    @click="emit('openFolder')"
   >
     <span class="open-with-recent__main">
-      <Icon :icon="icon" width="16" height="16" />
-      {{ label }}
+      <Icon icon="mdi:folder-open-outline" width="16" height="16" />
+      打开文件夹
     </span>
     <template #icon>
       <Icon icon="mdi:chevron-down" width="14" height="14" />
     </template>
     <template #overlay>
-      <a-menu class="open-with-recent__menu" @click="onMenuClick">
-        <template v-if="recentPaths.length">
-          <a-menu-item v-for="path in recentPaths" :key="path">
-            <div class="open-with-recent__item">
-              <div class="open-with-recent__item-content">
-                <span class="open-with-recent__item-name">{{ splitPath(path).name }}</span>
-                <span v-if="splitPath(path).parent" class="open-with-recent__item-path">
-                  {{ splitPath(path).parent }}
-                </span>
+      <a-menu class="open-with-recent__menu">
+        <a-menu-item key="__open_file__" @click="emit('openFile')">
+          <div class="open-with-recent__action">
+            <Icon icon="mdi:file-document-outline" width="15" height="15" />
+            <span>打开文件</span>
+          </div>
+        </a-menu-item>
+
+        <a-menu-divider />
+
+        <template v-if="folderEntries.length">
+          <a-menu-item-group>
+            <template #title>
+              <span class="open-with-recent__group-title">
+                <Icon icon="mdi:folder-outline" width="14" height="14" />
+                最近文件夹
+              </span>
+            </template>
+            <a-menu-item
+              v-for="entry in folderEntries"
+              :key="`folder:${entry.path}`"
+              @click="onSelectRecent('folder', entry.path)"
+            >
+              <div class="open-with-recent__item">
+                <Icon
+                  icon="mdi:folder-outline"
+                  width="16"
+                  height="16"
+                  class="open-with-recent__item-icon open-with-recent__item-icon--folder"
+                />
+                <div class="open-with-recent__item-content">
+                  <span class="open-with-recent__item-name">{{ entry.name }}</span>
+                  <span v-if="entry.parent" class="open-with-recent__item-path">
+                    {{ entry.parent }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="open-with-recent__remove-btn"
+                  aria-label="删除历史记录"
+                  title="删除"
+                  @click.stop="onRemoveRecent('folder', entry.path)"
+                >
+                  <Icon icon="mdi:close" width="14" height="14" />
+                </button>
               </div>
-              <button
-                type="button"
-                class="open-with-recent__remove-btn"
-                aria-label="删除历史记录"
-                title="删除"
-                @click.stop="emit('removeRecent', path)"
-              >
-                <Icon icon="mdi:close" width="14" height="14" />
-              </button>
-            </div>
-          </a-menu-item>
+            </a-menu-item>
+          </a-menu-item-group>
         </template>
-        <a-menu-item v-else key="__empty__" disabled>无最近记录</a-menu-item>
+
+        <template v-if="fileEntries.length">
+          <a-menu-item-group>
+            <template #title>
+              <span class="open-with-recent__group-title">
+                <Icon icon="mdi:file-document-outline" width="14" height="14" />
+                最近文件
+              </span>
+            </template>
+            <a-menu-item
+              v-for="entry in fileEntries"
+              :key="`file:${entry.path}`"
+              @click="onSelectRecent('file', entry.path)"
+            >
+              <div class="open-with-recent__item">
+                <Icon
+                  icon="mdi:file-document-outline"
+                  width="16"
+                  height="16"
+                  class="open-with-recent__item-icon open-with-recent__item-icon--file"
+                />
+                <div class="open-with-recent__item-content">
+                  <span class="open-with-recent__item-name">{{ entry.name }}</span>
+                  <span v-if="entry.parent" class="open-with-recent__item-path">
+                    {{ entry.parent }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="open-with-recent__remove-btn"
+                  aria-label="删除历史记录"
+                  title="删除"
+                  @click.stop="onRemoveRecent('file', entry.path)"
+                >
+                  <Icon icon="mdi:close" width="14" height="14" />
+                </button>
+              </div>
+            </a-menu-item>
+          </a-menu-item-group>
+        </template>
+
+        <a-menu-item v-if="!hasRecent" key="__empty__" disabled>无最近记录</a-menu-item>
       </a-menu>
     </template>
   </a-dropdown-button>
@@ -106,16 +203,46 @@ const onMenuClick: MenuProps["onClick"] = ({ key }) => {
 }
 
 .open-with-recent__menu {
-  min-width: 240px;
+  min-width: 280px;
   max-width: 420px;
+
+  :deep(.ant-menu-item-group-title) {
+    padding: 8px 12px 4px;
+  }
+}
+
+.open-with-recent__group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.open-with-recent__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .open-with-recent__item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   min-width: 0;
+}
+
+.open-with-recent__item-icon {
+  flex-shrink: 0;
+
+  &--folder {
+    color: #ca8a04;
+  }
+
+  &--file {
+    color: #64748b;
+  }
 }
 
 .open-with-recent__item-content {
@@ -124,7 +251,6 @@ const onMenuClick: MenuProps["onClick"] = ({ key }) => {
   min-width: 0;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
   line-height: 1.3;
 }
 
