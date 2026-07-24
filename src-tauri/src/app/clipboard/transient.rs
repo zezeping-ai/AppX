@@ -63,7 +63,7 @@ pub fn restore_backup(backup: &PasteboardBackup) {
 pub fn is_marked_transient() -> bool {
     #[cfg(target_os = "macos")]
     {
-        return with_pasteboard_lock(macos::is_marked_transient);
+        with_pasteboard_lock(macos::is_marked_transient)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -84,7 +84,7 @@ fn restore_backup_unlocked(backup: &PasteboardBackup) -> Result<(), String> {
 fn write_text_unlocked(text: &str, transient: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        return macos::write_text(text, transient);
+        macos::write_text(text, transient)
     }
     #[cfg(not(target_os = "macos"))]
     {

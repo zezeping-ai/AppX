@@ -123,7 +123,6 @@ fn spawn_player(path: &Path) {
     #[cfg(target_os = "macos")]
     {
         let _ = Command::new("afplay").arg(path).spawn();
-        return;
     }
 
     #[cfg(target_os = "windows")]

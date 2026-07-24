@@ -4,6 +4,7 @@ import { App as AntApp, Button, Tag } from "ant-design-vue";
 import type { ColumnsType } from "ant-design-vue/es/table";
 import { computed, h, onMounted } from "vue";
 import ListQueryBar from "@/pages/code-snippets/components/ListQueryBar/index.vue";
+import ShortcutRecorder from "@/components/ShortcutRecorder/index.vue";
 import { useDrawer, useList, useListPagination } from "@/hooks";
 import { CodeSnippetRecord } from "@/models";
 import {
@@ -17,15 +18,17 @@ import {
   type CodeSnippetGroup,
 } from "@/modules/codeSnippets";
 import { decryptText } from "@/modules/crypto";
+import { setGlobalShortcutsPaused } from "@/modules/globalShortcut";
 import SnippetForm from "@/pages/code-snippets/Form.vue";
 import { getErrorMessage } from "@/shared/error";
-import { formatShortcutLabel } from "@/shared/shortcut";
+import { formatShortcutLabel, normalizeGlobalShortcut } from "@/shared/shortcut";
 
 const { message, modal: antdModal } = AntApp.useApp();
 
 const list = useList<CodeSnippetRecord>({
   query: {
     keyword: "",
+    shortcut: "",
     group: undefined as CodeSnippetGroup | undefined,
   },
   pagination: { pageSize: 20 },
@@ -33,6 +36,8 @@ const list = useList<CodeSnippetRecord>({
     const where: Record<string, unknown> = {};
     const keyword = String(list.query.keyword ?? "").trim();
     if (keyword) where.keyword = keyword;
+    const shortcut = normalizeGlobalShortcut(String(list.query.shortcut ?? ""));
+    if (shortcut) where.shortcut = shortcut;
     if (list.query.group) where.group = list.query.group;
 
     const ret = await CodeSnippetRecord.query({
@@ -59,6 +64,11 @@ function onSearch() {
   void list.onLoad({ page: 1, pageSize: list.pagination.pageSize });
 }
 
+function onShortcutFilter(value: string) {
+  list.query.shortcut = value ?? "";
+  onSearch();
+}
+
 function onReset() {
   void list.onReset();
 }
@@ -76,6 +86,12 @@ async function onForm(record: CodeSnippetRecord | null) {
 
   const handle = drawer.create({
     title: record ? "编辑 Snippet" : "新建 Snippet",
+    // 覆盖可拖拽 drawer 默认 flex，由 body 整体滚动
+    bodyStyle: {
+      display: "block",
+      overflow: "auto",
+      paddingBottom: 0,
+    },
     slots: {
       default: () =>
         h(SnippetForm, {
@@ -191,7 +207,7 @@ onMounted(() => {
         <a-input
           :value="String(list.query.keyword ?? '')"
           allow-clear
-          placeholder="搜索代码段名称"
+          placeholder="搜索名称 / 缩写"
           class="w-72 max-w-full"
           @update:value="(v: string) => (list.query.keyword = v ?? '')"
           @press-enter="onSearch"
@@ -200,6 +216,14 @@ onMounted(() => {
             <Icon icon="mdi:magnify" class="text-black/45 dark:text-white/45" />
           </template>
         </a-input>
+      </a-form-item>
+
+      <a-form-item label="快捷键" class="min-w-0">
+        <ShortcutRecorder
+          :value="String(list.query.shortcut ?? '')"
+          :on-recording-change="setGlobalShortcutsPaused"
+          @update:value="onShortcutFilter"
+        />
       </a-form-item>
 
       <a-form-item label="分组" class="min-w-0">

@@ -37,6 +37,7 @@ export {
 } from "@/modules/codeSnippets/expansionTrigger";
 export { syncAllSnippetsToRuntime } from "@/modules/codeSnippets/syncRuntime";
 export { bootstrapAfterUnlock } from "@/modules/codeSnippets/bootstrap";
+export { assertSnippetShortcutAvailable } from "@/modules/codeSnippets/shortcutConflict";
 export {
   listPaletteItems,
   insertPaletteItem,

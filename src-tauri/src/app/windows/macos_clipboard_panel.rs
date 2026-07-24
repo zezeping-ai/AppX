@@ -49,13 +49,14 @@ struct ClickMonitors {
 }
 
 static OUTSIDE_CLICK_ARMED: AtomicBool = AtomicBool::new(false);
-static ON_OUTSIDE_CLICK: OnceLock<Mutex<Option<Box<dyn Fn() + Send + Sync>>>> = OnceLock::new();
+type OutsideClickHandler = Box<dyn Fn() + Send + Sync>;
+static ON_OUTSIDE_CLICK: OnceLock<Mutex<Option<OutsideClickHandler>>> = OnceLock::new();
 static CLICK_MONITORS: Mutex<ClickMonitors> = Mutex::new(ClickMonitors {
     global: None,
     local: None,
 });
 
-fn outside_click_slot() -> &'static Mutex<Option<Box<dyn Fn() + Send + Sync>>> {
+fn outside_click_slot() -> &'static Mutex<Option<OutsideClickHandler>> {
     ON_OUTSIDE_CLICK.get_or_init(|| Mutex::new(None))
 }
 
@@ -187,7 +188,7 @@ fn place_on_mouse_screen_main(window: &WebviewWindow, layout: &str, thickness: f
 /// 插入目标应用的焦点由 `focus_target` 在展示前捕获、粘贴前还原。
 pub fn show_panel(window: &WebviewWindow) -> Result<(), String> {
     let app = window.app_handle();
-    ensure_app_ready_for_overlay(&app);
+    ensure_app_ready_for_overlay(app);
     let panel = app
         .get_webview_panel(window.label())
         .map_err(|_| "剪切面板尚未转换为 NSPanel".to_string())?;

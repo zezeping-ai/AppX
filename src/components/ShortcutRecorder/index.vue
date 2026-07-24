@@ -1,7 +1,7 @@
 <script setup lang="tsx">
 import { Icon } from "@iconify/vue";
 import { useEventListener } from "@vueuse/core";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { captureShortcut, formatShortcutLabel } from "@/shared/shortcut";
 
 const value = defineModel<string>("value", { default: "" });
@@ -12,29 +12,51 @@ const props = defineProps<{
 }>();
 
 const recording = ref(false);
-
-watch(recording, (active) => {
-  void props.onRecordingChange?.(active);
-});
+const arming = ref(false);
 
 onBeforeUnmount(() => {
-  void props.onRecordingChange?.(false);
+  if (recording.value || arming.value) {
+    void props.onRecordingChange?.(false);
+  }
 });
 
 const displayText = computed(() => {
+  if (arming.value) return "准备录制…";
   if (recording.value) return "请按下快捷键…";
   if (value.value) return formatShortcutLabel(value.value);
   return "点击录制快捷键";
 });
 
-function startRecording() {
-  recording.value = true;
+async function setRecording(active: boolean) {
+  if (active) {
+    if (recording.value || arming.value) return;
+    arming.value = true;
+    try {
+      // 先暂停全局快捷键，再进入录制，避免已绑定的 F1 等先触发粘贴
+      await props.onRecordingChange?.(true);
+      recording.value = true;
+    } catch (error) {
+      await props.onRecordingChange?.(false);
+      throw error;
+    } finally {
+      arming.value = false;
+    }
+    return;
+  }
+
+  if (!recording.value) return;
+  recording.value = false;
+  await props.onRecordingChange?.(false);
 }
 
-function clear(event: MouseEvent) {
+async function startRecording() {
+  await setRecording(true);
+}
+
+async function clear(event: MouseEvent) {
   event.stopPropagation();
   value.value = "";
-  recording.value = false;
+  await setRecording(false);
 }
 
 useEventListener(
@@ -45,10 +67,12 @@ useEventListener(
 
     // 忽略长按连发，避免一次录制产生多次判定
     if (event.repeat) return;
+    // 忽略注入键（如剪贴板模拟粘贴的 Cmd/Ctrl+V）
+    if (!event.isTrusted) return;
 
     if (event.key === "Escape") {
       event.preventDefault();
-      recording.value = false;
+      void setRecording(false);
       return;
     }
 
@@ -58,7 +82,7 @@ useEventListener(
     event.preventDefault();
     event.stopPropagation();
     value.value = captured;
-    recording.value = false;
+    void setRecording(false);
   },
   { capture: true },
 );
@@ -67,7 +91,7 @@ useEventListener(
 <template>
   <div
     class="shortcut-recorder"
-    :class="{ 'shortcut-recorder--recording': recording }"
+    :class="{ 'shortcut-recorder--recording': recording || arming }"
     @click="startRecording"
   >
     <span class="shortcut-recorder__label">{{ displayText }}</span>

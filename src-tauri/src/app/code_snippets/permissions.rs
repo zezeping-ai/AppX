@@ -95,15 +95,15 @@ pub fn code_snippets_open_accessibility_settings(
 fn abbreviation_supported() -> bool {
     #[cfg(target_os = "macos")]
     {
-        return true;
+        true
     }
     #[cfg(target_os = "windows")]
     {
-        return true;
+        true
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        return crate::app::platform::is_x11_session();
+        crate::app::platform::is_x11_session()
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
     {

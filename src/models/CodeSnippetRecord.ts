@@ -53,8 +53,22 @@ export class CodeSnippetRecord extends ApplicationRecord {
     if (keyword) {
       const like = `%${keyword}%`;
       fragments.push({
-        sql: `LOWER(${this.quoteIdent("name")}) LIKE LOWER(?)`,
-        binds: [like],
+        sql: `(
+          LOWER(${this.quoteIdent("name")}) LIKE LOWER(?)
+          OR LOWER(${this.quoteIdent("abbreviation")}) LIKE LOWER(?)
+        )`,
+        binds: [like, like],
+      });
+    }
+
+    // 快捷键筛选：由录入器产出规范化串，精确匹配
+    const shortcutRaw = columns.shortcut;
+    delete columns.shortcut;
+    const shortcut = typeof shortcutRaw === "string" ? shortcutRaw.trim() : "";
+    if (shortcut) {
+      fragments.push({
+        sql: `${this.quoteIdent("shortcut")} = ?`,
+        binds: [shortcut],
       });
     }
 

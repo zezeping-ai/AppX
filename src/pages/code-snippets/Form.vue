@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { message } from "ant-design-vue";
 import MonacoEditor from "@/components/MonacoEditor/index.vue";
 import ShortcutRecorder from "@/components/ShortcutRecorder/index.vue";
@@ -13,11 +13,13 @@ import {
   inlineExpansionTrigger,
   normalizeAbbreviationInput,
   validateAbbreviation,
+  assertSnippetShortcutAvailable,
   type CodeSnippetGroup,
 } from "@/modules/codeSnippets";
 import { encryptText } from "@/modules/crypto";
 import { getErrorMessage } from "@/shared/error";
 import { normalizeGlobalShortcut } from "@/shared/shortcut";
+import { setGlobalShortcutsPaused } from "@/modules/globalShortcut";
 
 const props = defineProps<{
   record: CodeSnippetRecord | null;
@@ -41,14 +43,6 @@ async function assertUniqueAbbreviation(abbreviation: string, excludeId?: number
   }
 }
 
-async function assertUniqueShortcut(shortcut: string | null, excludeId?: number) {
-  if (!shortcut) return;
-  const existing = await CodeSnippetRecord.findBy({ shortcut });
-  if (existing && existing.id !== excludeId) {
-    throw new Error(`快捷键「${shortcut}」已被占用`);
-  }
-}
-
 const form = useForm({
   model: {
     name: props.record?.name ?? "",
@@ -69,6 +63,26 @@ const form = useForm({
           if (err) throw new Error(err);
         },
       },
+      {
+        validator: async (_rule, value: string) => {
+          const abbreviation = String(value ?? "")
+            .trim()
+            .toLowerCase();
+          if (!abbreviation) return;
+          await assertUniqueAbbreviation(abbreviation, props.record?.id as number | undefined);
+        },
+      },
+    ],
+    shortcut: [
+      {
+        validator: async (_rule, value: string) => {
+          const err = await assertSnippetShortcutAvailable(
+            value,
+            props.record?.id as number | undefined,
+          );
+          if (err) throw new Error(err);
+        },
+      },
     ],
     content: [{ required: true, message: "请填写内容" }],
   },
@@ -78,25 +92,26 @@ const form = useForm({
     const content = form.model.content;
     const editingId = props.record?.id as number | undefined;
 
-    await assertUniqueAbbreviation(abbreviation, editingId);
-    const shortcut = normalizeGlobalShortcut(form.model.shortcut);
-    await assertUniqueShortcut(shortcut, editingId);
-
-    const encryptedContent = await encryptText(content);
-    const payload = {
-      name,
-      abbreviation,
-      shortcut,
-      content: encryptedContent,
-      meta: {
-        group: form.model.group,
-        language: form.model.language.trim() || null,
-        note: form.model.note.trim(),
-        order: props.record?.meta.order ?? 0,
-      },
-    };
-
     try {
+      await assertUniqueAbbreviation(abbreviation, editingId);
+      const shortcut = normalizeGlobalShortcut(form.model.shortcut);
+      const shortcutErr = await assertSnippetShortcutAvailable(shortcut, editingId);
+      if (shortcutErr) throw new Error(shortcutErr);
+
+      const encryptedContent = await encryptText(content);
+      const payload = {
+        name,
+        abbreviation,
+        shortcut,
+        content: encryptedContent,
+        meta: {
+          group: form.model.group,
+          language: form.model.language.trim() || null,
+          note: form.model.note.trim(),
+          order: props.record?.meta.order ?? 0,
+        },
+      };
+
       if (editingId) {
         await CodeSnippetRecord.update(editingId, payload);
       } else {
@@ -111,6 +126,22 @@ const form = useForm({
     }
   },
 });
+
+// 录制变更后立刻校验占用
+watch(
+  () => form.model.shortcut,
+  async (shortcut) => {
+    if (!shortcut) return;
+    const err = await assertSnippetShortcutAvailable(
+      shortcut,
+      props.record?.id as number | undefined,
+    );
+    if (err) {
+      message.warning(err);
+    }
+    void form.formRef?.validateFields(["shortcut"]);
+  },
+);
 </script>
 
 <template>
@@ -159,8 +190,11 @@ const form = useForm({
           </a-form-item>
         </a-col>
         <a-col :span="12">
-          <a-form-item label="快捷键">
-            <ShortcutRecorder v-model:value="form.model.shortcut" />
+          <a-form-item name="shortcut" label="快捷键">
+            <ShortcutRecorder
+              v-model:value="form.model.shortcut"
+              :on-recording-change="setGlobalShortcutsPaused"
+            />
           </a-form-item>
         </a-col>
       </a-row>
@@ -180,12 +214,15 @@ const form = useForm({
       </a-form-item>
 
       <a-form-item name="content" label="内容">
-        <div class="monaco-wrap">
-          <MonacoEditor v-model="form.model.content" :language="form.model.language" />
-        </div>
+        <MonacoEditor
+          v-model="form.model.content"
+          :language="form.model.language"
+          auto-height
+          :min-height="160"
+        />
       </a-form-item>
 
-      <a-form-item label="备注">
+      <a-form-item label="备注" class="snippet-form__note">
         <a-textarea v-model:value="form.model.note" :rows="2" placeholder="可选说明" />
       </a-form-item>
     </a-form>
@@ -201,7 +238,6 @@ const form = useForm({
 .snippet-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 .snippet-form__label-row {
@@ -220,13 +256,23 @@ const form = useForm({
   color: rgba(255, 255, 255, 0.45);
 }
 
-.monaco-wrap {
-  height: 280px;
-}
-
+/* 左右抵消 drawer body 内边距，做成底部操作栏 */
 .snippet-form__footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin: 0 -24px;
+  padding: 12px 24px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+}
+
+.snippet-form__note {
+  margin-bottom: 0;
+}
+
+[data-theme="dark"] .snippet-form__footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background: #141414;
 }
 </style>

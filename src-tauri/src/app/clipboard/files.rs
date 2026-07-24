@@ -1,7 +1,7 @@
 pub fn write_file_paths(paths: &[String]) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        return macos::write_file_paths(paths);
+        macos::write_file_paths(paths)
     }
     #[cfg(not(target_os = "macos"))]
     {

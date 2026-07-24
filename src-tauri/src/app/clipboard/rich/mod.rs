@@ -31,15 +31,15 @@ pub fn read_system() -> RichFormats {
 pub fn read_system_unlocked() -> RichFormats {
     #[cfg(target_os = "macos")]
     {
-        return macos::read_unlocked();
+        macos::read_unlocked()
     }
     #[cfg(target_os = "windows")]
     {
-        return windows::read_unlocked();
+        windows::read_unlocked()
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        return linux::read_unlocked();
+        linux::read_unlocked()
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
     {
@@ -69,15 +69,15 @@ pub(crate) fn write_system_unlocked(
     }
     #[cfg(target_os = "macos")]
     {
-        return macos::write_unlocked(formats, plain_text);
+        macos::write_unlocked(formats, plain_text)
     }
     #[cfg(target_os = "windows")]
     {
-        return windows::write_unlocked(formats, plain_text);
+        windows::write_unlocked(formats, plain_text)
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        return linux::write_unlocked(formats, plain_text);
+        linux::write_unlocked(formats, plain_text)
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
     {
