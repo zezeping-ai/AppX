@@ -2,7 +2,7 @@
 //!
 //! - 全屏：FullScreenAuxiliary；显示用 CanJoinAllSpaces，隐藏用 MoveToActiveSpace
 //! - 定位：鼠标所在屏；默认整屏 frame；Accessibility 确认 Dock 挡边时才让位
-//! - 显示：不 make_key，避免抢走原输入框焦点
+//! - 显示：make_key，保证首次点击即可选中条目（粘贴前仍用 focus_target 还原原应用）
 //! - 点外部关闭：全局鼠标按下监听（不依赖 resign_key）
 //!
 //! 注意：`tauri_panel!` 会在本模块注入 NSPoint/NSRect/NSEvent 等 use，勿再重复导入。
@@ -26,7 +26,8 @@ tauri_panel! {
     panel!(ClipboardPalettePanel {
         config: {
             can_become_key_window: true,
-            becomes_key_only_if_needed: true,
+            // false：避免「第一下只激活、第二下才点中」
+            becomes_key_only_if_needed: false,
             is_floating_panel: true
         }
     })
@@ -86,7 +87,7 @@ pub fn ensure_panel(window: &WebviewWindow) -> Result<(), String> {
     panel.set_level(PanelLevel::MainMenu.value() + 1);
     panel.set_floating_panel(true);
     panel.set_hides_on_deactivate(false);
-    panel.set_becomes_key_only_if_needed(true);
+    panel.set_becomes_key_only_if_needed(false);
     panel.set_style_mask(
         StyleMask::empty()
             .nonactivating_panel()
@@ -182,15 +183,16 @@ fn place_on_mouse_screen_main(window: &WebviewWindow, layout: &str, thickness: f
     Ok(())
 }
 
-/// 显示面板：只前置，不 make_key，保留原应用/输入框焦点。
+/// 显示面板并成为 key，确保热键呼出后第一下点击即可选条目。
+/// 插入目标应用的焦点由 `focus_target` 在展示前捕获、粘贴前还原。
 pub fn show_panel(window: &WebviewWindow) -> Result<(), String> {
     let app = window.app_handle();
     ensure_app_ready_for_overlay(&app);
     let panel = app
         .get_webview_panel(window.label())
         .map_err(|_| "剪切面板尚未转换为 NSPanel".to_string())?;
-    panel.show();
     panel.set_collection_behavior(behavior_shown().into());
+    panel.show_and_make_key();
     panel.order_front_regardless();
     Ok(())
 }
