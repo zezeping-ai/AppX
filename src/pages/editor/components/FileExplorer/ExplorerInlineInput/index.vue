@@ -77,7 +77,7 @@ function onBlur() {
 
 .explorer-inline__icon {
   flex-shrink: 0;
-  color: #6b7280;
+  color: var(--app-fg-muted);
 }
 
 .explorer-inline__input {
@@ -85,11 +85,11 @@ function onBlur() {
   min-width: 0;
   height: 20px;
   padding: 0 4px;
-  border: 1px solid #3b82f6;
+  border: 1px solid var(--app-active-fg);
   border-radius: 2px;
   outline: none;
   font-size: 13px;
-  color: #111827;
-  background: #fff;
+  color: var(--app-fg);
+  background: var(--app-surface);
 }
 </style>

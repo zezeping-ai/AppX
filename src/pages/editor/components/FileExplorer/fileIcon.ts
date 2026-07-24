@@ -148,6 +148,5 @@ export function resolveExplorerFileIcon(node: ExplorerTreeItem): ExplorerFileIco
 export function resolveExplorerFolderIcon(expanded: boolean): ExplorerFileIcon {
   return {
     icon: expanded ? "mdi:folder-open-outline" : "mdi:folder-outline",
-    color: "#94a3b8",
   };
 }

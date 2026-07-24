@@ -48,8 +48,8 @@ const emit = defineEmits<{
   min-height: 36px;
   flex-shrink: 0;
   overflow-x: auto;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
 }
 
 .editor-tabs__item {
@@ -61,19 +61,19 @@ const emit = defineEmits<{
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #4b5563;
+  color: var(--app-fg-secondary);
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
 
   &:hover {
-    background: #f3f4f6;
+    background: var(--app-hover-bg);
   }
 
   &--active {
-    color: #1d4ed8;
-    border-bottom-color: #1d4ed8;
-    background: #fff;
+    color: var(--app-active-fg);
+    border-bottom-color: var(--app-active-fg);
+    background: var(--app-surface);
   }
 }
 
@@ -84,7 +84,7 @@ const emit = defineEmits<{
 }
 
 .editor-tabs__dirty {
-  color: #ef4444;
+  color: var(--app-danger-fg);
 }
 
 .editor-tabs__close {
@@ -94,11 +94,11 @@ const emit = defineEmits<{
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--app-fg-muted);
 
   &:hover {
-    background: #e5e7eb;
-    color: #111827;
+    background: var(--app-hover-bg-strong);
+    color: var(--app-fg);
   }
 }
 </style>

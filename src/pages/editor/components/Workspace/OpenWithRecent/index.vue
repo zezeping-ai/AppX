@@ -215,7 +215,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #64748b;
+  color: var(--app-fg-secondary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -241,7 +241,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
   }
 
   &--file {
-    color: #64748b;
+    color: var(--app-fg-secondary);
   }
 }
 
@@ -262,7 +262,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
 
 .open-with-recent__item-path {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--app-fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -274,7 +274,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--app-fg-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -282,17 +282,8 @@ function onRemoveRecent(kind: RecentKind, path: string) {
   flex-shrink: 0;
 
   &:hover {
-    color: #374151;
-    background: rgba(0, 0, 0, 0.06);
-  }
-}
-
-[data-theme="dark"] .open-with-recent__remove-btn {
-  color: #9ca3af;
-
-  &:hover {
-    color: #e5e7eb;
-    background: rgba(255, 255, 255, 0.12);
+    color: var(--app-fg);
+    background: var(--app-hover-bg);
   }
 }
 </style>

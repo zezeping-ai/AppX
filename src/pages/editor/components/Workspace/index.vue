@@ -635,7 +635,8 @@ watch(editorContent, (value) => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f8fafc;
+  background: var(--app-bg);
+  color: var(--app-fg);
 }
 
 .encrypted-workspace__toolbar {
@@ -644,8 +645,8 @@ watch(editorContent, (value) => {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
 }
 
 .encrypted-workspace__status {
@@ -654,6 +655,7 @@ watch(editorContent, (value) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--app-fg-secondary);
 }
 
 .encrypted-workspace__body {
@@ -664,8 +666,8 @@ watch(editorContent, (value) => {
 }
 
 .encrypted-workspace__sidebar {
-  border-right: 1px solid #e5e7eb;
-  background: #fff;
+  border-right: 1px solid var(--app-border);
+  background: var(--app-surface);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -675,7 +677,7 @@ watch(editorContent, (value) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--app-surface);
 }
 
 .encrypted-workspace__editor-main {
@@ -684,7 +686,7 @@ watch(editorContent, (value) => {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: var(--app-bg);
 
   :deep(.monaco-editor-host),
   :deep(.rich-doc-editor),
@@ -697,6 +699,6 @@ watch(editorContent, (value) => {
 .encrypted-workspace__placeholder {
   flex: 1;
   min-height: 0;
-  background: #f8fafc;
+  background: var(--app-bg);
 }
 </style>

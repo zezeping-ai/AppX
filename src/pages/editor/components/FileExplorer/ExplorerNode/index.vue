@@ -159,33 +159,33 @@ function onContextMenu(event: MouseEvent) {
   border-radius: 4px;
   cursor: pointer;
   user-select: none;
-  color: #374151;
+  color: var(--app-fg);
   font-size: 13px;
 
   &:hover {
-    background: #f3f4f6;
+    background: var(--app-hover-bg);
   }
 
   &--active {
-    background: #e8f0fe;
-    color: #1d4ed8;
+    background: var(--app-active-bg);
+    color: var(--app-active-fg);
   }
 
   /* 隐藏文件 / gitignore 忽略：保持可点，但视觉降权 */
   &--dimmed {
-    color: #9ca3af;
+    color: var(--app-fg-muted);
 
     .explorer-icon,
     .explorer-chevron {
-      color: #c0c4cc;
+      color: var(--app-fg-muted);
     }
   }
 
   &--dimmed.explorer-row--active {
-    color: #93c5fd;
+    color: var(--app-active-fg);
 
     .explorer-icon {
-      color: #93c5fd;
+      color: var(--app-active-fg);
     }
   }
 }
@@ -199,7 +199,7 @@ function onContextMenu(event: MouseEvent) {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #6b7280;
+  color: var(--app-fg-muted);
   flex-shrink: 0;
   cursor: pointer;
 
@@ -210,11 +210,11 @@ function onContextMenu(event: MouseEvent) {
 
 .explorer-icon {
   flex-shrink: 0;
-  color: #6b7280;
+  color: var(--app-fg-secondary);
 }
 
 .explorer-row--active:not(.explorer-row--dimmed) .explorer-icon {
-  color: #1d4ed8;
+  color: var(--app-active-fg);
 }
 
 .explorer-label {

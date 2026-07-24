@@ -26,6 +26,7 @@ function chain() {
 const items = computed<ToolbarItem[]>(() => {
   const ed = props.editor;
   const inTable = () => ed.isActive("table");
+
   return [
     {
       kind: "btn",
@@ -103,7 +104,7 @@ const items = computed<ToolbarItem[]>(() => {
     {
       kind: "btn",
       title: "插入表格",
-      icon: "mdi:table",
+      icon: "mdi:table-plus",
       run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
     },
     {
@@ -115,17 +116,70 @@ const items = computed<ToolbarItem[]>(() => {
     },
     {
       kind: "btn",
-      title: "在下方插入行",
+      title: "切换表头行",
+      icon: "mdi:table-headers-eye",
+      disabled: () => !inTable(),
+      active: () => ed.isActive("tableHeader"),
+      run: () => chain().toggleHeaderRow().run(),
+    },
+    { kind: "sep" },
+    {
+      kind: "btn",
+      title: "上方插入行",
+      icon: "mdi:table-row-plus-before",
+      disabled: () => !inTable(),
+      run: () => chain().addRowBefore().run(),
+    },
+    {
+      kind: "btn",
+      title: "下方插入行",
       icon: "mdi:table-row-plus-after",
       disabled: () => !inTable(),
       run: () => chain().addRowAfter().run(),
     },
     {
       kind: "btn",
-      title: "在右侧插入列",
+      title: "删除行",
+      icon: "mdi:table-row-remove",
+      disabled: () => !inTable(),
+      run: () => chain().deleteRow().run(),
+    },
+    { kind: "sep" },
+    {
+      kind: "btn",
+      title: "左侧插入列",
+      icon: "mdi:table-column-plus-before",
+      disabled: () => !inTable(),
+      run: () => chain().addColumnBefore().run(),
+    },
+    {
+      kind: "btn",
+      title: "右侧插入列",
       icon: "mdi:table-column-plus-after",
       disabled: () => !inTable(),
       run: () => chain().addColumnAfter().run(),
+    },
+    {
+      kind: "btn",
+      title: "删除列",
+      icon: "mdi:table-column-remove",
+      disabled: () => !inTable(),
+      run: () => chain().deleteColumn().run(),
+    },
+    { kind: "sep" },
+    {
+      kind: "btn",
+      title: "合并单元格（先拖选多个单元格）",
+      icon: "mdi:table-merge-cells",
+      disabled: () => !ed.can().mergeCells(),
+      run: () => chain().mergeCells().run(),
+    },
+    {
+      kind: "btn",
+      title: "拆分单元格",
+      icon: "mdi:table-split-cell",
+      disabled: () => !ed.can().splitCell(),
+      run: () => chain().splitCell().run(),
     },
   ];
 });
@@ -157,8 +211,8 @@ const items = computed<ToolbarItem[]>(() => {
   align-items: center;
   gap: 2px;
   padding: 6px 8px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
 
   button {
     display: inline-flex;
@@ -170,13 +224,13 @@ const items = computed<ToolbarItem[]>(() => {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #334155;
+    color: var(--app-fg-subtle);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 
     &:hover:not(:disabled) {
-      background: #e2e8f0;
+      background: var(--app-hover-bg);
     }
 
     &:disabled {
@@ -185,8 +239,8 @@ const items = computed<ToolbarItem[]>(() => {
     }
 
     &.is-active {
-      background: #e2e8f0;
-      color: #0f172a;
+      background: var(--app-active-bg);
+      color: var(--app-active-fg);
     }
   }
 }
@@ -195,6 +249,6 @@ const items = computed<ToolbarItem[]>(() => {
   width: 1px;
   height: 16px;
   margin: 0 4px;
-  background: #e2e8f0;
+  background: var(--app-divider);
 }
 </style>

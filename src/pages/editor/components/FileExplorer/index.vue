@@ -596,7 +596,8 @@ const showRootInline = computed(() => {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #fff;
+  background: var(--app-surface);
+  color: var(--app-fg);
 }
 
 .file-explorer__header {
@@ -604,7 +605,7 @@ const showRootInline = computed(() => {
   align-items: center;
   justify-content: flex-end;
   padding: 4px 6px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .file-explorer__actions {
@@ -622,12 +623,12 @@ const showRootInline = computed(() => {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #6b7280;
+  color: var(--app-fg-muted);
   cursor: pointer;
 
   &:hover:not(:disabled) {
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--app-hover-bg);
+    color: var(--app-fg);
   }
 
   &:disabled {
@@ -656,16 +657,17 @@ const showRootInline = computed(() => {
   z-index: 3000;
   min-width: 200px;
   padding: 4px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  background: var(--app-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  color: var(--app-fg);
 }
 
 .file-explorer__context-divider {
   height: 1px;
   margin: 4px 0;
-  background: #e5e7eb;
+  background: var(--app-divider);
 }
 
 .file-explorer__context-item {
@@ -677,27 +679,27 @@ const showRootInline = computed(() => {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #111827;
+  color: var(--app-fg);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
 
   &:hover {
-    background: #f3f4f6;
+    background: var(--app-hover-bg);
   }
 
   &--danger {
-    color: #dc2626;
+    color: var(--app-danger-fg);
 
     &:hover {
-      background: #fef2f2;
+      background: var(--app-danger-bg);
     }
   }
 }
 
 .file-explorer__context-icon {
   flex-shrink: 0;
-  color: #64748b;
+  color: var(--app-fg-secondary);
 }
 
 .file-explorer__context-item--danger .file-explorer__context-icon {
@@ -711,7 +713,7 @@ const showRootInline = computed(() => {
 
 .file-explorer__context-hint {
   flex-shrink: 0;
-  color: #94a3b8;
+  color: var(--app-fg-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }

@@ -107,21 +107,21 @@ tryOnScopeDispose(() => {
   width: 100%;
   height: 100%;
   min-height: 240px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--app-surface);
 }
 
 .rich-doc-editor--broken {
-  border-color: #fecaca;
+  border-color: var(--app-danger-border);
 }
 
 .rich-doc-editor__error {
   padding: 8px 12px;
-  border-bottom: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
+  border-bottom: 1px solid var(--app-danger-border);
+  background: var(--app-danger-bg);
+  color: var(--app-danger-fg);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -135,7 +135,7 @@ tryOnScopeDispose(() => {
     min-height: 100%;
     padding: 16px 20px;
     outline: none;
-    color: #0f172a;
+    color: var(--app-fg);
     font-size: 14px;
     line-height: 1.7;
 
@@ -170,15 +170,16 @@ tryOnScopeDispose(() => {
     blockquote {
       margin: 0;
       padding-left: 12px;
-      border-left: 3px solid #cbd5e1;
-      color: #475569;
+      border-left: 3px solid var(--app-divider);
+      color: var(--app-fg-secondary);
     }
 
     pre {
       padding: 10px 12px;
       border-radius: 6px;
-      background: #0f172a;
-      color: #e2e8f0;
+      border: 1px solid var(--app-border);
+      background: var(--app-code-bg);
+      color: var(--app-code-fg);
       overflow-x: auto;
       font-size: 13px;
     }
@@ -191,7 +192,7 @@ tryOnScopeDispose(() => {
       content: attr(data-placeholder);
       float: left;
       height: 0;
-      color: #94a3b8;
+      color: var(--app-fg-muted);
       pointer-events: none;
     }
 
@@ -199,7 +200,7 @@ tryOnScopeDispose(() => {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin: 0.75em 0;
+      margin: 0;
       overflow: hidden;
 
       td,
@@ -207,23 +208,56 @@ tryOnScopeDispose(() => {
         position: relative;
         min-width: 48px;
         padding: 6px 8px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--app-border);
         vertical-align: top;
+        word-break: break-word;
       }
 
       th {
-        background: #f1f5f9;
+        background: var(--app-surface-muted);
         font-weight: 600;
         text-align: left;
+        vertical-align: middle;
+      }
+
+      /* 单元格内段落默认无多余外边距，避免表头看起来贴顶 */
+      td > p,
+      th > p {
+        margin: 0;
       }
 
       .selectedCell::after {
         content: "";
         position: absolute;
         inset: 0;
-        background: rgb(59 130 246 / 12%);
+        background: var(--app-active-bg);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .column-resize-handle {
+        position: absolute;
+        top: 0;
+        right: -1px;
+        bottom: -2px;
+        width: 2px;
+        background: var(--app-divider);
         pointer-events: none;
       }
+    }
+
+    .tableWrapper {
+      margin: 0.75em 0;
+      overflow-x: auto;
+    }
+
+    &.resize-cursor {
+      cursor: ew-resize;
+      cursor: col-resize;
+    }
+
+    a {
+      color: var(--app-active-fg);
     }
   }
 }

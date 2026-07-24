@@ -39,9 +39,9 @@ useMonacoEditor(containerRef, {
   width: 100%;
   height: 100%;
   min-height: 240px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--app-surface);
 }
 </style>

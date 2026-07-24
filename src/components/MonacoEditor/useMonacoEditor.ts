@@ -1,6 +1,7 @@
 import * as monaco from "monaco-editor";
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { ensureMonacoEnvironment } from "@/components/MonacoEditor/setupMonaco";
+import { useThemePreferences } from "@/features/appearance";
 
 export interface UseMonacoEditorOptions {
   language?: () => string;
@@ -15,6 +16,11 @@ export function useMonacoEditor(
 ) {
   const editor = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const ready = ref(false);
+  const { isDark } = useThemePreferences();
+
+  function monacoTheme() {
+    return isDark.value ? "vs-dark" : "vs";
+  }
 
   onMounted(() => {
     ensureMonacoEnvironment();
@@ -25,7 +31,7 @@ export function useMonacoEditor(
     editor.value = monaco.editor.create(containerRef.value, {
       value: options.value(),
       language: options.language?.() ?? "plaintext",
-      theme: "vs",
+      theme: monacoTheme(),
       readOnly: options.readOnly?.() ?? false,
       automaticLayout: true,
       minimap: { enabled: false },
@@ -73,6 +79,10 @@ export function useMonacoEditor(
       editor.value?.updateOptions({ readOnly });
     },
   );
+
+  watch(isDark, () => {
+    monaco.editor.setTheme(monacoTheme());
+  });
 
   onBeforeUnmount(() => {
     editor.value?.dispose();
