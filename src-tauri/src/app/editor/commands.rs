@@ -141,7 +141,8 @@ pub fn editor_create_file(
     content: Option<String>,
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
-    let use_encrypted = encrypted.unwrap_or(false);
+    // 默认新建加密文本（untitled.txt.x）
+    let use_encrypted = encrypted.unwrap_or(true);
     let name = file_name
         .as_deref()
         .map(str::trim)

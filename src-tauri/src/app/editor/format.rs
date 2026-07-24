@@ -177,10 +177,8 @@ const BINARY_EXTENSIONS: &[&str] = &[
     "woff2", "ttf", "otf", "eot", "bin", "dat", "lock",
 ];
 
-pub fn is_editable_path(path: &Path) -> bool {
-    if !path.is_file() {
-        return false;
-    }
+/// 按路径名判断是否可编辑（不要求文件已存在，供新建/重命名校验）
+pub fn is_supported_editor_path(path: &Path) -> bool {
     if is_encrypted_path(path) {
         return true;
     }
@@ -207,8 +205,12 @@ pub fn is_editable_path(path: &Path) -> bool {
     !name.starts_with('.')
 }
 
+pub fn is_editable_path(path: &Path) -> bool {
+    path.is_file() && is_supported_editor_path(path)
+}
+
 pub fn ensure_writable_path(path: &Path) -> Result<(), String> {
-    if is_encrypted_path(path) || is_editable_path(path) {
+    if is_supported_editor_path(path) {
         Ok(())
     } else {
         Err(format!("不支持的文件类型：{}", path.display()))
@@ -297,6 +299,14 @@ mod tests {
         assert!(!is_default_encrypted_path(&custom));
         assert_eq!(encryption_kind(&default), Some(EncryptionKind::Default));
         assert_eq!(encryption_kind(&custom), Some(EncryptionKind::Custom));
+    }
+
+    #[test]
+    fn ensure_writable_allows_new_files_by_extension() {
+        // 新建时文件尚不存在，不能依赖 is_file()
+        assert!(ensure_writable_path(Path::new("/tmp/untitled.txt.x")).is_ok());
+        assert!(ensure_writable_path(Path::new("/tmp/untitled.txt")).is_ok());
+        assert!(ensure_writable_path(Path::new("/tmp/photo.png")).is_err());
     }
 
     #[test]

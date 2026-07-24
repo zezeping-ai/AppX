@@ -31,7 +31,7 @@ const emit = defineEmits<{
 }>();
 
 const VIEWPORT_PADDING = 8;
-const DEFAULT_FILE_NAME = "untitled.txt";
+const DEFAULT_FILE_NAME = "untitled.txt.x";
 const DEFAULT_FOLDER_NAME = "新建文件夹";
 
 const { expandedKeys, toggleExpanded, expandForSession, collapseAll, pruneExpandedKeys } =
