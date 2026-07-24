@@ -3,3 +3,4 @@ export * from "@/modules/editor/client";
 export * from "@/modules/editor/encryption";
 export * from "@/modules/editor/openedFile";
 export * from "@/modules/editor/settings";
+export * from "@/modules/editor/axdoc";

@@ -9,6 +9,10 @@ import {
   collectDirectoryPaths,
   useExplorerExpandedKeys,
 } from "@/pages/editor/components/FileExplorer/useExplorerExpandedKeys";
+import {
+  DEFAULT_AXDOC_FILE_NAME,
+  DEFAULT_TEXT_FILE_NAME,
+} from "@/modules/editor/axdoc";
 
 const props = defineProps<{
   treeData: ExplorerTreeItem[];
@@ -31,8 +35,23 @@ const emit = defineEmits<{
 }>();
 
 const VIEWPORT_PADDING = 8;
-const DEFAULT_FILE_NAME = "untitled.txt.x";
 const DEFAULT_FOLDER_NAME = "新建文件夹";
+
+const CREATE_CONTEXT_ACTIONS: ContextMenuAction[] = [
+  {
+    key: "new-file",
+    label: "新建文件",
+    hint: ".txt.x",
+    icon: "mdi:file-code-outline",
+  },
+  {
+    key: "new-doc",
+    label: "新建富文本",
+    hint: ".axdoc.x",
+    icon: "mdi:file-document-edit-outline",
+  },
+  { key: "new-folder", label: "新建文件夹", icon: "mdi:folder-plus-outline" },
+];
 
 const { expandedKeys, toggleExpanded, expandForSession, collapseAll, pruneExpandedKeys } =
   useExplorerExpandedKeys(toRef(props, "workspaceRoot"));
@@ -100,7 +119,7 @@ function toggleExpand(path: string) {
   toggleExpanded(path);
 }
 
-function startCreateFile(parentPath: string) {
+function startCreateEntry(parentPath: string, defaultName: string) {
   if (!parentPath) {
     return;
   }
@@ -109,8 +128,16 @@ function startCreateFile(parentPath: string) {
     mode: "create-file",
     parentPath,
     targetPath: parentPath,
-    value: DEFAULT_FILE_NAME,
+    value: defaultName,
   };
+}
+
+function startCreateFile(parentPath: string) {
+  startCreateEntry(parentPath, DEFAULT_TEXT_FILE_NAME);
+}
+
+function startCreateDoc(parentPath: string) {
+  startCreateEntry(parentPath, DEFAULT_AXDOC_FILE_NAME);
 }
 
 function startCreateFolder(parentPath: string) {
@@ -181,6 +208,16 @@ function onHeaderNewFile() {
   startCreateFile(parent ?? props.workspaceRoot);
 }
 
+function onHeaderNewDoc() {
+  if (!props.workspaceRoot) {
+    return;
+  }
+  const parent = resolveParentDirectory(
+    props.activePath ? findNode(props.treeData, props.activePath) : null,
+  );
+  startCreateDoc(parent ?? props.workspaceRoot);
+}
+
 function onHeaderNewFolder() {
   if (!props.workspaceRoot) {
     return;
@@ -221,24 +258,22 @@ const contextActions = computed<ContextMenuAction[]>(() => {
 
   if (rootTarget || !node) {
     return [
-      { key: "new-file", label: "新建文件" },
-      { key: "new-folder", label: "新建文件夹" },
-      { key: "refresh", label: "刷新" },
+      ...CREATE_CONTEXT_ACTIONS,
+      { key: "refresh", label: "刷新", icon: "mdi:refresh", divider: true },
     ];
   }
 
   if (node.kind === "directory") {
     return [
-      { key: "new-file", label: "新建文件" },
-      { key: "new-folder", label: "新建文件夹" },
-      { key: "rename", label: "重命名", divider: true },
-      { key: "delete", label: "删除", danger: true },
+      ...CREATE_CONTEXT_ACTIONS,
+      { key: "rename", label: "重命名", icon: "mdi:pencil-outline", divider: true },
+      { key: "delete", label: "删除", icon: "mdi:delete-outline", danger: true },
     ];
   }
 
   const actions: ContextMenuAction[] = [
-    { key: "open", label: "打开" },
-    { key: "rename", label: "重命名" },
+    { key: "open", label: "打开", icon: "mdi:file-eye-outline" },
+    { key: "rename", label: "重命名", icon: "mdi:pencil-outline" },
   ];
 
   // 转换项优先级：转为普通 > 转为加密 (.x) > 独立口令加密 (.x0)
@@ -261,7 +296,13 @@ const contextActions = computed<ContextMenuAction[]>(() => {
     actions.push(...convertActions);
   }
 
-  actions.push({ key: "delete", label: "删除", danger: true, divider: true });
+  actions.push({
+    key: "delete",
+    label: "删除",
+    icon: "mdi:delete-outline",
+    danger: true,
+    divider: true,
+  });
   return actions;
 });
 
@@ -331,6 +372,10 @@ function onContextAction(key: string) {
     if (parentPath) startCreateFile(parentPath);
     return;
   }
+  if (key === "new-doc") {
+    if (parentPath) startCreateDoc(parentPath);
+    return;
+  }
   if (key === "new-folder") {
     if (parentPath) startCreateFolder(parentPath);
     return;
@@ -392,11 +437,20 @@ const showRootInline = computed(
         <button
           type="button"
           class="file-explorer__action"
-          title="新建文件"
+          title="新建文件 (.txt.x)"
           :disabled="!workspaceRoot"
           @click="onHeaderNewFile"
         >
-          <Icon icon="mdi:file-plus-outline" width="15" height="15" />
+          <Icon icon="mdi:file-code-outline" width="15" height="15" />
+        </button>
+        <button
+          type="button"
+          class="file-explorer__action"
+          title="新建富文本 (.axdoc.x)"
+          :disabled="!workspaceRoot"
+          @click="onHeaderNewDoc"
+        >
+          <Icon icon="mdi:file-document-edit-outline" width="15" height="15" />
         </button>
         <button
           type="button"
@@ -477,7 +531,15 @@ const showRootInline = computed(
             :class="{ 'file-explorer__context-item--danger': action.danger }"
             @click="onContextAction(action.key)"
           >
-            {{ action.label }}
+            <Icon
+              v-if="action.icon"
+              :icon="action.icon"
+              width="15"
+              height="15"
+              class="file-explorer__context-icon"
+            />
+            <span class="file-explorer__context-label">{{ action.label }}</span>
+            <span v-if="action.hint" class="file-explorer__context-hint">{{ action.hint }}</span>
           </button>
         </template>
       </div>
@@ -550,7 +612,7 @@ const showRootInline = computed(
 .file-explorer__context-menu {
   position: fixed;
   z-index: 3000;
-  min-width: 180px;
+  min-width: 200px;
   padding: 4px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
@@ -565,7 +627,9 @@ const showRootInline = computed(
 }
 
 .file-explorer__context-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 6px 10px;
   border: 0;
@@ -587,5 +651,26 @@ const showRootInline = computed(
       background: #fef2f2;
     }
   }
+}
+
+.file-explorer__context-icon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.file-explorer__context-item--danger .file-explorer__context-icon {
+  color: inherit;
+}
+
+.file-explorer__context-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-explorer__context-hint {
+  flex-shrink: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

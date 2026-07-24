@@ -1,6 +1,6 @@
 <script setup lang="tsx">
 import { Modal, message } from "ant-design-vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { uniq } from "lodash-es";
 import EditorTabs from "@/pages/editor/components/EditorTabs/index.vue";
@@ -22,10 +22,20 @@ import {
   readFile,
   renamePath,
 } from "@/modules/editor/client";
+import {
+  emptyAxdocContent,
+  isAppxdocLanguage,
+  isAxdocFileName,
+  parseAxdocContent,
+} from "@/modules/editor/axdoc";
 import { fileStatusMark, isEncryptedFileName } from "@/modules/editor/encryption";
 import { createOpenedEditorFile } from "@/modules/editor/openedFile";
 import type { OpenedEditorFile } from "@/modules/editor/types";
 import { useEncryptedFileFlow } from "./useEncryptedFileFlow";
+
+const RichDocEditor = defineAsyncComponent(
+  () => import("@/pages/editor/components/RichDocEditor/index.vue"),
+);
 
 const { savedWorkspaceRoot, rememberWorkspaceRoot } = useWorkspacePersistence();
 const {
@@ -53,6 +63,7 @@ const activeFile = computed(() =>
 );
 const hasActiveFile = computed(() => Boolean(activeFile.value));
 const activeLanguage = computed(() => activeFile.value?.language ?? "plaintext");
+const isRichDocActive = computed(() => isAppxdocLanguage(activeLanguage.value));
 
 const statusText = computed(() => {
   if (!activeFile.value) {
@@ -145,6 +156,12 @@ async function openFileByPath(path: string): Promise<boolean> {
 
     const nextInspect =
       resolved.path === path ? inspect : await inspectFile(resolved.path);
+    if (isAppxdocLanguage(nextInspect.language)) {
+      const parsed = parseAxdocContent(resolved.content);
+      if (!parsed.ok) {
+        message.warning(`${parsed.error}（已禁止编辑，避免覆盖原文件）`);
+      }
+    }
     const tab = createOpenedEditorFile(resolved.path, nextInspect, resolved.content);
     tabByPath.value = new Map(tabByPath.value).set(resolved.path, tab);
     activePath.value = resolved.path;
@@ -303,6 +320,7 @@ async function onExplorerCreateFile(directory: string, fileName: string) {
     const path = await createFile(directory, {
       fileName,
       encrypted: isEncryptedFileName(fileName),
+      content: isAxdocFileName(fileName) ? emptyAxdocContent() : undefined,
     });
     await refreshTree();
     await openFileByPath(path);
@@ -378,6 +396,14 @@ async function onExplorerDelete(path: string) {
 async function saveActiveFile() {
   if (!activeFile.value || !activePath.value) {
     return;
+  }
+
+  if (isAppxdocLanguage(activeFile.value.language)) {
+    const parsed = parseAxdocContent(editorContent.value);
+    if (!parsed.ok) {
+      message.error(`${parsed.error}，已禁止保存以免覆盖原文件`);
+      return;
+    }
   }
 
   saving.value = true;
@@ -507,8 +533,15 @@ watch(editorContent, (value) => {
         />
 
         <div class="encrypted-workspace__editor-main">
+          <RichDocEditor
+            v-if="hasActiveFile && isRichDocActive"
+            :key="activePath ?? 'richdoc'"
+            :model-value="editorContent"
+            @update:model-value="onEditorChange"
+          />
           <MonacoEditor
-            v-if="hasActiveFile"
+            v-else-if="hasActiveFile"
+            :key="activePath ?? 'monaco'"
             :model-value="editorContent"
             :language="activeLanguage"
             @update:model-value="onEditorChange"
@@ -577,6 +610,7 @@ watch(editorContent, (value) => {
   background: #f8fafc;
 
   :deep(.monaco-editor-host),
+  :deep(.rich-doc-editor),
   .encrypted-workspace__placeholder {
     flex: 1;
     min-height: 0;

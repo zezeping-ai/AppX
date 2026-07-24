@@ -1,0 +1,230 @@
+<script setup lang="ts">
+import Placeholder from "@tiptap/extension-placeholder";
+import { TableKit } from "@tiptap/extension-table";
+import StarterKit from "@tiptap/starter-kit";
+import { EditorContent, useEditor } from "@tiptap/vue-3";
+import { tryOnScopeDispose } from "@vueuse/core";
+import { computed, ref, watch, watchEffect } from "vue";
+import {
+  axdocDocsEqual,
+  parseAxdocContent,
+  serializeAxdoc,
+} from "@/modules/editor/axdoc";
+import RichDocToolbar from "./Toolbar.vue";
+
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    readOnly?: boolean;
+  }>(),
+  {
+    readOnly: false,
+  },
+);
+
+const emit = defineEmits<{
+  "update:modelValue": [value: string];
+}>();
+
+const initialParse = parseAxdocContent(props.modelValue);
+const parseError = ref(initialParse.ok ? null : initialParse.error);
+const broken = computed(() => Boolean(parseError.value));
+const canEdit = computed(() => !props.readOnly && !broken.value);
+
+const editor = useEditor({
+  content: initialParse.doc,
+  editable: canEdit.value,
+  extensions: [
+    StarterKit,
+    Placeholder.configure({
+      placeholder: "开始写作…",
+    }),
+    TableKit.configure({
+      table: { resizable: true },
+    }),
+  ],
+  onUpdate: ({ editor: current }) => {
+    if (broken.value) {
+      return;
+    }
+    const doc = current.getJSON() as Record<string, unknown>;
+    const baseline = parseAxdocContent(props.modelValue).doc;
+    if (axdocDocsEqual(doc, baseline)) {
+      return;
+    }
+    emit("update:modelValue", serializeAxdoc(doc));
+  },
+});
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    const current = editor.value;
+    if (!current) {
+      return;
+    }
+
+    const parsed = parseAxdocContent(value);
+    if (!parsed.ok) {
+      // 外部写入了损坏内容：锁定编辑，保留磁盘原串，不 setContent 覆盖
+      parseError.value = parsed.error;
+      current.setEditable(false);
+      return;
+    }
+
+    parseError.value = null;
+    const prev = current.getJSON() as Record<string, unknown>;
+    if (axdocDocsEqual(parsed.doc, prev)) {
+      return;
+    }
+    current.commands.setContent(parsed.doc, { emitUpdate: false });
+  },
+);
+
+watchEffect(() => {
+  editor.value?.setEditable(!props.readOnly && !broken.value);
+});
+
+tryOnScopeDispose(() => {
+  editor.value?.destroy();
+});
+</script>
+
+<template>
+  <div class="rich-doc-editor" :class="{ 'rich-doc-editor--broken': broken }">
+    <div v-if="broken" class="rich-doc-editor__error">
+      {{ parseError }}（已禁止编辑，避免覆盖原文件；请修复内容或从备份恢复）
+    </div>
+    <RichDocToolbar v-if="editor && canEdit" :editor="editor" />
+    <EditorContent :editor="editor" class="rich-doc-editor__content" />
+  </div>
+</template>
+
+<style scoped lang="scss">
+.rich-doc-editor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rich-doc-editor--broken {
+  border-color: #fecaca;
+}
+
+.rich-doc-editor__error {
+  padding: 8px 12px;
+  border-bottom: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rich-doc-editor__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  :deep(.tiptap) {
+    min-height: 100%;
+    padding: 16px 20px;
+    outline: none;
+    color: #0f172a;
+    font-size: 14px;
+    line-height: 1.7;
+
+    > * + * {
+      margin-top: 0.6em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 1.75em;
+    }
+
+    h2 {
+      font-size: 1.4em;
+    }
+
+    h3 {
+      font-size: 1.15em;
+    }
+
+    ul,
+    ol {
+      padding-left: 1.4em;
+    }
+
+    blockquote {
+      margin: 0;
+      padding-left: 12px;
+      border-left: 3px solid #cbd5e1;
+      color: #475569;
+    }
+
+    pre {
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0.75em 0;
+      overflow: hidden;
+
+      td,
+      th {
+        position: relative;
+        min-width: 48px;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f1f5f9;
+        font-weight: 600;
+        text-align: left;
+      }
+
+      .selectedCell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgb(59 130 246 / 12%);
+        pointer-events: none;
+      }
+    }
+  }
+}
+</style>

@@ -159,6 +159,8 @@ fn map_lang_hint(hint: &str) -> String {
         "cls-meta" => "xml".to_string(),
         "csv" | "log" => "plaintext".to_string(),
         "txt" => "plaintext".to_string(),
+        // AppX 富文档（TipTap JSON）
+        "axdoc" => "appxdoc".to_string(),
         _ => "plaintext".to_string(),
     }
 }
@@ -168,7 +170,7 @@ const EDITABLE_EXTENSIONS: &[&str] = &[
     "go", "html", "htm", "css", "scss", "less", "xml", "yaml", "yml", "sql", "sh", "bash", "vue",
     "toml", "ini", "cfg", "conf", "env", "c", "h", "cpp", "cc", "cxx", "hpp", "cs", "php", "rb",
     "kt", "kts", "swift", "dart", "lua", "r", "scala", "clj", "ex", "exs", "dockerfile",
-    "gitignore", "properties",
+    "gitignore", "properties", "axdoc",
 ];
 
 const BINARY_EXTENSIONS: &[&str] = &[
@@ -321,5 +323,15 @@ mod tests {
             default_encrypted_path_from_custom(&custom),
             PathBuf::from("/tmp/app.js.x")
         );
+    }
+
+    #[test]
+    fn maps_axdoc_language_hint() {
+        let plain = PathBuf::from("/tmp/note.axdoc");
+        let encrypted = PathBuf::from("/tmp/note.axdoc.x");
+        assert_eq!(language_from_path(&plain), "appxdoc");
+        assert_eq!(language_from_path(&encrypted), "appxdoc");
+        assert!(is_default_encrypted_path(&encrypted));
+        assert!(ensure_writable_path(Path::new("/tmp/untitled.axdoc.x")).is_ok());
     }
 }

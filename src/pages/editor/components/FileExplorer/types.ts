@@ -12,6 +12,9 @@ export interface InlineEditState {
 export type ContextMenuAction = {
   key: string;
   label: string;
+  /** 右侧次要说明，如扩展名 */
+  hint?: string;
+  icon?: string;
   danger?: boolean;
   divider?: boolean;
 };

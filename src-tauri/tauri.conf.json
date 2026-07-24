@@ -62,6 +62,13 @@
         "description": "AppX encrypted Java document",
         "role": "Editor",
         "rank": "Owner"
+      },
+      {
+        "ext": ["axdoc", "axdoc.x"],
+        "name": "AppX Document",
+        "description": "AppX rich text document",
+        "role": "Editor",
+        "rank": "Owner"
       }
     ],
     "icon": [
