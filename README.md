@@ -1,10 +1,14 @@
 # AppX
 
-Tauri 2 + Vue 3 桌面应用脚手架，参考 [MediaX](https://github.com/zezeping-ai/MediaX) 集成：
-
 - 托盘（关闭窗口隐藏到托盘，左键恢复，右键菜单）
 - 自动更新（`tauri-plugin-updater` + GitHub Releases）
 - GitHub Actions 多平台发布（macOS / Windows / Ubuntu，x64 + arm64）
+
+## MacOS安装打不开
+
+```bash
+sudo xattr -d com.apple.quarantine /Applications/AppX.app
+```
 
 ## 开发
 
