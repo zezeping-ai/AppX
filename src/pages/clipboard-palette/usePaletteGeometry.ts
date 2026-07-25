@@ -3,7 +3,7 @@ import { onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { savePaletteGeometry } from "@/modules/clipboardAssistant";
 
-/** 拖动/缩放浮层时 debounce 持久化位置（需偏好开启 rememberWindowPosition）。 */
+/** 拖动/缩放剪切面板时 debounce 持久化位置（需偏好开启 rememberWindowPosition）。 */
 export function usePaletteGeometry(rememberPosition: () => boolean) {
   const debouncedSave = useDebounceFn(async () => {
     if (!rememberPosition()) return;

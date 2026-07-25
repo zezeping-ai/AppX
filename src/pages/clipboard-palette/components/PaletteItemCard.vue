@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from "vue";
+import { computed, h, ref, watchEffect } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { Icon } from "@iconify/vue";
 import type { MenuProps } from "ant-design-vue";
@@ -15,6 +15,8 @@ export type PaletteItemCommand =
   | "pasteRich"
   | "copyPlain"
   | "copyRich"
+  | "openLink"
+  | "revealFile"
   | "pin"
   | "delete";
 
@@ -29,23 +31,98 @@ const emit = defineEmits<{
   command: [PaletteItemCommand];
 }>();
 
+/** a-menu items.label / icon 要直接给 VNode，传函数会被 toString 成源码 */
+function menuIcon(name: string) {
+  return h(Icon, { icon: name, width: 15, height: 15 });
+}
+
+/** 文案 + 右侧快捷键提示，与文件树右键菜单风格对齐 */
+function menuLabel(text: string, hint?: string) {
+  return h("span", { class: "palette-ctx-label" }, [
+    h("span", { class: "palette-ctx-label__text" }, text),
+    hint ? h("span", { class: "palette-ctx-label__hint" }, hint) : null,
+  ]);
+}
+
 const contextMenuItems = computed<MenuProps["items"]>(() => {
   const items: MenuProps["items"] = [];
-  if (props.item.hasRichFormat) {
+  // hasRichFormat 与「富文本」徽章任一成立即展示富文本操作
+  const rich =
+    props.item.hasRichFormat ||
+    props.item.badges.some((badge) => badge.kind === "rich");
+
+  if (rich) {
     items.push(
-      { key: "pastePlain", label: "粘贴" },
-      { key: "pasteRich", label: "粘贴为富文本" },
-      { key: "copyPlain", label: "复制" },
-      { key: "copyRich", label: "复制为富文本" },
+      {
+        key: "pastePlain",
+        icon: menuIcon("mdi:content-paste"),
+        label: menuLabel("粘贴"),
+      },
+      {
+        key: "pasteRich",
+        icon: menuIcon("mdi:format-paint"),
+        label: menuLabel("粘贴（富文本）"),
+      },
+      {
+        key: "copyPlain",
+        icon: menuIcon("mdi:content-copy"),
+        label: menuLabel("复制"),
+      },
+      {
+        key: "copyRich",
+        icon: menuIcon("mdi:file-document-outline"),
+        label: menuLabel("复制（富文本）"),
+      },
     );
   } else {
-    items.push({ key: "pastePlain", label: "粘贴" }, { key: "copyPlain", label: "复制" });
+    items.push(
+      {
+        key: "pastePlain",
+        icon: menuIcon("mdi:content-paste"),
+        label: menuLabel("粘贴"),
+      },
+      {
+        key: "copyPlain",
+        icon: menuIcon("mdi:content-copy"),
+        label: menuLabel("复制"),
+      },
+    );
   }
+
+  if (props.item.contentType === "link") {
+    items.push(
+      { type: "divider" },
+      {
+        key: "openLink",
+        icon: menuIcon("mdi:open-in-new"),
+        label: menuLabel("在浏览器打开"),
+      },
+    );
+  } else if (props.item.contentType === "file") {
+    items.push(
+      { type: "divider" },
+      {
+        key: "revealFile",
+        icon: menuIcon("mdi:folder-eye-outline"),
+        label: menuLabel("在文件夹中显示"),
+      },
+    );
+  }
+
   items.push(
     { type: "divider" },
-    { key: "pin", label: props.item.pinned ? "取消固定" : "固定" },
+    {
+      key: "pin",
+      icon: menuIcon(props.item.pinned ? "mdi:pin-off" : "mdi:pin"),
+      label: menuLabel(props.item.pinned ? "取消固定" : "固定", "P"),
+    },
     { type: "divider" },
-    { key: "delete", label: "删除", danger: true },
+    {
+      key: "delete",
+      icon: menuIcon("mdi:delete-outline"),
+      label: menuLabel("删除", "Del"),
+      danger: true,
+    },
   );
   return items;
 });
@@ -339,5 +416,28 @@ watchEffect(() => {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   text-overflow: ellipsis;
+}
+</style>
+
+<!-- 菜单挂到 body，需非 scoped -->
+<style lang="scss">
+.palette-ctx-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 140px;
+}
+
+.palette-ctx-label__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.palette-ctx-label__hint {
+  flex-shrink: 0;
+  color: var(--app-fg-muted, rgb(0 0 0 / 45%));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -32,7 +32,9 @@ const {
   selectSource,
   runAction,
   togglePin,
-  deleteItem,
+  confirmDeleteItem,
+  openLink,
+  revealFile,
   focusSearch,
   bootstrapPalette,
   hidePalette,
@@ -110,12 +112,20 @@ function onItemCommand(item: ClipboardItemSummary, command: PaletteItemCommand) 
     void runAction(item, "copy", "rich");
     return;
   }
+  if (command === "openLink") {
+    void openLink(item);
+    return;
+  }
+  if (command === "revealFile") {
+    void revealFile(item);
+    return;
+  }
   if (command === "pin") {
     void togglePin(item);
     return;
   }
   if (command === "delete") {
-    void deleteItem(item);
+    confirmDeleteItem(item);
   }
 }
 
@@ -180,7 +190,7 @@ function onSearchKeydown(event: KeyboardEvent) {
   }
   if (event.key === "Delete" && list[activeIndex.value]) {
     event.preventDefault();
-    void deleteItem(list[activeIndex.value]);
+    confirmDeleteItem(list[activeIndex.value]);
     return;
   }
   if (event.key === "Escape") {
@@ -232,7 +242,7 @@ onUnmounted(() => {
             v-model:value="keyword"
             allow-clear
             class="clipboard-palette__search"
-            placeholder="搜索剪贴板历史"
+            placeholder="搜索剪切历史"
             @keydown="onSearchKeydown"
           >
             <template #prefix>
@@ -258,6 +268,35 @@ onUnmounted(() => {
             @command="onItemCommand"
             @hover="hoveredIndex = $event"
           />
+
+          <footer class="clipboard-palette__footer">
+            <span class="clipboard-palette__footer-hint">
+              {{ isHorizontalList ? "←→ 选择" : "↑↓ 选择" }}
+            </span>
+            <span class="clipboard-palette__footer-hint">Tab 切换操作</span>
+            <div class="clipboard-palette__footer-mode">
+              <a-button
+                :type="actionMode === 'paste' ? 'primary' : 'text'"
+                @click="actionMode = 'paste'"
+              >
+                <span class="clipboard-palette__footer-mode-label">
+                  <Icon icon="mdi:content-paste" aria-hidden="true" />
+                  <span>粘贴</span>
+                </span>
+              </a-button>
+              <a-button
+                :type="actionMode === 'copy' ? 'primary' : 'text'"
+                @click="actionMode = 'copy'"
+              >
+                <span class="clipboard-palette__footer-mode-label">
+                  <Icon icon="mdi:content-copy" aria-hidden="true" />
+                  <span>复制</span>
+                </span>
+              </a-button>
+            </div>
+            <span class="clipboard-palette__footer-hint">右键更多</span>
+            <span class="clipboard-palette__footer-hint">Esc 关闭</span>
+          </footer>
         </div>
       </div>
     </div>
@@ -345,5 +384,44 @@ onUnmounted(() => {
   padding: 24px;
   text-align: center;
   color: var(--app-fg-muted);
+}
+
+.clipboard-palette__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  font-size: 12px;
+  color: var(--app-fg-muted);
+  line-height: 1;
+}
+
+.clipboard-palette__footer-hint {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.clipboard-palette__footer-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  :deep(.ant-btn) {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 8px;
+    height: 28px;
+  }
+}
+
+.clipboard-palette__footer-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  font-size: 12px;
 }
 </style>

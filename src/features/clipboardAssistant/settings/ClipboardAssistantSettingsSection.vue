@@ -123,7 +123,7 @@ async function onToggleMonitoring(checked: boolean) {
 
 async function onTogglePalette(checked: boolean) {
   paletteEnabled.value = checked;
-  await persistSettings(checked ? "已启用剪切助手浮层" : "已停用剪切助手浮层");
+  await persistSettings(checked ? "已启用剪切面板" : "已停用剪切面板");
 }
 
 async function onPaletteShortcutChange(shortcut: string) {
@@ -155,7 +155,7 @@ async function onPaletteLayoutChange(event: { target: { value?: unknown } }) {
   }
   if (next === paletteLayout.value) return;
   paletteLayout.value = next;
-  await persistSettings("浮层布局已更新");
+  await persistSettings("剪切面板布局已更新");
 }
 
 async function onPaletteMaxItemsChange(value: number | string | null) {
@@ -163,12 +163,12 @@ async function onPaletteMaxItemsChange(value: number | string | null) {
   const next = typeof value === "number" ? value : paletteMaxItems.value;
   if (next === loadedSettings.value?.paletteMaxItems) return;
   paletteMaxItems.value = next;
-  await persistSettings("浮层最大条目已更新");
+  await persistSettings("剪切面板最大条目已更新");
 }
 
 async function onToggleAutoHideOnPaste(checked: boolean) {
   autoHideOnPaste.value = checked;
-  await persistSettings(checked ? "已开启：粘贴后自动关闭浮层" : "已关闭：粘贴后自动关闭浮层");
+  await persistSettings(checked ? "已开启：粘贴后关闭剪切面板" : "已关闭：粘贴后关闭剪切面板");
 }
 
 async function onToggleClearOnLock(checked: boolean) {
@@ -253,13 +253,13 @@ onMounted(() => {
               :disabled="!featuresActive || saving || loading"
               @update:checked="onTogglePalette"
             >
-              浮层快捷键（{{ paletteShortcutLabel }}）
+              剪切面板快捷键（{{ paletteShortcutLabel }}）
             </a-checkbox>
           </div>
         </a-space>
       </a-card>
 
-      <a-card title="历史与浮层" size="small" :bordered="false">
+      <a-card title="历史与剪切面板" size="small" :bordered="false">
         <div class="clipboard-settings__rows">
           <div class="clipboard-settings__row">
             <span class="clipboard-settings__label">历史条数上限</span>
@@ -286,7 +286,7 @@ onMounted(() => {
             </div>
           </div>
           <div class="clipboard-settings__row">
-            <span class="clipboard-settings__label">浮层布局</span>
+            <span class="clipboard-settings__label">剪切面板布局</span>
             <div class="clipboard-settings__value">
               <a-radio-group
                 :value="paletteLayout"
@@ -302,7 +302,7 @@ onMounted(() => {
             </div>
           </div>
           <div class="clipboard-settings__row">
-            <span class="clipboard-settings__label">浮层最大条目</span>
+            <span class="clipboard-settings__label">面板最大条目</span>
             <div class="clipboard-settings__value">
               <a-input-number
                 :value="paletteMaxItems"
@@ -321,7 +321,7 @@ onMounted(() => {
       <a-card title="行为" size="small" :bordered="false">
         <div class="clipboard-settings__rows">
           <div class="clipboard-settings__row">
-            <span class="clipboard-settings__label">粘贴后关闭浮层</span>
+            <span class="clipboard-settings__label">粘贴后关闭剪切面板</span>
             <div class="clipboard-settings__value">
               <a-switch
                 size="small"

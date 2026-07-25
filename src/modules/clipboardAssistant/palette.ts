@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ApplyAction, ApplyFormat, PaletteGeometry } from "@/modules/clipboardAssistant/types";
 
-/** 浮层 IPC（与 Rust palette 模块对应） */
+/** 剪切面板 IPC（与 Rust palette 模块对应） */
 export async function applyItem(
   id: number,
   action: ApplyAction,

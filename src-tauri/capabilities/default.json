@@ -11,7 +11,9 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "x-apple.systempreferences:*" }
+        { "url": "x-apple.systempreferences:*" },
+        { "url": "http://*" },
+        { "url": "https://*" }
       ]
     },
     "dialog:default",

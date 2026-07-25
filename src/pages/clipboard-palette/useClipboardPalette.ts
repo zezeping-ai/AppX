@@ -1,7 +1,10 @@
 import { useDebounceFn } from "@vueuse/core";
+import { Modal } from "ant-design-vue";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { computed, nextTick, ref, watch } from "vue";
 import {
   applyItem,
+  getContent,
   getSettings,
   hidePalette,
   listItems,
@@ -89,7 +92,7 @@ export function useClipboardPalette() {
         await refreshSourceCatalog();
       }
     } catch (error) {
-      console.error(getErrorMessage(error, "加载剪贴板历史失败"));
+      console.error(getErrorMessage(error, "加载剪切历史失败"));
     } finally {
       loading.value = false;
     }
@@ -121,7 +124,7 @@ export function useClipboardPalette() {
       // 音效由 Rust apply / ingest 播放
       await applyItem(item.id, action, resolveFormat(format));
     } catch (error) {
-      console.error(getErrorMessage(error, action === "copy" ? "拷贝失败" : "粘贴失败"));
+      console.error(getErrorMessage(error, action === "copy" ? "复制失败" : "粘贴失败"));
     }
   }
 
@@ -140,6 +143,46 @@ export function useClipboardPalette() {
       await loadItems(true);
     } catch (error) {
       console.error(getErrorMessage(error, "删除失败"));
+    }
+  }
+
+  /** 与代码段面板一致：删除前二次确认 */
+  function confirmDeleteItem(item: ClipboardItemSummary) {
+    const preview = item.preview.trim().slice(0, 40);
+    Modal.confirm({
+      title: "删除此条目？",
+      content: preview ? `确认删除「${preview}${item.preview.trim().length > 40 ? "…" : ""}」？` : undefined,
+      okText: "删除",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      onOk: () => deleteItem(item),
+    });
+  }
+
+  async function openLink(item: ClipboardItemSummary) {
+    try {
+      const content = await getContent(item.id);
+      const url = (content.text ?? item.preview).trim();
+      if (!url) return;
+      await openUrl(url);
+      await hidePalette();
+    } catch (error) {
+      console.error(getErrorMessage(error, "打开链接失败"));
+    }
+  }
+
+  async function revealFile(item: ClipboardItemSummary) {
+    try {
+      const content = await getContent(item.id);
+      const path = content.filePaths?.[0];
+      if (!path) {
+        console.error("无文件路径可显示");
+        return;
+      }
+      await revealItemInDir(path);
+      await hidePalette();
+    } catch (error) {
+      console.error(getErrorMessage(error, "在文件夹中显示失败"));
     }
   }
 
@@ -199,6 +242,9 @@ export function useClipboardPalette() {
     runAction,
     togglePin,
     deleteItem,
+    confirmDeleteItem,
+    openLink,
+    revealFile,
     focusSearch,
     bootstrapPalette,
     hidePalette,
