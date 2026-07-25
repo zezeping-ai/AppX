@@ -14,18 +14,26 @@ export function labelValuePlainText(attrs: {
 }) {
   const label = String(attrs.label ?? "").trim();
   const value = String(attrs.value ?? "");
-  if (!label) return value;
-  if (!value) return label;
+  if (!label) {
+    return value;
+  }
+  if (!value) {
+    return label;
+  }
   return `${label}: ${value}`;
 }
 
 function atomPlainText(node: PmNode): string {
-  if (node.type.name === "label") return labelPlainText(node.attrs);
-  if (node.type.name === "labelValue") return labelValuePlainText(node.attrs);
+  if (node.type.name === "label") {
+    return labelPlainText(node.attrs);
+  }
+  if (node.type.name === "labelValue") {
+    return labelValuePlainText(node.attrs);
+  }
   return node.textContent;
 }
 
-/** Cmd/Ctrl+C（不含 Shift，避免挡系统其它快捷键） */
+/** Cmd/Ctrl+C（不含 Shift） */
 export function isCopyChord(event: KeyboardEvent) {
   return (
     (event.metaKey || event.ctrlKey) &&
@@ -45,7 +53,6 @@ export function isCutChord(event: KeyboardEvent) {
   );
 }
 
-/** 选中整颗 atom（NodeSelection），便于工具栏/后续操作 */
 export function selectAtomNode(editor: Editor, pos: number) {
   const { state, view } = editor;
   view.dispatch(
@@ -56,27 +63,7 @@ export function selectAtomNode(editor: Editor, pos: number) {
   view.focus();
 }
 
-/**
- * 将 atom 写入剪贴板（HTML + 纯文本），并选中该节点。
- * 粘贴回编辑器可还原节点；贴到外部应用走纯文本。
- */
-export async function copyAtomNode(
-  editor: Editor,
-  pos: number,
-  node: PmNode,
-): Promise<boolean> {
-  const { state, view } = editor;
-  const selection = NodeSelection.create(state.doc, pos);
-  const text = atomPlainText(node);
-
-  const serializer = DOMSerializer.fromSchema(state.schema);
-  const wrapper = document.createElement("div");
-  serializer.serializeFragment(selection.content().content, { document }, wrapper);
-  const html = wrapper.innerHTML;
-
-  view.dispatch(state.tr.setSelection(selection).scrollIntoView());
-  view.focus();
-
+async function writeHtmlAndText(html: string, text: string): Promise<boolean> {
   try {
     if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
       await navigator.clipboard.write([
@@ -98,14 +85,38 @@ export async function copyAtomNode(
   }
 }
 
-/** 剪切：复制后删除节点 */
+/**
+ * 将 atom 写入剪贴板（HTML + 纯文本）并选中该节点。
+ * 粘贴回编辑器可还原；贴到外部走纯文本。
+ */
+export async function copyAtomNode(
+  editor: Editor,
+  pos: number,
+  node: PmNode,
+): Promise<boolean> {
+  const { state, view } = editor;
+  const selection = NodeSelection.create(state.doc, pos);
+  const text = atomPlainText(node);
+
+  const serializer = DOMSerializer.fromSchema(state.schema);
+  const wrapper = document.createElement("div");
+  serializer.serializeFragment(selection.content().content, { document }, wrapper);
+
+  view.dispatch(state.tr.setSelection(selection).scrollIntoView());
+  view.focus();
+
+  return writeHtmlAndText(wrapper.innerHTML, text);
+}
+
 export async function cutAtomNode(
   editor: Editor,
   pos: number,
   node: PmNode,
 ): Promise<boolean> {
   const ok = await copyAtomNode(editor, pos, node);
-  if (!ok) return false;
+  if (!ok) {
+    return false;
+  }
   return editor
     .chain()
     .focus()

@@ -1,184 +1,48 @@
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
-import { NodeSelection } from "@tiptap/pm/state";
-import { computed, nextTick, ref, watch } from "vue";
-import {
-  copyAtomNode,
-  cutAtomNode,
-  isCopyChord,
-  isCutChord,
-  selectAtomNode,
-} from "../atomClipboard";
-import {
-  backspaceAtAtomStart,
-  focusAfterAtom,
-  focusBeforeAtom,
-  onAtomPointerMouseDown,
-  requestAtomEnterEdit,
-  takeAtomEnterEdit,
-} from "../atomNodeNav";
+import { computed, ref } from "vue";
+import { useAtomNodeView } from "../atom";
 
 const props = defineProps(nodeViewProps);
 
-const editable = computed(() => props.editor.isEditable);
+const inputRef = ref<HTMLTextAreaElement | null>(null);
+const {
+  editable,
+  onFieldMouseDown,
+  onShellMouseDown,
+  handleClipboardKeys,
+  updateAttr,
+  focusEditorAfterNode,
+  focusEditorBeforeNode,
+  backspaceAtStart,
+  insertSiblingAfter,
+  isCaretAtStart,
+  isCaretAtEnd,
+} = useAtomNodeView(props, {
+  kind: "label",
+  enterEditTarget: inputRef,
+});
+
 const label = computed(() => String(props.node.attrs.label ?? ""));
 const labelSizer = computed(() => label.value || "标签");
-const inputRef = ref<HTMLTextAreaElement | null>(null);
 const isEmpty = computed(() => !label.value);
 
-/**
- * 仅「插入/Enter 新建」进编辑；方向键落到节点上不进 textarea。
- * 点击进编辑由 onAtomPointerMouseDown 直接 focus。
- */
-watch(
-  () => props.selected,
-  async (selected) => {
-    if (!selected || !editable.value) {
-      return;
-    }
-    const pos = props.getPos();
-    if (typeof pos !== "number" || !takeAtomEnterEdit(pos)) {
-      return;
-    }
-    await nextTick();
-    inputRef.value?.focus();
-  },
-  { immediate: true },
-);
-
-function onFieldMouseDown(event: MouseEvent) {
-  const editField = (event.target as HTMLElement | null)?.closest?.(
-    "textarea, input",
-  ) as HTMLTextAreaElement | HTMLInputElement | null;
-  onAtomPointerMouseDown(event, props.editor, {
-    editField,
-    getPos: () => {
-      const pos = props.getPos();
-      return typeof pos === "number" ? pos : undefined;
-    },
-    nodeSize: props.node.nodeSize,
-  });
-}
-
-/** 外壳：拖选多个 / Shift 连选；单击整选不进编辑 */
-function onShellMouseDown(event: MouseEvent) {
-  const target = event.target as HTMLElement | null;
-  if (target?.closest?.("textarea, input, button")) {
-    return;
-  }
-  onAtomPointerMouseDown(event, props.editor, {
-    getPos: () => {
-      const pos = props.getPos();
-      return typeof pos === "number" ? pos : undefined;
-    },
-    nodeSize: props.node.nodeSize,
-    onClickSelectNode: () => {
-      const pos = props.getPos();
-      if (typeof pos !== "number") {
-        return;
-      }
-      selectAtomNode(props.editor, pos);
-    },
-  });
-}
-
-async function copyWholeAtom(event: KeyboardEvent) {
-  const pos = props.getPos();
-  if (typeof pos !== "number") {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  await copyAtomNode(props.editor, pos, props.node);
-}
-
-async function cutWholeAtom(event: KeyboardEvent) {
-  if (!editable.value) {
-    return;
-  }
-  const pos = props.getPos();
-  if (typeof pos !== "number") {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  await cutAtomNode(props.editor, pos, props.node);
-}
-
-function sanitize(raw: string) {
-  return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-}
-
 function onInput(event: Event) {
-  const el = event.target as HTMLTextAreaElement;
-  const next = sanitize(el.value);
-  if (el.value !== next) {
-    el.value = next;
-  }
-  props.updateAttributes({ label: next });
-}
-
-function focusEditorAfterNode() {
-  const pos = props.getPos();
-  if (typeof pos !== "number") {
-    return;
-  }
-  focusAfterAtom(props.editor, pos, props.node.nodeSize);
-}
-
-function focusEditorBeforeNode() {
-  const pos = props.getPos();
-  if (typeof pos !== "number") {
-    return;
-  }
-  focusBeforeAtom(props.editor, pos);
-}
-
-function insertSiblingAfter() {
-  const pos = props.getPos();
-  if (typeof pos !== "number") {
-    return;
-  }
-  const after = pos + props.node.nodeSize;
-  const next = props.editor.state.schema.nodes.label.create({ label: "" });
-  const { state, view } = props.editor;
-  let tr = state.tr.insert(after, next);
-  tr = tr.setSelection(NodeSelection.create(tr.doc, after));
-  requestAtomEnterEdit(after);
-  view.dispatch(tr);
-  view.focus();
+  updateAttr("label", event);
 }
 
 function onKeydown(event: KeyboardEvent) {
   const input = event.target as HTMLTextAreaElement;
-  const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
-  const collapsed = input.selectionStart === input.selectionEnd;
-
-  // 光标未划选：Cmd/Ctrl+C 复制整颗；有划选则走浏览器复制字段文字
-  if (isCopyChord(event) && collapsed) {
-    void copyWholeAtom(event);
-    return;
-  }
-  if (isCutChord(event) && collapsed) {
-    void cutWholeAtom(event);
-    return;
-  }
-  // Escape：整选节点（不进编辑），便于再 Cmd+C
-  if (event.key === "Escape") {
-    const pos = props.getPos();
-    if (typeof pos === "number") {
-      event.preventDefault();
-      event.stopPropagation();
-      selectAtomNode(props.editor, pos);
-    }
+  if (handleClipboardKeys(event, input)) {
     return;
   }
 
-  // Enter：插入下一个标签；Shift+Enter：内部换行
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     event.stopPropagation();
-    insertSiblingAfter();
+    insertSiblingAfter((editor) =>
+      editor.state.schema.nodes.label.create({ label: "" }),
+    );
     return;
   }
   if (event.key === "Tab" && !event.shiftKey) {
@@ -187,29 +51,22 @@ function onKeydown(event: KeyboardEvent) {
     focusEditorAfterNode();
     return;
   }
-  if (event.key === "Backspace" && atStart) {
-    const pos = props.getPos();
-    if (typeof pos !== "number") {
-      return;
-    }
+  if (event.key === "Backspace" && isCaretAtStart(input)) {
     event.preventDefault();
     event.stopPropagation();
-    backspaceAtAtomStart(props.editor, pos, props.node, isEmpty.value);
+    backspaceAtStart(isEmpty.value);
     return;
   }
-  if (event.key === "ArrowLeft" && atStart) {
+  if (event.key === "ArrowLeft" && isCaretAtStart(input)) {
     event.preventDefault();
     event.stopPropagation();
     focusEditorBeforeNode();
     return;
   }
-  if (event.key === "ArrowRight") {
-    if (input.selectionStart === input.value.length && input.selectionEnd === input.value.length) {
-      // 阻止冒泡，否则 PM 再右移一格会落到外侧第一个字「后面」
-      event.preventDefault();
-      event.stopPropagation();
-      focusEditorAfterNode();
-    }
+  if (event.key === "ArrowRight" && isCaretAtEnd(input)) {
+    event.preventDefault();
+    event.stopPropagation();
+    focusEditorAfterNode();
   }
 }
 </script>
@@ -260,7 +117,6 @@ function onKeydown(event: KeyboardEvent) {
   box-sizing: border-box;
 
   &.ProseMirror-selectednode {
-    /* 与正文划选一致的浅蓝底，不要粗蓝描边 */
     outline: none;
     background: var(--app-active-bg);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-active-fg) 45%, transparent);
@@ -307,7 +163,6 @@ function onKeydown(event: KeyboardEvent) {
   appearance: none;
   background: transparent;
   caret-color: var(--app-fg);
-  /* 未聚焦时禁止原生划选，避免拖选多个 atom 时被字段抢走 */
   user-select: none;
 
   &:focus {

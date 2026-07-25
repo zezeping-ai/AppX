@@ -1,7 +1,11 @@
 import { mergeAttributes, Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
-import { atomNodeViewStopEvent, requestAtomEnterEdit } from "../atomNodeNav";
+import {
+  atomNodeKeyboardShortcuts,
+  atomNodeViewStopEvent,
+  requestAtomEnterEdit,
+} from "../atom";
 import LabelValueView from "./index.vue";
 
 declare module "@tiptap/core" {
@@ -13,14 +17,13 @@ declare module "@tiptap/core" {
   }
 }
 
-/** Label：行内 atom，左右均为 attrs；是 Label 的「标签 + 内容」扩展 */
+/** LabelValue：行内 atom，左右均为 attrs */
 export const RichDocLabelValue = Node.create({
   name: "labelValue",
   group: "inline",
   inline: true,
   atom: true,
   selectable: true,
-  // 拖拽整颗节点会与 input 内拖选冲突，编辑优先
   draggable: false,
 
   addAttributes() {
@@ -60,12 +63,15 @@ export const RichDocLabelValue = Node.create({
     ];
   },
 
-  /** 纯文本：标签: 值 */
   renderText({ node }) {
     const label = String(node.attrs.label ?? "").trim();
     const value = String(node.attrs.value ?? "");
-    if (!label) return value;
-    if (!value) return label;
+    if (!label) {
+      return value;
+    }
+    if (!value) {
+      return label;
+    }
     return `${label}: ${value}`;
   },
 
@@ -86,7 +92,6 @@ export const RichDocLabelValue = Node.create({
           const pos = tr.selection.from - node.nodeSize;
           if (pos >= 0) {
             tr.setSelection(NodeSelection.create(tr.doc, pos));
-            // 仅插入后进编辑；方向键落到节点上不进输入框
             requestAtomEnterEdit(pos);
           }
           return true;
@@ -95,59 +100,11 @@ export const RichDocLabelValue = Node.create({
   },
 
   addKeyboardShortcuts() {
-    return {
-      // 选中整颗 atom：当作整体，方向键跳出，不进内部输入框
-      ArrowLeft: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        return editor.commands.setTextSelection(selection.from);
-      },
-      ArrowRight: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        return editor.commands.setTextSelection(selection.to);
-      },
-      ArrowUp: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        // 交给默认上下移动，但确保焦点在编辑器而非 textarea
-        editor.view.focus();
-        return false;
-      },
-      ArrowDown: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        editor.view.focus();
-        return false;
-      },
-      Backspace: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        return editor.commands.deleteSelection();
-      },
-      Delete: ({ editor }) => {
-        const { selection } = editor.state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
-          return false;
-        }
-        return editor.commands.deleteSelection();
-      },
-    };
+    return atomNodeKeyboardShortcuts(this.name);
   },
 
   addNodeView() {
     return VueNodeViewRenderer(LabelValueView, {
-      // 放行指针事件，才能拖选多个 atom（见 atomNodeViewStopEvent）
       stopEvent: atomNodeViewStopEvent,
     });
   },

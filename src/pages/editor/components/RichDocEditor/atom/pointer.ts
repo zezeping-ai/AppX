@@ -2,21 +2,21 @@ import type { Editor } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { useEventListener } from "@vueuse/core";
+import { clamp } from "lodash-es";
 
-/** 与表格 columnResizing handleWidth 对齐，略放宽便于命中 */
-const TABLE_RESIZE_EDGE_PX = 8;
+/** 与表格 columnResizing handleWidth 对齐 */
+export const TABLE_RESIZE_EDGE_PX = 8;
 
-const ATOM_NAMES = new Set(["label", "labelValue"]);
+export const ATOM_NAMES = new Set(["label", "labelValue"]);
 
 /** 工具栏插入 / Enter 新建后：仅这些场景自动进内部编辑 */
 let pendingEnterEditPos: number | null = null;
 
-/** 请求在指定 atom 位置进入内部编辑（插入后） */
 export function requestAtomEnterEdit(pos: number) {
   pendingEnterEditPos = pos;
 }
 
-/** 若该位置有待进入编辑请求则消费并返回 true */
 export function takeAtomEnterEdit(pos: number): boolean {
   if (pendingEnterEditPos !== pos) {
     return false;
@@ -25,26 +25,13 @@ export function takeAtomEnterEdit(pos: number): boolean {
   return true;
 }
 
-/** 正在拖选：禁止 textarea 抢焦点 / auto-focus */
 let atomRangeSelecting = false;
 
 export function isAtomRangeSelecting() {
   return atomRangeSelecting;
 }
 
-/** 是否「仅整选了这一颗」（可进编辑）；范围选区里的 selected 不算 */
-export function isSoleAtomNodeSelection(
-  editor: Editor,
-  pos: number | undefined,
-): boolean {
-  if (typeof pos !== "number") {
-    return false;
-  }
-  const { selection } = editor.state;
-  return selection instanceof NodeSelection && selection.from === pos;
-}
-
-function isAtomNode(node: PmNode | null | undefined): node is PmNode {
+export function isAtomNode(node: PmNode | null | undefined): node is PmNode {
   return !!node && ATOM_NAMES.has(node.type.name);
 }
 
@@ -55,15 +42,11 @@ function setRangeSelecting(view: EditorView, on: boolean) {
 
 function blurActiveAtomField() {
   const el = document.activeElement;
-  if (
-    el instanceof HTMLTextAreaElement ||
-    el instanceof HTMLInputElement
-  ) {
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     el.blur();
   }
 }
 
-/** 从 NodeView DOM 解析 atom 的文档位置 */
 function rangeFromAtomDom(
   view: EditorView,
   atomEl: HTMLElement,
@@ -79,26 +62,25 @@ function rangeFromAtomDom(
       return { from: pos, to: pos + $pos.nodeAfter.nodeSize };
     }
   } catch {
-    /* DOM 已卸载等 */
+    /* DOM 已卸载 */
   }
   return null;
 }
 
 /**
- * 用 elementFromPoint / 最近矩形定位 atom。
- * 不用裸 posAtCoords：在 textarea·NodeView 上常落到文档开头，造成「从上选到这」。
+ * elementFromPoint / 最近矩形定位 atom。
+ * 不用裸 posAtCoords（textarea·NodeView 上常落到文档开头）。
  */
-function findAtomRangeAtPoint(
+export function findAtomRangeAtPoint(
   view: EditorView,
   clientX: number,
   clientY: number,
 ): { from: number; to: number } | null {
-  const stack = document.elementsFromPoint(clientX, clientY);
-  for (const el of stack) {
+  for (const el of document.elementsFromPoint(clientX, clientY)) {
     if (!(el instanceof HTMLElement)) {
       continue;
     }
-    const atomEl = el.closest("[data-rich-atom]") as HTMLElement | null;
+    const atomEl = el.closest<HTMLElement>("[data-rich-atom]");
     if (!atomEl || !view.dom.contains(atomEl)) {
       continue;
     }
@@ -108,14 +90,13 @@ function findAtomRangeAtPoint(
     }
   }
 
-  // 行间距空隙：取最近的 atom（垂直列表拖选）
-  const atoms = view.dom.querySelectorAll<HTMLElement>("[data-rich-atom]");
   let best: { from: number; to: number; dist: number } | null = null;
-  for (const atomEl of atoms) {
+  for (const atomEl of view.dom.querySelectorAll<HTMLElement>("[data-rich-atom]")) {
     const rect = atomEl.getBoundingClientRect();
-    const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
-    const clampedY = Math.max(rect.top, Math.min(clientY, rect.bottom));
-    const dist = Math.hypot(clientX - clampedX, clientY - clampedY);
+    const dist = Math.hypot(
+      clientX - clamp(clientX, rect.left, rect.right),
+      clientY - clamp(clientY, rect.top, rect.bottom),
+    );
     if (dist > 48) {
       continue;
     }
@@ -130,7 +111,7 @@ function findAtomRangeAtPoint(
   return best;
 }
 
-function expandRangeToAtoms(
+export function expandRangeToAtoms(
   doc: PmNode,
   from: number,
   to: number,
@@ -149,9 +130,22 @@ function expandRangeToAtoms(
   return { from: a, to: b };
 }
 
+/** 表格单元格左右边缘：留给列宽拖拽，不接管 */
+export function isTableResizeEdge(event: MouseEvent): boolean {
+  const cell = (event.target as HTMLElement | null)?.closest?.("td, th");
+  if (!cell) {
+    return false;
+  }
+  const rect = cell.getBoundingClientRect();
+  return (
+    rect.right - event.clientX <= TABLE_RESIZE_EDGE_PX ||
+    event.clientX - rect.left <= TABLE_RESIZE_EDGE_PX
+  );
+}
+
 /**
- * TipTap 默认会对 TEXTAREA/INPUT 的所有事件 stopEvent。
- * 指针事件放行；从 atom 内起拖由 onAtomPointerMouseDown 自行维护选区。
+ * TipTap 默认会对 TEXTAREA 全量 stopEvent。
+ * 指针事件放行；从 atom 起拖由 onAtomPointerMouseDown 维护选区。
  */
 export function atomNodeViewStopEvent({ event }: { event: Event }): boolean {
   const target = event.target as HTMLElement | null;
@@ -195,18 +189,12 @@ export function atomNodeViewStopEvent({ event }: { event: Event }): boolean {
     return false;
   }
 
-  if (isField) {
-    return true;
-  }
-
-  return false;
+  return isField;
 }
 
 /**
- * atom 上按下：用 getPos 锚定起点（可靠），用 DOM 命中终点。
- * - 拖动 / Shift → 只覆盖拖过的那几颗
- * - 单击字段 → 进编辑且不留选中态
- * - 单击外壳 → onClickSelectNode
+ * atom 按下：getPos 锚定起点，DOM 命中终点。
+ * 拖动/Shift → 范围选；单击字段 → 编辑；单击外壳 → onClickSelectNode。
  */
 export function onAtomPointerMouseDown(
   event: MouseEvent,
@@ -218,19 +206,8 @@ export function onAtomPointerMouseDown(
     onClickSelectNode?: () => void;
   },
 ) {
-  if (event.button !== 0) {
+  if (event.button !== 0 || isTableResizeEdge(event)) {
     return;
-  }
-
-  const cell = (event.target as HTMLElement | null)?.closest?.("td, th");
-  if (cell) {
-    const rect = cell.getBoundingClientRect();
-    if (
-      rect.right - event.clientX <= TABLE_RESIZE_EDGE_PX ||
-      event.clientX - rect.left <= TABLE_RESIZE_EDGE_PX
-    ) {
-      return;
-    }
   }
 
   const startPos = options.getPos();
@@ -241,7 +218,6 @@ export function onAtomPointerMouseDown(
   event.stopPropagation();
   event.preventDefault();
 
-  // 立刻交还焦点并禁用字段指针，避免拖过其它行时 textarea 进入插入态
   blurActiveAtomField();
   editor.view.focus();
   setRangeSelecting(editor.view, true);
@@ -249,11 +225,8 @@ export function onAtomPointerMouseDown(
   const startFrom = startPos;
   const startTo = startPos + options.nodeSize;
   const { selection } = editor.state;
-
-  /** Shift：以原锚点为一端；否则以当前 atom 整颗为端点 */
   const anchorFrom = event.shiftKey ? selection.anchor : startFrom;
   const anchorTo = event.shiftKey ? selection.anchor : startTo;
-
   const startX = event.clientX;
   const startY = event.clientY;
   let dragged = false;
@@ -261,17 +234,14 @@ export function onAtomPointerMouseDown(
   let lastEnd = { from: startFrom, to: startTo };
 
   const applyRange = (clientX: number, clientY: number) => {
-    const endHit =
-      findAtomRangeAtPoint(editor.view, clientX, clientY) ?? lastEnd;
+    const endHit = findAtomRangeAtPoint(editor.view, clientX, clientY) ?? lastEnd;
     lastEnd = endHit;
-
     const rawFrom = Math.min(anchorFrom, anchorTo, endHit.from, endHit.to);
     const rawTo = Math.max(anchorFrom, anchorTo, endHit.from, endHit.to);
     const { from, to } = expandRangeToAtoms(editor.state.doc, rawFrom, rawTo);
     if (from >= to) {
       return;
     }
-
     const { state, view } = editor;
     try {
       const sel = TextSelection.create(state.doc, from, to);
@@ -279,7 +249,7 @@ export function onAtomPointerMouseDown(
         view.dispatch(state.tr.setSelection(sel));
       }
     } catch {
-      /* 非法位置忽略 */
+      /* 非法位置 */
     }
   };
 
@@ -287,55 +257,65 @@ export function onAtomPointerMouseDown(
     applyRange(event.clientX, event.clientY);
   }
 
-  const onMove = (e: MouseEvent) => {
-    e.preventDefault();
-    if (!dragged) {
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) <= 3) {
-        return;
-      }
-      dragged = true;
-    }
-    blurActiveAtomField();
-    if (document.activeElement !== editor.view.dom) {
-      editor.view.focus();
-    }
-    applyRange(e.clientX, e.clientY);
-  };
-
-  const onUp = (e: MouseEvent) => {
-    window.removeEventListener("mousemove", onMove, true);
-    window.removeEventListener("mouseup", onUp, true);
-
-    if (dragged || event.shiftKey) {
-      applyRange(e.clientX, e.clientY);
-      editor.view.focus();
-      setRangeSelecting(editor.view, false);
-      return;
-    }
-
-    // 纯点击：结束拖选态后再进编辑
-    setRangeSelecting(editor.view, false);
-
-    if (editField) {
-      const { state, view } = editor;
-      view.dispatch(
-        state.tr
-          .setSelection(TextSelection.create(state.doc, startTo))
-          .scrollIntoView(),
-      );
-      requestAnimationFrame(() => {
-        editField.focus();
-      });
-    } else {
-      options.onClickSelectNode?.();
+  const stops: Array<() => void> = [];
+  const cleanup = () => {
+    while (stops.length) {
+      stops.pop()?.();
     }
   };
 
-  window.addEventListener("mousemove", onMove, true);
-  window.addEventListener("mouseup", onUp, true);
+  stops.push(
+    useEventListener(
+      window,
+      "mousemove",
+      (e: MouseEvent) => {
+        e.preventDefault();
+        if (!dragged) {
+          if (Math.hypot(e.clientX - startX, e.clientY - startY) <= 3) {
+            return;
+          }
+          dragged = true;
+        }
+        blurActiveAtomField();
+        if (document.activeElement !== editor.view.dom) {
+          editor.view.focus();
+        }
+        applyRange(e.clientX, e.clientY);
+      },
+      { capture: true },
+    ),
+  );
+
+  stops.push(
+    useEventListener(
+      window,
+      "mouseup",
+      (e: MouseEvent) => {
+        cleanup();
+        if (dragged || event.shiftKey) {
+          applyRange(e.clientX, e.clientY);
+          editor.view.focus();
+          setRangeSelecting(editor.view, false);
+          return;
+        }
+        setRangeSelecting(editor.view, false);
+        if (editField) {
+          const { state, view } = editor;
+          view.dispatch(
+            state.tr
+              .setSelection(TextSelection.create(state.doc, startTo))
+              .scrollIntoView(),
+          );
+          requestAnimationFrame(() => editField.focus());
+        } else {
+          options.onClickSelectNode?.();
+        }
+      },
+      { capture: true },
+    ),
+  );
 }
 
-/** 将光标放到行内 atom 之前 */
 export function focusBeforeAtom(editor: Editor, pos: number) {
   const { state, view } = editor;
   view.dispatch(
@@ -344,7 +324,6 @@ export function focusBeforeAtom(editor: Editor, pos: number) {
   view.focus();
 }
 
-/** 将光标放到行内 atom 之后 */
 export function focusAfterAtom(editor: Editor, pos: number, nodeSize: number) {
   const after = pos + nodeSize;
   const { state, view } = editor;
@@ -356,17 +335,12 @@ export function focusAfterAtom(editor: Editor, pos: number, nodeSize: number) {
   view.focus();
 }
 
-/**
- * 在 atom 内部「行首」按 Backspace：
- * - 段落开头 → 与上一段合并
- * - 前面还有内容 → 删除紧邻的前一个字符/节点
- * - 无法合并且自身为空 → 删除该 atom
- */
+/** atom 行首 Backspace：合并上段 / 删前一字符 / 空则删自身 */
 export function backspaceAtAtomStart(
   editor: Editor,
   pos: number,
   node: PmNode,
-  isEmpty: boolean,
+  empty: boolean,
 ): boolean {
   const { state, view } = editor;
   const $pos = state.doc.resolve(pos);
@@ -379,7 +353,7 @@ export function backspaceAtAtomStart(
     if (editor.commands.joinBackward()) {
       return true;
     }
-    if (isEmpty) {
+    if (empty) {
       return editor
         .chain()
         .focus()
@@ -401,4 +375,55 @@ export function backspaceAtAtomStart(
     .deleteRange({ from, to: pos })
     .setTextSelection(from)
     .run();
+}
+
+/** Label / LabelValue 扩展共用的方向键与删除快捷键 */
+export function atomNodeKeyboardShortcuts(nodeName: string) {
+  const isThis = (editor: Editor) => {
+    const { selection } = editor.state;
+    return selection instanceof NodeSelection && selection.node.type.name === nodeName;
+  };
+
+  return {
+    ArrowLeft: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      const { selection } = editor.state;
+      return editor.commands.setTextSelection(selection.from);
+    },
+    ArrowRight: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      const { selection } = editor.state;
+      return editor.commands.setTextSelection(selection.to);
+    },
+    ArrowUp: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      editor.view.focus();
+      return false;
+    },
+    ArrowDown: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      editor.view.focus();
+      return false;
+    },
+    Backspace: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      return editor.commands.deleteSelection();
+    },
+    Delete: ({ editor }: { editor: Editor }) => {
+      if (!isThis(editor)) {
+        return false;
+      }
+      return editor.commands.deleteSelection();
+    },
+  };
 }
