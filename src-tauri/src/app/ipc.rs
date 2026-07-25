@@ -57,6 +57,7 @@ macro_rules! app_invoke_handler {
             $crate::app::editor::editor_convert_to_custom_encrypted,
             $crate::app::editor::editor_convert_custom_to_default_encrypted,
             $crate::app::editor::editor_unlock_encrypted_file,
+            $crate::app::editor::editor_forget_file_passphrase,
             $crate::app::editor::editor_convert_to_plain,
             $crate::app::editor::editor_take_pending_open_paths,
             $crate::app::editor::editor_get_settings,

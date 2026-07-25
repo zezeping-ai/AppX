@@ -28,6 +28,7 @@ import {
   createDirectory,
   createFile,
   deletePath,
+  forgetFilePassphrase,
   inspectFile,
   listDirectory,
   movePath,
@@ -283,6 +284,18 @@ async function convertFileToPlain(path: string) {
 }
 
 async function openWorkspace(path: string) {
+  // 切换工作区前忘掉已打开 .x0 的会话口令
+  const customPaths = [...tabByPath.value.values()]
+    .filter((tab) => tab.customEncrypted)
+    .map((tab) => tab.path);
+  await Promise.all(
+    customPaths.map((filePath) =>
+      forgetFilePassphrase(filePath).catch((error) => {
+        console.warn("forget file passphrase failed", error);
+      }),
+    ),
+  );
+
   workspaceRoot.value = path;
   rememberWorkspaceRoot(path);
   rememberRecentFolder(path);
@@ -414,6 +427,14 @@ async function closeTab(path: string) {
 }
 
 function removeTab(path: string, wasActive = activePath.value === path) {
+  const tab = tabByPath.value.get(path);
+  // .x0：关标签即忘记会话口令，再次打开需重新输入
+  if (tab?.customEncrypted) {
+    void forgetFilePassphrase(path).catch((error) => {
+      console.warn("forget file passphrase failed", error);
+    });
+  }
+
   const tabPaths = [...tabByPath.value.keys()];
   const closedIndex = tabPaths.findIndex((item) => item === path);
   const nextTabs = new Map(tabByPath.value);

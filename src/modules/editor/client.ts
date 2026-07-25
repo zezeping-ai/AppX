@@ -45,6 +45,11 @@ export async function unlockEncryptedFile(
   });
 }
 
+/** 清除会话内记住的独立口令（关闭 .x0 标签后应调用） */
+export async function forgetFilePassphrase(path: string): Promise<void> {
+  return invoke("editor_forget_file_passphrase", { path });
+}
+
 export async function createFile(
   directory: string,
   options?: {

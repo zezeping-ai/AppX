@@ -138,6 +138,18 @@ pub fn editor_unlock_encrypted_file(
     })
 }
 
+/// 关闭标签后清除会话内独立口令，再次打开需重新输入
+#[tauri::command]
+pub fn editor_forget_file_passphrase(
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+) -> Result<(), String> {
+    ensure_unlocked(&state)?;
+    passphrase_store.remove(&tree::path_to_string(&parse_path(path)));
+    Ok(())
+}
+
 #[tauri::command]
 pub fn editor_create_file(
     app: tauri::AppHandle,
