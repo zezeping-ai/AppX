@@ -359,5 +359,15 @@
       text-underline-offset: 2px;
       cursor: pointer;
     }
+
+    /* 拖选多个 Label/LabelValue：禁止 textarea 抢焦点进入插入态 */
+    &.atom-range-selecting {
+      .lv__input,
+      .rd-label__input {
+        pointer-events: none !important;
+        caret-color: transparent !important;
+        user-select: none !important;
+      }
+    }
   }
 }

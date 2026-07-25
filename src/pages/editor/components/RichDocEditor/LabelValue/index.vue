@@ -5,10 +5,19 @@ import { NodeSelection } from "@tiptap/pm/state";
 import { message } from "ant-design-vue";
 import { computed, nextTick, ref, watch } from "vue";
 import {
+  copyAtomNode,
+  cutAtomNode,
+  isCopyChord,
+  isCutChord,
+  selectAtomNode,
+} from "../atomClipboard";
+import {
   backspaceAtAtomStart,
   focusAfterAtom,
   focusBeforeAtom,
-  onAtomFieldMouseDown,
+  onAtomPointerMouseDown,
+  requestAtomEnterEdit,
+  takeAtomEnterEdit,
 } from "../atomNodeNav";
 
 const props = defineProps(nodeViewProps);
@@ -25,25 +34,110 @@ const valueRef = ref<HTMLTextAreaElement | null>(null);
 
 const isEmpty = computed(() => !label.value && !value.value);
 
+/**
+ * 仅「插入/Enter 新建」进编辑；方向键落到节点上不进 textarea。
+ * 点击进编辑由 onAtomPointerMouseDown 直接 focus。
+ */
 watch(
   () => props.selected,
   async (selected) => {
     if (!selected || !editable.value) {
       return;
     }
-    await nextTick();
-    const active = document.activeElement;
-    if (active === labelRef.value || active === valueRef.value) {
+    const pos = props.getPos();
+    if (typeof pos !== "number" || !takeAtomEnterEdit(pos)) {
       return;
     }
+    await nextTick();
     valueRef.value?.focus();
   },
   { immediate: true },
 );
 
-/** 仅阻止冒泡到 ProseMirror；单元格边缘留给列宽拖拽 */
+/** 字段：单击编辑；拖动 / Shift 连选多个 atom */
 function onFieldMouseDown(event: MouseEvent) {
-  onAtomFieldMouseDown(event);
+  const editField = (event.target as HTMLElement | null)?.closest?.(
+    "textarea, input",
+  ) as HTMLTextAreaElement | HTMLInputElement | null;
+  onAtomPointerMouseDown(event, props.editor, {
+    editField,
+    getPos: () => {
+      const pos = props.getPos();
+      return typeof pos === "number" ? pos : undefined;
+    },
+    nodeSize: props.node.nodeSize,
+  });
+}
+
+/** 外壳：拖选多个 / Shift 连选；单击整选不进编辑 */
+function onShellMouseDown(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest?.("textarea, input, button")) {
+    return;
+  }
+  onAtomPointerMouseDown(event, props.editor, {
+    getPos: () => {
+      const pos = props.getPos();
+      return typeof pos === "number" ? pos : undefined;
+    },
+    nodeSize: props.node.nodeSize,
+    onClickSelectNode: () => {
+      const pos = props.getPos();
+      if (typeof pos !== "number") {
+        return;
+      }
+      selectAtomNode(props.editor, pos);
+    },
+  });
+}
+
+async function copyWholeAtom(event: KeyboardEvent) {
+  const pos = props.getPos();
+  if (typeof pos !== "number") {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  await copyAtomNode(props.editor, pos, props.node);
+}
+
+async function cutWholeAtom(event: KeyboardEvent) {
+  if (!editable.value) {
+    return;
+  }
+  const pos = props.getPos();
+  if (typeof pos !== "number") {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  await cutAtomNode(props.editor, pos, props.node);
+}
+
+/** textarea 内：折叠光标时复制/剪切整颗；Escape 整选 */
+function handleAtomClipboardKeys(
+  event: KeyboardEvent,
+  input: HTMLTextAreaElement,
+): boolean {
+  const collapsed = input.selectionStart === input.selectionEnd;
+  if (isCopyChord(event) && collapsed) {
+    void copyWholeAtom(event);
+    return true;
+  }
+  if (isCutChord(event) && collapsed) {
+    void cutWholeAtom(event);
+    return true;
+  }
+  if (event.key === "Escape") {
+    const pos = props.getPos();
+    if (typeof pos === "number") {
+      event.preventDefault();
+      event.stopPropagation();
+      selectAtomNode(props.editor, pos);
+    }
+    return true;
+  }
+  return false;
 }
 
 /** 统一换行符，保留内部换行 */
@@ -108,12 +202,16 @@ function insertSiblingAfter() {
   const { state, view } = props.editor;
   let tr = state.tr.insert(after, next);
   tr = tr.setSelection(NodeSelection.create(tr.doc, after));
+  requestAtomEnterEdit(after);
   view.dispatch(tr);
   view.focus();
 }
 
 function onLabelKeydown(event: KeyboardEvent) {
   const input = event.target as HTMLTextAreaElement;
+  if (handleAtomClipboardKeys(event, input)) {
+    return;
+  }
   const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
 
   // Enter：跳到 value；Shift+Enter：内部换行
@@ -152,6 +250,9 @@ function onLabelKeydown(event: KeyboardEvent) {
 
 function onValueKeydown(event: KeyboardEvent) {
   const input = event.target as HTMLTextAreaElement;
+  if (handleAtomClipboardKeys(event, input)) {
+    return;
+  }
   const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
 
   // Enter：插入下一个；Shift+Enter：内部换行
@@ -217,7 +318,13 @@ async function onCopyValue() {
 </script>
 
 <template>
-  <NodeViewWrapper as="span" class="lv" contenteditable="false">
+  <NodeViewWrapper
+    as="span"
+    class="lv"
+    data-rich-atom="labelValue"
+    contenteditable="false"
+    @mousedown="onShellMouseDown"
+  >
     <span class="lv__cell lv__cell--label">
       <span class="lv__sizer" aria-hidden="true">{{ labelSizer }}</span>
       <textarea
@@ -226,6 +333,7 @@ async function onCopyValue() {
         rows="1"
         cols="1"
         wrap="soft"
+        tabindex="-1"
         :value="label"
         :readonly="!editable"
         placeholder="标签"
@@ -242,6 +350,7 @@ async function onCopyValue() {
         rows="1"
         cols="1"
         wrap="soft"
+        tabindex="-1"
         :value="value"
         :readonly="!editable"
         placeholder="值"
@@ -278,6 +387,17 @@ async function onCopyValue() {
   background: var(--app-surface);
   vertical-align: middle;
   box-sizing: border-box;
+
+  &.ProseMirror-selectednode {
+    /* 与正文划选一致的浅蓝底，不要粗蓝描边 */
+    outline: none;
+    background: var(--app-active-bg);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-active-fg) 45%, transparent);
+
+    .lv__cell--label {
+      background: color-mix(in srgb, var(--app-active-fg) 12%, var(--app-surface-muted));
+    }
+  }
 }
 
 /* 同格 sizer：label / value 同样自适应宽、顶满后折行增高 */
@@ -324,10 +444,15 @@ async function onCopyValue() {
   appearance: none;
   background: transparent;
   caret-color: var(--app-fg);
-  user-select: text;
+  /* 未聚焦时禁止原生划选，避免拖选多个 atom 时被字段抢走 */
+  user-select: none;
   color: inherit;
   overflow: hidden;
   overflow-y: hidden;
+
+  &:focus {
+    user-select: text;
+  }
 
   &:read-only {
     cursor: default;

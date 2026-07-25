@@ -1,6 +1,7 @@
 import { mergeAttributes, Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
+import { atomNodeViewStopEvent, requestAtomEnterEdit } from "../atomNodeNav";
 import LabelView from "./index.vue";
 
 declare module "@tiptap/core" {
@@ -53,6 +54,11 @@ export const RichDocLabel = Node.create({
     ];
   },
 
+  /** 纯文本剪贴板 / 搜索 */
+  renderText({ node }) {
+    return String(node.attrs.label ?? "");
+  },
+
   addCommands() {
     return {
       insertLabel:
@@ -68,6 +74,7 @@ export const RichDocLabel = Node.create({
           const pos = tr.selection.from - node.nodeSize;
           if (pos >= 0) {
             tr.setSelection(NodeSelection.create(tr.doc, pos));
+            requestAtomEnterEdit(pos);
           }
           return true;
         },
@@ -76,6 +83,36 @@ export const RichDocLabel = Node.create({
 
   addKeyboardShortcuts() {
     return {
+      ArrowLeft: ({ editor }) => {
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
+          return false;
+        }
+        return editor.commands.setTextSelection(selection.from);
+      },
+      ArrowRight: ({ editor }) => {
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
+          return false;
+        }
+        return editor.commands.setTextSelection(selection.to);
+      },
+      ArrowUp: ({ editor }) => {
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
+          return false;
+        }
+        editor.view.focus();
+        return false;
+      },
+      ArrowDown: ({ editor }) => {
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
+          return false;
+        }
+        editor.view.focus();
+        return false;
+      },
       Backspace: ({ editor }) => {
         const { selection } = editor.state;
         if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
@@ -94,6 +131,9 @@ export const RichDocLabel = Node.create({
   },
 
   addNodeView() {
-    return VueNodeViewRenderer(LabelView);
+    return VueNodeViewRenderer(LabelView, {
+      // 放行指针事件，才能拖选多个 atom（见 atomNodeViewStopEvent）
+      stopEvent: atomNodeViewStopEvent,
+    });
   },
 });
