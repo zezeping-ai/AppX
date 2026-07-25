@@ -27,13 +27,26 @@ impl FilePassphraseStore {
         }
     }
 
-    pub fn rename_key(&self, old_path: &str, new_path: &str) {
-        if old_path == new_path {
+    /// 移动/重命名后，按路径前缀批量重映射口令键（含自身）。
+    pub fn rename_key_prefix(&self, old_prefix: &str, new_prefix: &str) {
+        if old_prefix == new_prefix {
             return;
         }
         if let Ok(mut guard) = self.map.lock() {
-            if let Some(passphrase) = guard.remove(old_path) {
-                guard.insert(new_path.to_string(), passphrase);
+            let keys: Vec<String> = guard
+                .keys()
+                .filter(|key| {
+                    *key == old_prefix
+                        || key.starts_with(&format!("{old_prefix}/"))
+                        || key.starts_with(&format!("{old_prefix}\\"))
+                })
+                .cloned()
+                .collect();
+            for old_key in keys {
+                if let Some(passphrase) = guard.remove(&old_key) {
+                    let suffix = &old_key[old_prefix.len()..];
+                    guard.insert(format!("{new_prefix}{suffix}"), passphrase);
+                }
             }
         }
     }

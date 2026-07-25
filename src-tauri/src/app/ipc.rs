@@ -52,6 +52,7 @@ macro_rules! app_invoke_handler {
             $crate::app::editor::editor_create_directory,
             $crate::app::editor::editor_delete_path,
             $crate::app::editor::editor_rename_path,
+            $crate::app::editor::editor_move_path,
             $crate::app::editor::editor_convert_to_encrypted,
             $crate::app::editor::editor_convert_to_custom_encrypted,
             $crate::app::editor::editor_convert_custom_to_default_encrypted,

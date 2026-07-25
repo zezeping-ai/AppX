@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
 import type { Editor } from "@tiptap/vue-3";
-import { computed } from "vue";
+import type { MenuProps } from "ant-design-vue";
+import { computed, h } from "vue";
 
 const props = defineProps<{
   editor: Editor;
 }>();
 
 type ToolbarSep = { kind: "sep" };
+type ToolbarMenu = { kind: "labelMenu" } | { kind: "tableMenu" };
 type ToolbarBtn = {
   kind: "btn";
   title: string;
@@ -17,15 +19,145 @@ type ToolbarBtn = {
   disabled?: () => boolean;
   run: () => void;
 };
-type ToolbarItem = ToolbarSep | ToolbarBtn;
+type ToolbarItem = ToolbarSep | ToolbarBtn | ToolbarMenu;
 
 function chain() {
   return props.editor.chain().focus();
 }
 
+function menuIcon(name: string) {
+  return () => h(Icon, { icon: name, width: 15, height: 15 });
+}
+
+const inTable = computed(() => props.editor.isActive("table"));
+
+const labelMenuActive = computed(
+  () => props.editor.isActive("label") || props.editor.isActive("labelValue"),
+);
+
+const tableMenuActive = computed(() => inTable.value);
+
+const labelMenu = computed<MenuProps>(() => ({
+  items: [
+    {
+      key: "label",
+      label: "标签",
+      icon: menuIcon("mdi:label-outline"),
+    },
+    {
+      key: "labelValue",
+      label: "标签值",
+      icon: menuIcon("mdi:form-textbox"),
+    },
+  ],
+  onClick: ({ key }) => {
+    if (key === "label") {
+      chain().insertLabel().run();
+      return;
+    }
+    if (key === "labelValue") {
+      chain().insertLabelValue().run();
+    }
+  },
+}));
+
+const tableMenu = computed<MenuProps>(() => {
+  const inside = inTable.value;
+  const ed = props.editor;
+
+  return {
+    items: [
+      {
+        key: "insert",
+        label: "插入表格",
+        icon: menuIcon("mdi:table-plus"),
+      },
+      {
+        key: "delete",
+        label: "删除表格",
+        icon: menuIcon("mdi:table-remove"),
+        disabled: !inside,
+      },
+      {
+        key: "header",
+        label: "切换表头行",
+        icon: menuIcon("mdi:table-headers-eye"),
+        disabled: !inside,
+      },
+      { type: "divider" },
+      {
+        key: "row-before",
+        label: "上方插入行",
+        icon: menuIcon("mdi:table-row-plus-before"),
+        disabled: !inside,
+      },
+      {
+        key: "row-after",
+        label: "下方插入行",
+        icon: menuIcon("mdi:table-row-plus-after"),
+        disabled: !inside,
+      },
+      {
+        key: "row-remove",
+        label: "删除行",
+        icon: menuIcon("mdi:table-row-remove"),
+        disabled: !inside,
+      },
+      { type: "divider" },
+      {
+        key: "col-before",
+        label: "左侧插入列",
+        icon: menuIcon("mdi:table-column-plus-before"),
+        disabled: !inside,
+      },
+      {
+        key: "col-after",
+        label: "右侧插入列",
+        icon: menuIcon("mdi:table-column-plus-after"),
+        disabled: !inside,
+      },
+      {
+        key: "col-remove",
+        label: "删除列",
+        icon: menuIcon("mdi:table-column-remove"),
+        disabled: !inside,
+      },
+      { type: "divider" },
+      {
+        key: "merge",
+        label: "合并单元格",
+        icon: menuIcon("mdi:table-merge-cells"),
+        disabled: !ed.can().mergeCells(),
+      },
+      {
+        key: "split",
+        label: "拆分单元格",
+        icon: menuIcon("mdi:table-split-cell"),
+        disabled: !ed.can().splitCell(),
+      },
+    ],
+    onClick: ({ key }) => {
+      const run: Record<string, () => void> = {
+        insert: () =>
+          chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+        delete: () => chain().deleteTable().run(),
+        header: () => chain().toggleHeaderRow().run(),
+        "row-before": () => chain().addRowBefore().run(),
+        "row-after": () => chain().addRowAfter().run(),
+        "row-remove": () => chain().deleteRow().run(),
+        "col-before": () => chain().addColumnBefore().run(),
+        "col-after": () => chain().addColumnAfter().run(),
+        "col-remove": () => chain().deleteColumn().run(),
+        merge: () => chain().mergeCells().run(),
+        split: () => chain().splitCell().run(),
+      };
+      run[String(key)]?.();
+    },
+  };
+});
+
 const items = computed<ToolbarItem[]>(() => {
   const ed = props.editor;
-  const inTable = () => ed.isActive("table");
 
   return [
     {
@@ -100,95 +232,60 @@ const items = computed<ToolbarItem[]>(() => {
       active: () => ed.isActive("codeBlock"),
       run: () => chain().toggleCodeBlock().run(),
     },
+    { kind: "labelMenu" },
     { kind: "sep" },
-    {
-      kind: "btn",
-      title: "插入表格",
-      icon: "mdi:table-plus",
-      run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-    },
-    {
-      kind: "btn",
-      title: "删除表格",
-      icon: "mdi:table-remove",
-      disabled: () => !inTable(),
-      run: () => chain().deleteTable().run(),
-    },
-    {
-      kind: "btn",
-      title: "切换表头行",
-      icon: "mdi:table-headers-eye",
-      disabled: () => !inTable(),
-      active: () => ed.isActive("tableHeader"),
-      run: () => chain().toggleHeaderRow().run(),
-    },
-    { kind: "sep" },
-    {
-      kind: "btn",
-      title: "上方插入行",
-      icon: "mdi:table-row-plus-before",
-      disabled: () => !inTable(),
-      run: () => chain().addRowBefore().run(),
-    },
-    {
-      kind: "btn",
-      title: "下方插入行",
-      icon: "mdi:table-row-plus-after",
-      disabled: () => !inTable(),
-      run: () => chain().addRowAfter().run(),
-    },
-    {
-      kind: "btn",
-      title: "删除行",
-      icon: "mdi:table-row-remove",
-      disabled: () => !inTable(),
-      run: () => chain().deleteRow().run(),
-    },
-    { kind: "sep" },
-    {
-      kind: "btn",
-      title: "左侧插入列",
-      icon: "mdi:table-column-plus-before",
-      disabled: () => !inTable(),
-      run: () => chain().addColumnBefore().run(),
-    },
-    {
-      kind: "btn",
-      title: "右侧插入列",
-      icon: "mdi:table-column-plus-after",
-      disabled: () => !inTable(),
-      run: () => chain().addColumnAfter().run(),
-    },
-    {
-      kind: "btn",
-      title: "删除列",
-      icon: "mdi:table-column-remove",
-      disabled: () => !inTable(),
-      run: () => chain().deleteColumn().run(),
-    },
-    { kind: "sep" },
-    {
-      kind: "btn",
-      title: "合并单元格（先拖选多个单元格）",
-      icon: "mdi:table-merge-cells",
-      disabled: () => !ed.can().mergeCells(),
-      run: () => chain().mergeCells().run(),
-    },
-    {
-      kind: "btn",
-      title: "拆分单元格",
-      icon: "mdi:table-split-cell",
-      disabled: () => !ed.can().splitCell(),
-      run: () => chain().splitCell().run(),
-    },
+    { kind: "tableMenu" },
   ];
 });
+
+function insertLabel() {
+  chain().insertLabel().run();
+}
+
+function insertTable() {
+  chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+}
 </script>
 
 <template>
   <div class="rich-doc-toolbar">
     <template v-for="(item, index) in items" :key="index">
       <span v-if="item.kind === 'sep'" class="rich-doc-toolbar__sep" />
+
+      <a-dropdown-button
+        v-else-if="item.kind === 'labelMenu'"
+        trigger="click"
+        placement="bottomLeft"
+        :menu="labelMenu"
+        class="rich-doc-toolbar__drop"
+        :class="{ 'is-active': labelMenuActive }"
+        @click="insertLabel"
+      >
+        <span class="rich-doc-toolbar__drop-main" title="插入标签">
+          <Icon icon="mdi:label-outline" width="16" height="16" />
+        </span>
+        <template #icon>
+          <Icon icon="mdi:chevron-down" width="14" height="14" />
+        </template>
+      </a-dropdown-button>
+
+      <a-dropdown-button
+        v-else-if="item.kind === 'tableMenu'"
+        trigger="click"
+        placement="bottomLeft"
+        :menu="tableMenu"
+        class="rich-doc-toolbar__drop"
+        :class="{ 'is-active': tableMenuActive }"
+        @click="insertTable"
+      >
+        <span class="rich-doc-toolbar__drop-main" title="插入表格">
+          <Icon icon="mdi:table" width="16" height="16" />
+        </span>
+        <template #icon>
+          <Icon icon="mdi:chevron-down" width="14" height="14" />
+        </template>
+      </a-dropdown-button>
+
       <button
         v-else
         type="button"
@@ -214,7 +311,7 @@ const items = computed<ToolbarItem[]>(() => {
   border-bottom: 1px solid var(--app-border);
   background: var(--app-surface-muted);
 
-  button {
+  > button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -250,5 +347,66 @@ const items = computed<ToolbarItem[]>(() => {
   height: 16px;
   margin: 0 4px;
   background: var(--app-divider);
+}
+
+.rich-doc-toolbar__drop {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+
+  :deep(.ant-btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    min-width: 28px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 0 !important;
+    background: transparent;
+    color: var(--app-fg-subtle);
+    box-shadow: none;
+    cursor: pointer;
+
+    &:hover,
+    &:focus {
+      background: var(--app-hover-bg);
+      color: var(--app-fg);
+    }
+  }
+
+  &:hover :deep(.ant-btn) {
+    background: var(--app-hover-bg);
+    color: var(--app-fg);
+  }
+
+  :deep(.ant-btn:last-child),
+  :deep(.ant-dropdown-trigger) {
+    min-width: 18px;
+    padding: 0 4px;
+  }
+
+  &.is-active {
+    background: var(--app-active-bg);
+
+    :deep(.ant-btn) {
+      background: transparent;
+      color: var(--app-active-fg);
+    }
+
+    &:hover :deep(.ant-btn) {
+      background: transparent;
+      color: var(--app-active-fg);
+    }
+  }
+}
+
+.rich-doc-toolbar__drop-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 </style>

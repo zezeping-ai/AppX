@@ -55,6 +55,60 @@ export function joinPath(parent: string, name: string): string {
   return `${parent}${sep}${name}`;
 }
 
+export function parentDirectory(
+  path: string,
+  workspaceRoot?: string | null,
+): string | null {
+  const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  if (index > 0) {
+    return path.slice(0, index);
+  }
+  return workspaceRoot ?? null;
+}
+
+export function isSameOrDescendantPath(ancestor: string, path: string): boolean {
+  if (ancestor === path) {
+    return true;
+  }
+  const sep = pathSep(ancestor);
+  return path.startsWith(ancestor + sep);
+}
+
+/**
+ * 是否可将 source 拖入 targetDirectory（已在同目录则视为无效，避免无意义高亮）
+ */
+export function canDropIntoDirectory(
+  sourcePath: string,
+  targetDirectory: string,
+): boolean {
+  if (!sourcePath || !targetDirectory || sourcePath === targetDirectory) {
+    return false;
+  }
+  if (isSameOrDescendantPath(sourcePath, targetDirectory)) {
+    return false;
+  }
+  const sourceParent = parentDirectory(sourcePath);
+  if (sourceParent === targetDirectory) {
+    return false;
+  }
+  return true;
+}
+
+/** 路径变更后重映射（文件或整棵子树） */
+export function remapPathAfterMove(
+  oldPath: string,
+  newPath: string,
+  path: string,
+): string | null {
+  if (path === oldPath) {
+    return newPath;
+  }
+  if (isSameOrDescendantPath(oldPath, path)) {
+    return newPath + path.slice(oldPath.length);
+  }
+  return null;
+}
+
 /** `root` 到 `filePath` 之间的祖先目录（不含 root，由近到远） */
 export function ancestorDirectories(root: string, filePath: string): string[] {
   const sep = pathSep(root);

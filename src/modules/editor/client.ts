@@ -73,6 +73,10 @@ export async function renamePath(path: string, newName: string): Promise<string>
   return invoke<string>("editor_rename_path", { path, newName });
 }
 
+export async function movePath(path: string, targetDirectory: string): Promise<string> {
+  return invoke<string>("editor_move_path", { path, targetDirectory });
+}
+
 export async function convertToEncryptedFile(path: string): Promise<string> {
   return invoke<string>("editor_convert_to_encrypted", { path });
 }

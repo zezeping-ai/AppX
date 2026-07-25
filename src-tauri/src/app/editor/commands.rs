@@ -206,7 +206,23 @@ pub fn editor_rename_path(
     let path_buf = parse_path(path);
     let old_key = tree::path_to_string(&path_buf);
     let new_path = tree::rename_path(&path_buf, &new_name)?;
-    passphrase_store.rename_key(&old_key, &new_path);
+    passphrase_store.rename_key_prefix(&old_key, &new_path);
+    Ok(new_path)
+}
+
+#[tauri::command]
+pub fn editor_move_path(
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    path: String,
+    target_directory: String,
+) -> Result<String, String> {
+    ensure_unlocked(&state)?;
+    let path_buf = parse_path(path);
+    let target = parse_path(target_directory);
+    let old_key = tree::path_to_string(&path_buf);
+    let new_path = tree::move_path(&path_buf, &target)?;
+    passphrase_store.rename_key_prefix(&old_key, &new_path);
     Ok(new_path)
 }
 

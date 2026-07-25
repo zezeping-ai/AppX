@@ -304,6 +304,61 @@ pub fn rename_path(path: &Path, new_name: &str) -> Result<String, String> {
     Ok(path_to_string(&new_path))
 }
 
+/// 将路径移动到目标目录下（保留原文件名）。目标与当前位置相同则原样返回。
+pub fn move_path(path: &Path, target_directory: &Path) -> Result<String, String> {
+    if !path.exists() {
+        return Err(format!("路径不存在：{}", path.display()));
+    }
+    if !target_directory.is_dir() {
+        return Err(format!("不是有效目录：{}", target_directory.display()));
+    }
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| "无法解析文件名".to_string())?;
+    let new_path = target_directory.join(file_name);
+    if paths_equal(path, &new_path) {
+        return Ok(path_to_string(path));
+    }
+    // 禁止把目录拖进自身或其子目录
+    if path.is_dir() && is_same_or_descendant(path, target_directory) {
+        return Err("不能将文件夹移动到其自身或子目录中".to_string());
+    }
+    if new_path.exists() {
+        return Err(format!("已存在：{}", new_path.display()));
+    }
+    if path.is_file() {
+        format::ensure_writable_path(&new_path)?;
+    }
+    fs::rename(path, &new_path).map_err(|err| format!("移动失败：{err}"))?;
+    Ok(path_to_string(&new_path))
+}
+
+fn paths_equal(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(ca), Ok(cb)) => ca == cb,
+        _ => false,
+    }
+}
+
+fn is_same_or_descendant(ancestor: &Path, path: &Path) -> bool {
+    if paths_equal(ancestor, path) {
+        return true;
+    }
+    match (fs::canonicalize(ancestor), fs::canonicalize(path)) {
+        (Ok(root), Ok(candidate)) => candidate.starts_with(&root),
+        _ => {
+            let root = path_to_string(ancestor);
+            let candidate = path_to_string(path);
+            candidate == root
+                || candidate.starts_with(&(root.clone() + "/"))
+                || candidate.starts_with(&(root + "\\"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

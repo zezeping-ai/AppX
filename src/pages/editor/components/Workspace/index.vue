@@ -10,6 +10,7 @@ import {
   ancestorDirectories,
   findNode,
   isDirectoryUnloaded,
+  remapPathAfterMove,
   setDirectoryChildren,
 } from "@/pages/editor/components/FileExplorer/treeHelpers";
 import { confirmDiscardUnsaved } from "./confirmDiscardUnsaved";
@@ -23,6 +24,7 @@ import {
   deletePath,
   inspectFile,
   listDirectory,
+  movePath,
   pickFile,
   pickFolder,
   readFile,
@@ -425,19 +427,47 @@ async function onExplorerCreateFolder(directory: string, folderName: string) {
 async function onExplorerRename(path: string, newName: string) {
   try {
     const newPath = await renamePath(path, newName);
-    const tab = tabByPath.value.get(path);
-    if (tab) {
-      const nextTabs = new Map(tabByPath.value);
-      nextTabs.delete(path);
-      nextTabs.set(newPath, { ...tab, path: newPath, name: newName });
-      tabByPath.value = nextTabs;
-      if (activePath.value === path) {
-        activePath.value = newPath;
-      }
-    }
+    remapOpenTabs(path, newPath);
     await refreshTree();
   } catch (error) {
     message.error(String(error));
+  }
+}
+
+async function onExplorerMove(path: string, targetDirectory: string) {
+  try {
+    const newPath = await movePath(path, targetDirectory);
+    if (newPath !== path) {
+      remapOpenTabs(path, newPath);
+      await refreshTree();
+      message.success("已移动");
+    }
+  } catch (error) {
+    message.error(String(error));
+  }
+}
+
+/** 文件/文件夹路径变更后，同步已打开标签与当前激活路径 */
+function remapOpenTabs(oldPath: string, newPath: string) {
+  if (oldPath === newPath) {
+    return;
+  }
+  const nextTabs = new Map<string, OpenedEditorFile>();
+  for (const [tabPath, tab] of tabByPath.value) {
+    const remapped = remapPathAfterMove(oldPath, newPath, tabPath);
+    if (remapped) {
+      const name = remapped.split(/[/\\]/).pop() ?? tab.name;
+      nextTabs.set(remapped, { ...tab, path: remapped, name });
+    } else {
+      nextTabs.set(tabPath, tab);
+    }
+  }
+  tabByPath.value = nextTabs;
+  if (activePath.value) {
+    const remappedActive = remapPathAfterMove(oldPath, newPath, activePath.value);
+    if (remappedActive) {
+      activePath.value = remappedActive;
+    }
   }
 }
 
@@ -593,6 +623,7 @@ watch(editorContent, (value) => {
           @create-file="onExplorerCreateFile"
           @create-folder="onExplorerCreateFolder"
           @rename="onExplorerRename"
+          @move="onExplorerMove"
           @delete="onExplorerDelete"
           @convert-to-encrypted="convertFileToEncrypted"
           @convert-to-custom-encrypted="convertFileToCustomEncrypted"

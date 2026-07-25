@@ -11,6 +11,8 @@ import {
   serializeAxdoc,
 } from "@/modules/editor/axdoc";
 import { RichDocCodeBlock } from "./CodeBlock/extension";
+import { RichDocLabel } from "./Label/extension";
+import { RichDocLabelValue } from "./LabelValue/extension";
 import RichDocToolbar from "./Toolbar.vue";
 
 const props = withDefaults(
@@ -40,6 +42,8 @@ const editor = useEditor({
       codeBlock: false,
     }),
     RichDocCodeBlock,
+    RichDocLabel,
+    RichDocLabelValue,
     Placeholder.configure({
       placeholder: "开始写作…",
     }),
@@ -142,6 +146,8 @@ tryOnScopeDispose(() => {
     color: var(--app-fg);
     font-size: 14px;
     line-height: 1.7;
+    /* 仅编辑区用文本光标，避免影响工具栏下拉 */
+    cursor: text;
 
     > * + * {
       margin-top: 0.6em;
@@ -168,14 +174,51 @@ tryOnScopeDispose(() => {
 
     ul,
     ol {
-      padding-left: 1.4em;
+      padding-left: 1.5em;
+      /* Tailwind preflight 会清掉 list-style，需显式恢复 */
+      list-style-position: outside;
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
+    }
+
+    li {
+      display: list-item;
+    }
+
+    /* TipTap 列表项内是段落，去掉多余外边距 */
+    li > p {
+      margin: 0;
+    }
+
+    ul ul {
+      list-style-type: circle;
+    }
+
+    ul ul ul {
+      list-style-type: square;
+    }
+
+    ol ol {
+      list-style-type: lower-alpha;
     }
 
     blockquote {
-      margin: 0;
-      padding-left: 12px;
+      margin: 0.4em 0;
+      padding: 8px 12px;
       border-left: 3px solid var(--app-divider);
+      border-radius: 0 6px 6px 0;
+      background: var(--app-surface-muted);
       color: var(--app-fg-secondary);
+
+      > p {
+        margin: 0;
+      }
     }
 
     /* 代码块外壳由 CodeBlockView 负责；此处只保留语法高亮 token */

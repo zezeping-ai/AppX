@@ -4,7 +4,7 @@ import type { AppNavItem } from "./types";
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     key: "editor",
-    label: "Editor",
+    label: "编辑器",
     to: "/editor",
     icon: "mdi:application-edit-outline",
     enabled: true,

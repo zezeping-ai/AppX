@@ -47,15 +47,6 @@ onUnmounted(() => {
 <template>
   <div class="app-layout">
     <aside class="app-layout__sidebar" :class="{ 'app-layout__sidebar--collapsed': collapsed }">
-      <button
-        class="app-layout__collapse-btn"
-        type="button"
-        :aria-label="collapsed ? '展开侧边栏' : '折叠侧边栏'"
-        @click="collapsed = !collapsed"
-      >
-        <Icon :icon="collapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" aria-hidden="true" />
-      </button>
-
       <nav class="app-layout__nav" aria-label="功能导航">
         <router-link
           v-for="item in visibleNavItems"
@@ -69,6 +60,15 @@ onUnmounted(() => {
           <span v-if="!collapsed">{{ item.label }}</span>
         </router-link>
       </nav>
+
+      <button
+        class="app-layout__collapse-btn"
+        type="button"
+        :aria-label="collapsed ? '展开侧边栏' : '折叠侧边栏'"
+        @click="collapsed = !collapsed"
+      >
+        <Icon :icon="collapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" aria-hidden="true" />
+      </button>
     </aside>
 
     <main class="app-layout__main">
@@ -122,6 +122,7 @@ onUnmounted(() => {
 
 .app-layout__nav {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 4px;
   min-height: 0;

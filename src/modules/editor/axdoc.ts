@@ -33,6 +33,33 @@ function emptyDoc(): Record<string, unknown> {
   return cloneDeep(EMPTY_AXDOC_DOC);
 }
 
+/** 旧 richDocTag（attrs.text）→ label（attrs.label） */
+function migrateAxdocNodes(node: Record<string, unknown>): void {
+  if (node.type === "richDocTag") {
+    node.type = "label";
+    const attrs = isPlainObject(node.attrs) ? (node.attrs as Record<string, unknown>) : {};
+    if (attrs.label == null && attrs.text != null) {
+      attrs.label = attrs.text;
+      delete attrs.text;
+    }
+    node.attrs = attrs;
+  }
+  const content = node.content;
+  if (Array.isArray(content)) {
+    for (const child of content) {
+      if (isPlainObject(child)) {
+        migrateAxdocNodes(child as Record<string, unknown>);
+      }
+    }
+  }
+}
+
+function normalizeAxdocDoc(doc: Record<string, unknown>): Record<string, unknown> {
+  const next = cloneDeep(doc);
+  migrateAxdocNodes(next);
+  return next;
+}
+
 function fail(error: string): AxdocParseResult {
   return { ok: false, error, doc: emptyDoc() };
 }
@@ -85,13 +112,13 @@ export function parseAxdocContent(raw: string): AxdocParseResult {
     if (isPlainObject(obj.doc)) {
       const doc = obj.doc as Record<string, unknown>;
       if (doc.type === "doc") {
-        return { ok: true, doc: cloneDeep(doc) };
+        return { ok: true, doc: normalizeAxdocDoc(doc) };
       }
       return fail("富文本文档格式无效（缺少 type: doc）");
     }
 
     if (obj.type === "doc") {
-      return { ok: true, doc: cloneDeep(obj) };
+      return { ok: true, doc: normalizeAxdocDoc(obj) };
     }
 
     return fail("不是有效的 AppX 富文本文档");

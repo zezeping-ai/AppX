@@ -6,6 +6,7 @@ import ExplorerNode from "@/pages/editor/components/FileExplorer/ExplorerNode/in
 import type { ExplorerTreeItem } from "@/pages/editor/components/FileExplorer/normalizeTree";
 import type { ContextMenuAction, InlineEditState } from "@/pages/editor/components/FileExplorer/types";
 import { useExplorerExpandedKeys } from "@/pages/editor/components/FileExplorer/useExplorerExpandedKeys";
+import { useExplorerPointerDnD } from "@/pages/editor/components/FileExplorer/useExplorerPointerDnD";
 import {
   findNode,
   isDirectoryUnloaded,
@@ -30,6 +31,7 @@ const emit = defineEmits<{
   createFile: [directory: string, fileName: string];
   createFolder: [directory: string, folderName: string];
   rename: [path: string, newName: string];
+  move: [path: string, targetDirectory: string];
   delete: [path: string];
   convertToEncrypted: [path: string];
   convertToCustomEncrypted: [path: string];
@@ -51,7 +53,7 @@ const CREATE_CONTEXT_ACTIONS: ContextMenuAction[] = [
     key: "new-doc",
     label: "新建富文本",
     hint: ".axdoc.x",
-    icon: "mdi:file-document-edit-outline",
+    icon: "mdi:notebook-edit-outline",
   },
   { key: "new-folder", label: "新建文件夹", icon: "mdi:folder-plus-outline" },
 ];
@@ -59,6 +61,7 @@ const CREATE_CONTEXT_ACTIONS: ContextMenuAction[] = [
 const { expandedKeys, toggleExpanded, expandForSession, collapseAll, pruneExpandedKeys } =
   useExplorerExpandedKeys(toRef(props, "workspaceRoot"));
 const inlineEdit = ref<InlineEditState | null>(null);
+const treeScrollEl = ref<HTMLElement | null>(null);
 const contextMenuRef = ref<HTMLElement | null>(null);
 const contextMenu = ref({
   visible: false,
@@ -67,6 +70,51 @@ const contextMenu = ref({
   node: null as ExplorerTreeItem | null,
   rootTarget: false,
 });
+
+const {
+  draggingPath,
+  dropIndicator,
+  ghost,
+  onRowPointerDown,
+  consumeClickSuppression,
+} = useExplorerPointerDnD({
+  workspaceRoot: toRef(props, "workspaceRoot"),
+  scrollEl: treeScrollEl,
+  isDirectoryExpanded: (path) => expandedKeys.value.includes(path),
+  expandDirectory: (path) => toggleExpand(path),
+  onMove: (sourcePath, targetDirectory) => {
+    emit("move", sourcePath, targetDirectory);
+  },
+});
+
+const isRootDropTarget = computed(
+  () =>
+    Boolean(
+      props.workspaceRoot &&
+        dropIndicator.value?.targetDirectory === props.workspaceRoot &&
+        dropIndicator.value.placement === "inside" &&
+        dropIndicator.value.anchorPath === props.workspaceRoot,
+    ),
+);
+
+function onPointerDownRow(
+  event: PointerEvent,
+  node: ExplorerTreeItem & { icon: string; iconColor?: string },
+) {
+  closeContextMenu();
+  onRowPointerDown(event, node);
+}
+
+function onRowClick(path: string, kind: ExplorerTreeItem["kind"]) {
+  if (consumeClickSuppression(path)) {
+    return;
+  }
+  if (kind === "directory") {
+    void toggleExpand(path);
+    return;
+  }
+  emit("open", path);
+}
 
 function findAncestorKeys(
   nodes: ExplorerTreeItem[],
@@ -455,10 +503,6 @@ function onContextAction(key: string) {
   }
 }
 
-function onOpenFile(path: string) {
-  emit("open", path);
-}
-
 const showRootInline = computed(() => {
   const edit = inlineEdit.value;
   return (
@@ -489,7 +533,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="onHeaderNewDoc"
         >
-          <Icon icon="mdi:file-document-edit-outline" width="15" height="15" />
+          <Icon icon="mdi:notebook-edit-outline" width="15" height="15" />
         </button>
         <button
           type="button"
@@ -525,7 +569,10 @@ const showRootInline = computed(() => {
     <div v-else-if="!workspaceRoot" class="file-explorer__empty" />
     <div
       v-else
+      ref="treeScrollEl"
       class="file-explorer__tree"
+      data-explorer-tree
+      :class="{ 'file-explorer__tree--drop-target': isRootDropTarget }"
       @scroll="closeContextMenu"
       @contextmenu="openRootContextMenu"
     >
@@ -549,13 +596,35 @@ const showRootInline = computed(() => {
         :expanded-keys="expandedKeys"
         :active-path="activePath"
         :inline-edit="inlineEdit"
+        :dragging-path="draggingPath"
+        :drop-indicator="dropIndicator"
+        :workspace-root="workspaceRoot"
         @toggle="toggleExpand"
-        @open="onOpenFile"
         @contextmenu="openContextMenu"
         @inline-confirm="onInlineConfirm"
         @inline-cancel="cancelInline"
+        @pointer-down-row="onPointerDownRow"
+        @row-click="onRowClick"
       />
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="ghost"
+        class="file-explorer__drag-ghost"
+        :class="{ 'file-explorer__drag-ghost--invalid': !ghost.valid }"
+        :style="{ left: `${ghost.x + 14}px`, top: `${ghost.y + 10}px` }"
+      >
+        <Icon
+          :icon="ghost.icon"
+          width="14"
+          height="14"
+          class="file-explorer__drag-ghost-icon"
+          :style="ghost.iconColor ? { color: ghost.iconColor } : undefined"
+        />
+        <span class="file-explorer__drag-ghost-label">{{ ghost.title }}</span>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div
@@ -641,6 +710,47 @@ const showRootInline = computed(() => {
   flex: 1;
   overflow: auto;
   padding: 4px 0 8px;
+  outline: 1px solid transparent;
+  outline-offset: -2px;
+
+  &--drop-target {
+    outline-color: var(--app-active-fg);
+    background: color-mix(in srgb, var(--app-active-bg) 55%, transparent);
+  }
+}
+
+.file-explorer__drag-ghost {
+  position: fixed;
+  z-index: 4000;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: var(--app-surface);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 18%);
+  color: var(--app-fg);
+  font-size: 12px;
+  line-height: 20px;
+  pointer-events: none;
+  opacity: 0.92;
+
+  &--invalid {
+    opacity: 0.55;
+  }
+}
+
+.file-explorer__drag-ghost-icon {
+  flex-shrink: 0;
+  color: var(--app-fg-secondary);
+}
+
+.file-explorer__drag-ghost-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-explorer__empty {
