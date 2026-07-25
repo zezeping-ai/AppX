@@ -3,12 +3,29 @@ import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { useEventListener } from "@vueuse/core";
-import { clamp } from "lodash-es";
+import { clamp, minBy } from "lodash-es";
 
 /** 与表格 columnResizing handleWidth 对齐 */
 export const TABLE_RESIZE_EDGE_PX = 8;
 
+/** 拖动判定阈值（px） */
+const DRAG_THRESHOLD_PX = 3;
+
+/** 矩形邻近命中上限（px） */
+const NEAR_ATOM_MAX_DIST_PX = 48;
+
 export const ATOM_NAMES = new Set(["label", "labelValue"]);
+
+const POINTER_PASS_EVENTS = new Set([
+  "mousedown",
+  "mouseup",
+  "mousemove",
+  "pointerdown",
+  "pointerup",
+  "pointermove",
+  "click",
+  "dblclick",
+]);
 
 /** 工具栏插入 / Enter 新建后：仅这些场景自动进内部编辑 */
 let pendingEnterEditPos: number | null = null;
@@ -90,25 +107,22 @@ export function findAtomRangeAtPoint(
     }
   }
 
-  let best: { from: number; to: number; dist: number } | null = null;
-  for (const atomEl of view.dom.querySelectorAll<HTMLElement>("[data-rich-atom]")) {
-    const rect = atomEl.getBoundingClientRect();
-    const dist = Math.hypot(
-      clientX - clamp(clientX, rect.left, rect.right),
-      clientY - clamp(clientY, rect.top, rect.bottom),
-    );
-    if (dist > 48) {
-      continue;
-    }
-    const range = rangeFromAtomDom(view, atomEl);
-    if (!range) {
-      continue;
-    }
-    if (!best || dist < best.dist) {
-      best = { ...range, dist };
-    }
-  }
-  return best;
+  const near = [...view.dom.querySelectorAll<HTMLElement>("[data-rich-atom]")].flatMap(
+    (atomEl) => {
+      const rect = atomEl.getBoundingClientRect();
+      const dist = Math.hypot(
+        clientX - clamp(clientX, rect.left, rect.right),
+        clientY - clamp(clientY, rect.top, rect.bottom),
+      );
+      if (dist > NEAR_ATOM_MAX_DIST_PX) {
+        return [];
+      }
+      const range = rangeFromAtomDom(view, atomEl);
+      return range ? [{ ...range, dist }] : [];
+    },
+  );
+  const best = minBy(near, (c) => c.dist);
+  return best ? { from: best.from, to: best.to } : null;
 }
 
 export function expandRangeToAtoms(
@@ -145,7 +159,8 @@ export function isTableResizeEdge(event: MouseEvent): boolean {
 
 /**
  * TipTap 默认会对 TEXTAREA 全量 stopEvent。
- * 指针事件放行；从 atom 起拖由 onAtomPointerMouseDown 维护选区。
+ * 指针事件放行（由 onAtomPointerMouseDown 接管选区）；
+ * 字段内键盘 / 剪贴板 / 拖放交给原生，避免粘贴进文档。
  */
 export function atomNodeViewStopEvent({ event }: { event: Event }): boolean {
   const target = event.target as HTMLElement | null;
@@ -166,29 +181,12 @@ export function atomNodeViewStopEvent({ event }: { event: Event }): boolean {
     return true;
   }
 
-  if (
-    type === "mousedown" ||
-    type === "mouseup" ||
-    type === "mousemove" ||
-    type === "pointerdown" ||
-    type === "pointerup" ||
-    type === "pointermove" ||
-    type === "click" ||
-    type === "dblclick"
-  ) {
+  // 指针事件交给 ProseMirror / 自定义拖选
+  if (POINTER_PASS_EVENTS.has(type)) {
     return false;
   }
 
-  if (
-    type.startsWith("drag") ||
-    type === "drop" ||
-    type === "copy" ||
-    type === "cut" ||
-    type === "paste"
-  ) {
-    return false;
-  }
-
+  // 字段内：keydown/paste/copy/cut/drop… 全部 stop，走原生
   return isField;
 }
 
@@ -207,6 +205,19 @@ export function onAtomPointerMouseDown(
   },
 ) {
   if (event.button !== 0 || isTableResizeEdge(event)) {
+    return;
+  }
+
+  const editField = options.editField ?? null;
+  // 已在编辑 / 双击三击：放行原生光标与选词，勿 preventDefault
+  if (
+    editField &&
+    (document.activeElement === editField || event.detail >= 2)
+  ) {
+    event.stopPropagation();
+    if (document.activeElement !== editField) {
+      editField.focus();
+    }
     return;
   }
 
@@ -230,7 +241,6 @@ export function onAtomPointerMouseDown(
   const startX = event.clientX;
   const startY = event.clientY;
   let dragged = false;
-  const editField = options.editField ?? null;
   let lastEnd = { from: startFrom, to: startTo };
 
   const applyRange = (clientX: number, clientY: number) => {
@@ -257,62 +267,52 @@ export function onAtomPointerMouseDown(
     applyRange(event.clientX, event.clientY);
   }
 
-  const stops: Array<() => void> = [];
-  const cleanup = () => {
-    while (stops.length) {
-      stops.pop()?.();
-    }
-  };
-
-  stops.push(
-    useEventListener(
-      window,
-      "mousemove",
-      (e: MouseEvent) => {
-        e.preventDefault();
-        if (!dragged) {
-          if (Math.hypot(e.clientX - startX, e.clientY - startY) <= 3) {
-            return;
-          }
-          dragged = true;
-        }
-        blurActiveAtomField();
-        if (document.activeElement !== editor.view.dom) {
-          editor.view.focus();
-        }
-        applyRange(e.clientX, e.clientY);
-      },
-      { capture: true },
-    ),
-  );
-
-  stops.push(
-    useEventListener(
-      window,
-      "mouseup",
-      (e: MouseEvent) => {
-        cleanup();
-        if (dragged || event.shiftKey) {
-          applyRange(e.clientX, e.clientY);
-          editor.view.focus();
-          setRangeSelecting(editor.view, false);
+  const stopMove = useEventListener(
+    window,
+    "mousemove",
+    (e: MouseEvent) => {
+      e.preventDefault();
+      if (!dragged) {
+        if (Math.hypot(e.clientX - startX, e.clientY - startY) <= DRAG_THRESHOLD_PX) {
           return;
         }
+        dragged = true;
+      }
+      blurActiveAtomField();
+      if (document.activeElement !== editor.view.dom) {
+        editor.view.focus();
+      }
+      applyRange(e.clientX, e.clientY);
+    },
+    { capture: true },
+  );
+
+  const stopUp = useEventListener(
+    window,
+    "mouseup",
+    (e: MouseEvent) => {
+      stopMove();
+      stopUp();
+      if (dragged || event.shiftKey) {
+        applyRange(e.clientX, e.clientY);
+        editor.view.focus();
         setRangeSelecting(editor.view, false);
-        if (editField) {
-          const { state, view } = editor;
-          view.dispatch(
-            state.tr
-              .setSelection(TextSelection.create(state.doc, startTo))
-              .scrollIntoView(),
-          );
-          requestAnimationFrame(() => editField.focus());
-        } else {
-          options.onClickSelectNode?.();
-        }
-      },
-      { capture: true },
-    ),
+        return;
+      }
+      setRangeSelecting(editor.view, false);
+      if (editField) {
+        const { state, view } = editor;
+        view.dispatch(
+          state.tr
+            .setSelection(TextSelection.create(state.doc, startTo))
+            .scrollIntoView(),
+        );
+        requestAnimationFrame(() => editField.focus());
+      } else {
+        options.onClickSelectNode?.();
+      }
+    },
+    { capture: true },
   );
 }
 

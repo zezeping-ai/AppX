@@ -4,6 +4,7 @@ import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import {
   atomNodeKeyboardShortcuts,
   atomNodeViewStopEvent,
+  labelValuePlainText,
   requestAtomEnterEdit,
 } from "../atom";
 import LabelValueView from "./index.vue";
@@ -64,15 +65,7 @@ export const RichDocLabelValue = Node.create({
   },
 
   renderText({ node }) {
-    const label = String(node.attrs.label ?? "").trim();
-    const value = String(node.attrs.value ?? "");
-    if (!label) {
-      return value;
-    }
-    if (!value) {
-      return label;
-    }
-    return `${label}: ${value}`;
+    return labelValuePlainText(node.attrs);
   },
 
   addCommands() {

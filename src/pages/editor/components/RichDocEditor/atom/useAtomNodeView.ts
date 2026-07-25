@@ -2,7 +2,8 @@ import type { Editor } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import type { NodeViewProps } from "@tiptap/vue-3";
 import { NodeSelection } from "@tiptap/pm/state";
-import { computed, nextTick, watch, type Ref } from "vue";
+import { whenever } from "@vueuse/core";
+import { computed, nextTick, type Ref } from "vue";
 import {
   copyAtomNode,
   cutAtomNode,
@@ -21,7 +22,7 @@ import {
 
 /** 统一换行符 */
 export function sanitizeAtomFieldValue(raw: string) {
-  return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return raw.replace(/\r\n?/g, "\n");
 }
 
 export function resolveAtomPos(getPos: NodeViewProps["getPos"]): number | undefined {
@@ -44,12 +45,9 @@ export function useAtomNodeView(
 ) {
   const editable = computed(() => props.editor.isEditable);
 
-  watch(
-    () => props.selected,
-    async (selected) => {
-      if (!selected || !editable.value) {
-        return;
-      }
+  whenever(
+    () => props.selected && editable.value,
+    async () => {
       const pos = resolveAtomPos(props.getPos);
       if (pos === undefined || !takeAtomEnterEdit(pos)) {
         return;

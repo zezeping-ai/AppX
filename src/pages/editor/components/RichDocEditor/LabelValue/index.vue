@@ -33,7 +33,7 @@ const labelSizer = computed(() => label.value || "标签");
 const valueSizer = computed(() => value.value || "值");
 const isEmpty = computed(() => !label.value && !value.value);
 
-const { copy, copied, isSupported } = useClipboard({ copiedDuring: 1200 });
+const { copy, copied } = useClipboard({ copiedDuring: 1200, legacy: true });
 
 function onLabelInput(event: Event) {
   updateAttr("label", event);
@@ -135,9 +135,6 @@ async function onCopyValue() {
     return;
   }
   try {
-    if (!isSupported.value) {
-      throw new Error("clipboard unsupported");
-    }
     await copy(value.value);
   } catch {
     message.error("复制失败");

@@ -1,10 +1,12 @@
 import type { Editor } from "@tiptap/core";
+import { useClipboard, useClipboardItems } from "@vueuse/core";
 import { DOMSerializer, type Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
+import { toString } from "lodash-es";
 
 /** Label 纯文本 */
 export function labelPlainText(attrs: { label?: unknown }) {
-  return String(attrs.label ?? "");
+  return toString(attrs.label ?? "");
 }
 
 /** LabelValue 纯文本：账号: xxx */
@@ -12,8 +14,8 @@ export function labelValuePlainText(attrs: {
   label?: unknown;
   value?: unknown;
 }) {
-  const label = String(attrs.label ?? "").trim();
-  const value = String(attrs.value ?? "");
+  const label = toString(attrs.label ?? "").trim();
+  const value = toString(attrs.value ?? "");
   if (!label) {
     return value;
   }
@@ -33,24 +35,24 @@ function atomPlainText(node: PmNode): string {
   return node.textContent;
 }
 
-/** Cmd/Ctrl+C（不含 Shift） */
-export function isCopyChord(event: KeyboardEvent) {
+/** Cmd/Ctrl + key（不含 Alt/Shift） */
+function isModChord(event: KeyboardEvent, key: string) {
   return (
     (event.metaKey || event.ctrlKey) &&
     !event.altKey &&
     !event.shiftKey &&
-    event.key.toLowerCase() === "c"
+    event.key.toLowerCase() === key
   );
+}
+
+/** Cmd/Ctrl+C */
+export function isCopyChord(event: KeyboardEvent) {
+  return isModChord(event, "c");
 }
 
 /** Cmd/Ctrl+X */
 export function isCutChord(event: KeyboardEvent) {
-  return (
-    (event.metaKey || event.ctrlKey) &&
-    !event.altKey &&
-    !event.shiftKey &&
-    event.key.toLowerCase() === "x"
-  );
+  return isModChord(event, "x");
 }
 
 export function selectAtomNode(editor: Editor, pos: number) {
@@ -63,25 +65,32 @@ export function selectAtomNode(editor: Editor, pos: number) {
   view.focus();
 }
 
+/** 模块级单例：复用 vueuse 剪贴板能力（含 legacy execCommand） */
+const { copy: copyClipboardItems, isSupported: clipboardItemsSupported } =
+  useClipboardItems();
+const { copy: copyClipboardText } = useClipboard({ legacy: true });
+
+/** HTML + 纯文本；失败则退化为纯文本（含 execCommand） */
 async function writeHtmlAndText(html: string, text: string): Promise<boolean> {
-  try {
-    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-      await navigator.clipboard.write([
+  if (clipboardItemsSupported.value && typeof ClipboardItem !== "undefined") {
+    try {
+      await copyClipboardItems([
         new ClipboardItem({
           "text/plain": new Blob([text], { type: "text/plain" }),
           "text/html": new Blob([html], { type: "text/html" }),
         }),
       ]);
       return true;
+    } catch {
+      /* 降级纯文本 */
     }
-    await navigator.clipboard.writeText(text);
+  }
+
+  try {
+    await copyClipboardText(text);
     return true;
   } catch {
-    try {
-      return document.execCommand("copy");
-    } catch {
-      return false;
-    }
+    return false;
   }
 }
 
