@@ -1,0 +1,363 @@
+/* TipTap 内容区样式（独立文件，便于按块扩展：列表 / 表格 / 代码高亮等） */
+
+.rich-doc-editor__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  .tiptap {
+    min-height: 100%;
+    padding: 16px 20px;
+    outline: none;
+    color: var(--app-fg);
+    font-size: 14px;
+    line-height: 1.7;
+    /* 仅编辑区用文本光标，避免影响工具栏下拉 */
+    cursor: text;
+
+    > * + * {
+      margin-top: 0.6em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 1.75em;
+    }
+
+    h2 {
+      font-size: 1.4em;
+    }
+
+    h3 {
+      font-size: 1.15em;
+    }
+
+    ul,
+    ol {
+      padding-left: 1.5em;
+      /* Tailwind preflight 会清掉 list-style，需显式恢复 */
+      list-style-position: outside;
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
+    }
+
+    li {
+      display: list-item;
+    }
+
+    li > p {
+      margin: 0;
+    }
+
+    ul ul {
+      list-style-type: circle;
+    }
+
+    ul ul ul {
+      list-style-type: square;
+    }
+
+    ol ol {
+      list-style-type: lower-alpha;
+    }
+
+    /* 待办列表：checkbox 与首行文字对齐；删除线加在 p 上避免 WebKit 行盒偏移 */
+    ul[data-type="taskList"] {
+      padding-left: 0;
+      list-style: none;
+
+      li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5em;
+        margin: 0;
+        padding: 0.1em 0;
+        list-style: none;
+
+        > label {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          /* 与编辑区 line-height: 1.7 对齐，避免 margin-top 硬调 */
+          height: 1.7em;
+          margin: 0;
+          user-select: none;
+
+          input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: var(--app-active-fg);
+          }
+
+          /* TipTap 占位 span，不参与布局 */
+          span {
+            display: none;
+          }
+        }
+
+        > div {
+          flex: 1 1 auto;
+          min-width: 0;
+
+          > p {
+            margin: 0;
+          }
+        }
+
+        &[data-checked="true"] > div {
+          color: var(--app-fg-muted);
+
+          > p {
+            text-decoration: line-through;
+          }
+        }
+      }
+
+      ul[data-type="taskList"] {
+        margin: 0.15em 0 0;
+        padding-left: 1.4em;
+      }
+    }
+
+    hr {
+      margin: 1em 0;
+      border: none;
+      border-top: 1px solid var(--app-divider);
+    }
+
+    mark {
+      color: inherit;
+      border-radius: 2px;
+      padding: 0.05em 0.15em;
+      background: #fef08a;
+    }
+
+    u {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      /* 颜色由 data-underline-color / style 写入；未指定则跟随文字色 */
+    }
+
+    blockquote {
+      margin: 0.4em 0;
+      padding: 6px 12px;
+      border-left: 3px solid var(--app-divider);
+      border-radius: 0 6px 6px 0;
+      background: var(--app-surface-muted);
+      color: var(--app-fg-secondary);
+
+      > * + * {
+        margin-top: 0.35em;
+      }
+
+      > p {
+        margin: 0;
+      }
+
+      /* 待办/列表包进引用时去掉多余外边距 */
+      > ul,
+      > ol {
+        margin: 0;
+      }
+
+      > ul[data-type="taskList"] {
+        margin: 0;
+      }
+
+      /*
+       * 末尾仅占位的空段落（ProseMirror trailingBreak）：
+       * 仍可聚焦，但不再撑出接近一整行的空白。
+       */
+      > p:last-child:has(> br.ProseMirror-trailingBreak:only-child) {
+        margin-top: 0;
+        line-height: 1;
+        min-height: 0.75em;
+      }
+    }
+
+    /* 代码块语法高亮 token（外壳由 CodeBlock 节点视图负责） */
+    .code-block pre code .hljs-comment,
+    .code-block pre code .hljs-quote {
+      color: var(--app-fg-muted);
+      font-style: italic;
+    }
+
+    .code-block pre code .hljs-keyword,
+    .code-block pre code .hljs-selector-tag {
+      color: #7c3aed;
+    }
+
+    .code-block pre code .hljs-string,
+    .code-block pre code .hljs-doctag,
+    .code-block pre code .hljs-template-variable {
+      color: #059669;
+    }
+
+    .code-block pre code .hljs-number,
+    .code-block pre code .hljs-literal {
+      color: #d97706;
+    }
+
+    .code-block pre code .hljs-title,
+    .code-block pre code .hljs-section,
+    .code-block pre code .hljs-selector-id {
+      color: #2563eb;
+    }
+
+    .code-block pre code .hljs-attr,
+    .code-block pre code .hljs-attribute,
+    .code-block pre code .hljs-variable,
+    .code-block pre code .hljs-template-tag {
+      color: #0891b2;
+    }
+
+    .code-block pre code .hljs-built_in,
+    .code-block pre code .hljs-type,
+    .code-block pre code .hljs-params {
+      color: #db2777;
+    }
+
+    .code-block pre code .hljs-meta,
+    .code-block pre code .hljs-regexp {
+      color: #ea580c;
+    }
+
+    [data-theme="dark"] & {
+      .code-block pre code .hljs-keyword,
+      .code-block pre code .hljs-selector-tag {
+        color: #c4b5fd;
+      }
+
+      .code-block pre code .hljs-string,
+      .code-block pre code .hljs-doctag {
+        color: #6ee7b7;
+      }
+
+      .code-block pre code .hljs-number {
+        color: #fbbf24;
+      }
+
+      .code-block pre code .hljs-title,
+      .code-block pre code .hljs-section {
+        color: #93c5fd;
+      }
+
+      .code-block pre code .hljs-attr,
+      .code-block pre code .hljs-attribute,
+      .code-block pre code .hljs-variable {
+        color: #67e8f9;
+      }
+
+      .code-block pre code .hljs-built_in,
+      .code-block pre code .hljs-type {
+        color: #f9a8d4;
+      }
+
+      .code-block pre code .hljs-meta,
+      .code-block pre code .hljs-regexp {
+        color: #fdba74;
+      }
+    }
+
+    :not(pre) > code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      background: var(--app-surface-muted);
+    }
+
+    p.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      color: var(--app-fg-muted);
+      pointer-events: none;
+    }
+
+    table {
+      /* 固定铺满：列宽拖拽改的是列之间比例（col 宽度作权重），不是表格总宽 */
+      width: 100% !important;
+      max-width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0;
+      overflow: hidden;
+
+      td,
+      th {
+        position: relative;
+        min-width: 48px;
+        padding: 6px 8px;
+        border: 1px solid var(--app-border);
+        vertical-align: top;
+        word-break: break-word;
+        overflow: hidden;
+      }
+
+      th {
+        background: var(--app-surface-muted);
+        font-weight: 600;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      td > p,
+      th > p {
+        margin: 0;
+      }
+
+      .selectedCell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--app-active-bg);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .column-resize-handle {
+        position: absolute;
+        top: 0;
+        right: -2px;
+        bottom: -2px;
+        width: 4px;
+        background: var(--app-divider);
+        pointer-events: none;
+        z-index: 3;
+      }
+    }
+
+    .tableWrapper {
+      width: 100%;
+      margin: 0.75em 0;
+      overflow-x: auto;
+    }
+
+    &.resize-cursor {
+      cursor: ew-resize;
+      cursor: col-resize;
+    }
+
+    a {
+      color: var(--app-active-fg);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
+  }
+}

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection } from "@tiptap/pm/state";
 import { computed, nextTick, ref, watch } from "vue";
+import {
+  backspaceAtAtomStart,
+  focusAfterAtom,
+  focusBeforeAtom,
+  onAtomFieldMouseDown,
+} from "../atomNodeNav";
 
 const props = defineProps(nodeViewProps);
 
@@ -9,6 +15,7 @@ const editable = computed(() => props.editor.isEditable);
 const label = computed(() => String(props.node.attrs.label ?? ""));
 const labelSizer = computed(() => label.value || "标签");
 const inputRef = ref<HTMLTextAreaElement | null>(null);
+const isEmpty = computed(() => !label.value);
 
 watch(
   () => props.selected,
@@ -26,7 +33,7 @@ watch(
 );
 
 function onFieldMouseDown(event: MouseEvent) {
-  event.stopPropagation();
+  onAtomFieldMouseDown(event);
 }
 
 function sanitize(raw: string) {
@@ -47,12 +54,15 @@ function focusEditorAfterNode() {
   if (typeof pos !== "number") {
     return;
   }
-  // atom 之后的位置 = 外侧第一个字符「前面」
-  const after = pos + props.node.nodeSize;
-  const { state, view } = props.editor;
-  const selection = TextSelection.create(state.doc, after);
-  view.dispatch(state.tr.setSelection(selection).scrollIntoView());
-  view.focus();
+  focusAfterAtom(props.editor, pos, props.node.nodeSize);
+}
+
+function focusEditorBeforeNode() {
+  const pos = props.getPos();
+  if (typeof pos !== "number") {
+    return;
+  }
+  focusBeforeAtom(props.editor, pos);
 }
 
 function insertSiblingAfter() {
@@ -71,6 +81,8 @@ function insertSiblingAfter() {
 
 function onKeydown(event: KeyboardEvent) {
   const input = event.target as HTMLTextAreaElement;
+  const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+
   // Enter：插入下一个标签；Shift+Enter：内部换行
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -82,6 +94,22 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault();
     event.stopPropagation();
     focusEditorAfterNode();
+    return;
+  }
+  if (event.key === "Backspace" && atStart) {
+    const pos = props.getPos();
+    if (typeof pos !== "number") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    backspaceAtAtomStart(props.editor, pos, props.node, isEmpty.value);
+    return;
+  }
+  if (event.key === "ArrowLeft" && atStart) {
+    event.preventDefault();
+    event.stopPropagation();
+    focusEditorBeforeNode();
     return;
   }
   if (event.key === "ArrowRight") {
@@ -124,7 +152,7 @@ function onKeydown(event: KeyboardEvent) {
   max-width: 100%;
   min-height: 20px;
   height: auto;
-  margin: 0 3px;
+  margin: 0 1px;
   padding: 0;
   border: 1px solid var(--app-border);
   border-radius: 4px;

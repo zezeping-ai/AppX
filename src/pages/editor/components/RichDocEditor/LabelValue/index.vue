@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { Icon } from "@iconify/vue";
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection } from "@tiptap/pm/state";
 import { message } from "ant-design-vue";
 import { computed, nextTick, ref, watch } from "vue";
+import {
+  backspaceAtAtomStart,
+  focusAfterAtom,
+  focusBeforeAtom,
+  onAtomFieldMouseDown,
+} from "../atomNodeNav";
 
 const props = defineProps(nodeViewProps);
 
@@ -16,6 +22,8 @@ const valueSizer = computed(() => value.value || "值");
 const copied = ref(false);
 const labelRef = ref<HTMLTextAreaElement | null>(null);
 const valueRef = ref<HTMLTextAreaElement | null>(null);
+
+const isEmpty = computed(() => !label.value && !value.value);
 
 watch(
   () => props.selected,
@@ -33,9 +41,9 @@ watch(
   { immediate: true },
 );
 
-/** 仅阻止冒泡到 ProseMirror；勿 preventDefault，否则无法单击定位/拖选文字 */
+/** 仅阻止冒泡到 ProseMirror；单元格边缘留给列宽拖拽 */
 function onFieldMouseDown(event: MouseEvent) {
-  event.stopPropagation();
+  onAtomFieldMouseDown(event);
 }
 
 /** 统一换行符，保留内部换行 */
@@ -66,11 +74,25 @@ function focusEditorAfterNode() {
   if (typeof pos !== "number") {
     return;
   }
-  // atom 之后的位置 = 外侧第一个字符「前面」
-  const after = pos + props.node.nodeSize;
-  const { state, view } = props.editor;
-  view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, after)).scrollIntoView());
-  view.focus();
+  focusAfterAtom(props.editor, pos, props.node.nodeSize);
+}
+
+function focusEditorBeforeNode() {
+  const pos = props.getPos();
+  if (typeof pos !== "number") {
+    return;
+  }
+  focusBeforeAtom(props.editor, pos);
+}
+
+function handleBackspaceAtStart(event: KeyboardEvent) {
+  const pos = props.getPos();
+  if (typeof pos !== "number") {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  backspaceAtAtomStart(props.editor, pos, props.node, isEmpty.value);
 }
 
 function insertSiblingAfter() {
@@ -91,6 +113,9 @@ function insertSiblingAfter() {
 }
 
 function onLabelKeydown(event: KeyboardEvent) {
+  const input = event.target as HTMLTextAreaElement;
+  const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+
   // Enter：跳到 value；Shift+Enter：内部换行
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -104,8 +129,18 @@ function onLabelKeydown(event: KeyboardEvent) {
     valueRef.value?.focus();
     return;
   }
+  // 行首 Backspace：合并上一段 / 删前方内容（否则焦点锁在 textarea 里合并不了）
+  if (event.key === "Backspace" && atStart) {
+    handleBackspaceAtStart(event);
+    return;
+  }
+  if (event.key === "ArrowLeft" && atStart) {
+    event.preventDefault();
+    event.stopPropagation();
+    focusEditorBeforeNode();
+    return;
+  }
   if (event.key === "ArrowRight") {
-    const input = event.target as HTMLTextAreaElement;
     if (input.selectionStart === input.value.length && input.selectionEnd === input.value.length) {
       event.preventDefault();
       event.stopPropagation();
@@ -117,6 +152,8 @@ function onLabelKeydown(event: KeyboardEvent) {
 
 function onValueKeydown(event: KeyboardEvent) {
   const input = event.target as HTMLTextAreaElement;
+  const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+
   // Enter：插入下一个；Shift+Enter：内部换行
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -130,6 +167,19 @@ function onValueKeydown(event: KeyboardEvent) {
     focusEditorAfterNode();
     return;
   }
+  if (event.key === "Backspace" && atStart) {
+    event.preventDefault();
+    event.stopPropagation();
+    // 先回到 label；label 也空则走合并/删前逻辑
+    if (label.value.length > 0) {
+      labelRef.value?.focus();
+      const len = labelRef.value?.value.length ?? 0;
+      labelRef.value?.setSelectionRange(len, len);
+      return;
+    }
+    handleBackspaceAtStart(event);
+    return;
+  }
   if (event.key === "ArrowRight") {
     if (input.selectionStart === input.value.length && input.selectionEnd === input.value.length) {
       // 阻止冒泡，否则 PM 再右移一格会落到外侧第一个字「后面」
@@ -140,7 +190,7 @@ function onValueKeydown(event: KeyboardEvent) {
     return;
   }
   if (event.key === "ArrowLeft") {
-    if (input.selectionStart === 0 && input.selectionEnd === 0) {
+    if (atStart) {
       event.preventDefault();
       event.stopPropagation();
       labelRef.value?.focus();
@@ -220,7 +270,7 @@ async function onCopyValue() {
   max-width: 100%;
   min-height: 22px;
   height: auto;
-  margin: 0 4px;
+  margin: 0 1px;
   padding: 0;
   border: 1px solid var(--app-border);
   border-radius: 4px;
