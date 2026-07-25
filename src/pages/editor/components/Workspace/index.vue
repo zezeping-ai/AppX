@@ -1,6 +1,7 @@
 <script setup lang="tsx">
 import { Modal, message } from "ant-design-vue";
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { uniq } from "lodash-es";
 import EditorTabs from "@/pages/editor/components/EditorTabs/index.vue";
@@ -14,11 +15,16 @@ import {
   setDirectoryChildren,
 } from "@/pages/editor/components/FileExplorer/treeHelpers";
 import { confirmDiscardUnsaved } from "./confirmDiscardUnsaved";
+import {
+  confirmOpenWithSystemApp,
+  openWithSystemApp,
+} from "./openWithSystemApp";
 import OpenWithRecent from "./OpenWithRecent/index.vue";
 import { useRecentOpens } from "./useRecentOpens";
 import { useWorkspacePersistence } from "./useWorkspacePersistence";
 import MonacoEditor from "@/components/MonacoEditor/index.vue";
 import {
+  OPEN_FILES_EVENT,
   createDirectory,
   createFile,
   deletePath,
@@ -29,6 +35,7 @@ import {
   pickFolder,
   readFile,
   renamePath,
+  takePendingOpenPaths,
 } from "@/modules/editor/client";
 import {
   emptyAxdocContent,
@@ -66,7 +73,8 @@ const loadingDirectoryPromises = new Map<string, Promise<void>>();
 const tabByPath = ref<Map<string, OpenedEditorFile>>(new Map());
 const activePath = ref<string | null>(null);
 const editorContent = ref("");
-let unlistenDragDrop: null | (() => void) = null;
+let unlistenDragDrop: UnlistenFn | null = null;
+let unlistenOpenFiles: UnlistenFn | null = null;
 
 const openTabs = computed(() => [...tabByPath.value.values()]);
 const activeFile = computed(() =>
@@ -221,7 +229,7 @@ async function openFileByPath(path: string): Promise<boolean> {
   try {
     const inspect = await inspectFile(path);
     if (!inspect.editable) {
-      message.error("该文件无法在编辑器中打开");
+      await confirmOpenWithSystemApp(path);
       return false;
     }
 
@@ -319,6 +327,15 @@ async function isDirectoryPath(path: string): Promise<boolean> {
   }
 }
 
+function parentDirectory(path: string): string | null {
+  const normalized = path.replace(/[/\\]+$/, "");
+  const idx = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
+  if (idx <= 0) {
+    return null;
+  }
+  return normalized.slice(0, idx);
+}
+
 async function handleDroppedPaths(paths: string[]) {
   if (!paths.length) {
     return;
@@ -339,6 +356,14 @@ async function handleDroppedPaths(paths: string[]) {
     return;
   }
 
+  // 无工作区时，用首个文件所在目录作为工作区，便于侧栏浏览
+  if (!workspaceRoot.value) {
+    const parent = parentDirectory(firstPath);
+    if (parent) {
+      await openWorkspace(parent);
+    }
+  }
+
   let openedCount = 0;
   for (const path of uniquePaths) {
     const opened = await openFileByPath(path);
@@ -351,6 +376,16 @@ async function handleDroppedPaths(paths: string[]) {
 
   if (openedCount > 1) {
     message.success(`已打开 ${openedCount} 个文件`);
+  }
+}
+
+/** 合并事件载荷与 Rust 积压队列，避免冷/热启动漏开或重复 */
+async function consumeOpenPaths(extraPaths: string[] = []) {
+  try {
+    const pending = await takePendingOpenPaths();
+    await handleDroppedPaths([...extraPaths, ...pending]);
+  } catch (error) {
+    console.warn("consume open paths failed", error);
   }
 }
 
@@ -563,7 +598,26 @@ onMounted(async () => {
   } catch (error) {
     console.warn("register drag drop listener failed", error);
   }
-  if (savedWorkspaceRoot.value) {
+
+  try {
+    // 先订阅再取积压，避免热启动事件与冷启动队列竞态丢文件
+    unlistenOpenFiles = await listen<string[]>(OPEN_FILES_EVENT, (event) => {
+      void consumeOpenPaths(event.payload ?? []);
+    });
+  } catch (error) {
+    console.warn("register open-files listener failed", error);
+  }
+
+  // 系统双击打开优先于恢复上次工作区
+  let pendingFromOs: string[] = [];
+  try {
+    pendingFromOs = await takePendingOpenPaths();
+  } catch (error) {
+    console.warn("take pending open paths failed", error);
+  }
+  if (pendingFromOs.length) {
+    await handleDroppedPaths(pendingFromOs);
+  } else if (savedWorkspaceRoot.value) {
     await openWorkspace(savedWorkspaceRoot.value);
   }
 });
@@ -572,6 +626,8 @@ onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
   unlistenDragDrop?.();
   unlistenDragDrop = null;
+  unlistenOpenFiles?.();
+  unlistenOpenFiles = null;
 });
 
 watch(editorContent, (value) => {
@@ -619,6 +675,7 @@ watch(editorContent, (value) => {
           :loading="loadingTree"
           :load-children="loadDirectoryChildren"
           @open="openFileByPath"
+          @open-with-system="openWithSystemApp"
           @refresh="refreshTree"
           @create-file="onExplorerCreateFile"
           @create-folder="onExplorerCreateFolder"

@@ -9,6 +9,7 @@ use crate::app::editor::passphrase_store::FilePassphraseStore;
 use super::cipher;
 use super::convert;
 use super::format;
+use super::open_paths::{self, PendingOpenPaths};
 use super::tree::{self, EditorTreeNode};
 
 #[derive(Debug, Serialize)]
@@ -269,4 +270,12 @@ pub fn editor_convert_to_plain(
 ) -> Result<String, String> {
     ensure_unlocked(&state)?;
     convert::convert_to_plain(&app, &passphrase_store, &parse_path(path))
+}
+
+/// 取出系统双击 /「打开方式」积压的待打开路径（不要求解锁，便于解锁页后立刻消费）
+#[tauri::command]
+pub fn editor_take_pending_open_paths(
+    pending: State<'_, PendingOpenPaths>,
+) -> Result<Vec<String>, String> {
+    Ok(open_paths::take_pending(&pending))
 }

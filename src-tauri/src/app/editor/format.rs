@@ -177,6 +177,9 @@ const BINARY_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "svg", "pdf", "zip", "gz", "tar", "7z",
     "rar", "dmg", "exe", "dll", "so", "dylib", "wasm", "mp3", "mp4", "mov", "avi", "mkv", "woff",
     "woff2", "ttf", "otf", "eot", "bin", "dat", "lock",
+    // Office / 文档类：编辑器内不可编辑，交系统应用打开
+    "doc", "docx", "docm", "dot", "dotx", "xls", "xlsx", "xlsm", "xlt", "xltx", "xlsb", "ppt",
+    "pptx", "pptm", "pot", "potx", "odt", "ods", "odp", "rtf", "pages", "numbers", "key",
 ];
 
 /// 按路径名判断是否可编辑（不要求文件已存在，供新建/重命名校验）
@@ -309,6 +312,10 @@ mod tests {
         assert!(ensure_writable_path(Path::new("/tmp/untitled.txt.x")).is_ok());
         assert!(ensure_writable_path(Path::new("/tmp/untitled.txt")).is_ok());
         assert!(ensure_writable_path(Path::new("/tmp/photo.png")).is_err());
+        assert!(ensure_writable_path(Path::new("/tmp/report.docx")).is_err());
+        assert!(ensure_writable_path(Path::new("/tmp/sheet.xlsx")).is_err());
+        assert!(ensure_writable_path(Path::new("/tmp/slides.pptx")).is_err());
+        assert!(!is_supported_editor_path(Path::new("/tmp/manual.pdf")));
     }
 
     #[test]

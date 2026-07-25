@@ -145,6 +145,12 @@ pub fn handle_close_requested(window: &tauri::Window, event: &tauri::WindowEvent
 
 #[cfg(target_os = "macos")]
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
+    // Finder /「打开方式」：在全屏 hide 逻辑之前消化 Opened，避免丢路径
+    if let tauri::RunEvent::Opened { urls } = &event {
+        let paths = crate::app::editor::paths_from_urls(urls.clone());
+        crate::app::editor::enqueue_open_paths(app_handle, paths, true);
+        let _ = show_main_window(app_handle);
+    }
     macos_close::handle_run_event(app_handle, event);
 }
 

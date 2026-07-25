@@ -15,6 +15,7 @@ import {
   DEFAULT_AXDOC_FILE_NAME,
   DEFAULT_TEXT_FILE_NAME,
 } from "@/modules/editor/axdoc";
+import { isAppxOwnedFile } from "@/modules/editor/ownedFile";
 
 const props = defineProps<{
   treeData: ExplorerTreeItem[];
@@ -27,6 +28,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   open: [path: string];
+  openWithSystem: [path: string];
   refresh: [];
   createFile: [directory: string, fileName: string];
   createFolder: [directory: string, folderName: string];
@@ -382,6 +384,16 @@ const contextActions = computed<ContextMenuAction[]>(() => {
     actions.push(...convertActions);
   }
 
+  // .axdoc / 加密文件的系统默认应用就是 AppX，不再提供此项
+  if (!isAppxOwnedFile(node.path)) {
+    actions.push({
+      key: "open-with-system",
+      label: "用系统应用打开",
+      icon: "mdi:application-export",
+      divider: true,
+    });
+  }
+
   actions.push({
     key: "delete",
     label: "删除",
@@ -476,6 +488,10 @@ function onContextAction(key: string) {
 
   if (key === "open") {
     emit("open", node.path);
+    return;
+  }
+  if (key === "open-with-system") {
+    emit("openWithSystem", node.path);
     return;
   }
   if (key === "rename") {

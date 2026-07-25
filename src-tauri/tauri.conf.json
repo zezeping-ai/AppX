@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AppX",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "identifier": "com.zezeping.appx",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -41,34 +41,49 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "files": {
+        "Resources/doc-axdoc.icns": "icons/doc-axdoc.icns",
+        "Resources/doc-encrypted.icns": "icons/doc-encrypted.icns"
+      }
+    },
     "fileAssociations": [
       {
-        "ext": ["txt.x"],
-        "name": "AppX Encrypted Text",
-        "description": "AppX encrypted text document",
-        "role": "Editor",
-        "rank": "Owner"
-      },
-      {
-        "ext": ["js.x"],
-        "name": "AppX Encrypted JavaScript",
-        "description": "AppX encrypted JavaScript document",
-        "role": "Editor",
-        "rank": "Owner"
-      },
-      {
-        "ext": ["java.x"],
-        "name": "AppX Encrypted Java",
-        "description": "AppX encrypted Java document",
-        "role": "Editor",
-        "rank": "Owner"
-      },
-      {
-        "ext": ["axdoc", "axdoc.x"],
+        "ext": ["axdoc"],
         "name": "AppX Document",
         "description": "AppX rich text document",
+        "mimeType": "application/x-appx-axdoc",
         "role": "Editor",
-        "rank": "Owner"
+        "rank": "Owner",
+        "exportedType": {
+          "identifier": "com.zezeping.appx.axdoc",
+          "conformsTo": ["public.data", "public.content"]
+        }
+      },
+      {
+        "ext": ["x"],
+        "name": "AppX Encrypted File",
+        "description": "AppX encrypted document (.txt.x / .axdoc.x / …)",
+        "mimeType": "application/x-appx-encrypted",
+        "role": "Editor",
+        "rank": "Owner",
+        "exportedType": {
+          "identifier": "com.zezeping.appx.encrypted",
+          "conformsTo": ["public.data", "public.content"]
+        }
+      },
+      {
+        "ext": ["x0"],
+        "name": "AppX Custom Encrypted File",
+        "description": "AppX custom-encrypted document (.txt.x0 / .axdoc.x0 / …)",
+        "mimeType": "application/x-appx-encrypted-custom",
+        "role": "Editor",
+        "rank": "Owner",
+        "exportedType": {
+          "identifier": "com.zezeping.appx.encrypted-custom",
+          "conformsTo": ["public.data", "public.content"]
+        }
       }
     ],
     "icon": [

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS 对「复合扩展」只取最后一段：foo.axdoc.x → 扩展名是 x，不是 axdoc.x。
+  因此加密后缀必须直接注册 x / x0，双击才能命中 AppX。
+  文档图标：CFBundleTypeIconFile / UTTypeIconFile 指向 Resources 下的 .icns。
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>AppX Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>doc-axdoc</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>axdoc</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.zezeping.appx.axdoc</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>AppX Encrypted File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>doc-encrypted</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>x</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.zezeping.appx.encrypted</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>AppX Custom Encrypted File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>doc-encrypted</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>x0</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.zezeping.appx.encrypted-custom</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.zezeping.appx.axdoc</string>
+			<key>UTTypeDescription</key>
+			<string>AppX Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeIconFile</key>
+			<string>doc-axdoc</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>axdoc</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/x-appx-axdoc</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.zezeping.appx.encrypted</string>
+			<key>UTTypeDescription</key>
+			<string>AppX Encrypted File</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeIconFile</key>
+			<string>doc-encrypted</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>x</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/x-appx-encrypted</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.zezeping.appx.encrypted-custom</string>
+			<key>UTTypeDescription</key>
+			<string>AppX Custom Encrypted File</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeIconFile</key>
+			<string>doc-encrypted</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>x0</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/x-appx-encrypted-custom</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

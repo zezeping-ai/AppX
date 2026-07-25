@@ -84,6 +84,9 @@ const {
 
 <style scoped lang="scss">
 .clipboard-assistant-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
   padding: 16px 20px 24px;
 }
 

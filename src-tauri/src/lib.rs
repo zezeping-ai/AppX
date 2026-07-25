@@ -10,12 +10,15 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .manage(app::app_lock::AppLockSessionState::default())
         .manage(app::editor::FilePassphraseStore::default())
+        .manage(app::editor::PendingOpenPaths::default())
         .manage(app::code_snippets::SnippetRegistry::default());
     builder = app::clipboard_assistant::register_protocols(builder);
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let paths = app::editor::paths_from_args(args);
+            app::editor::enqueue_open_paths(app, paths, true);
             let _ = app::windows::show_main_window(app);
         }));
     }
@@ -35,6 +38,14 @@ pub fn run() {
             app::menu::setup(app)?;
             app::tray::setup(app)?;
             app::updates::schedule_startup_update_check(app.handle());
+
+            // Windows / Linux：冷启动 argv 携带的关联文件
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                let opened = app::editor::paths_from_args(std::env::args().skip(1));
+                app::editor::enqueue_open_paths(app.handle(), opened, false);
+            }
+
             Ok(())
         })
         .on_menu_event(app::menu::handle_menu_event)
