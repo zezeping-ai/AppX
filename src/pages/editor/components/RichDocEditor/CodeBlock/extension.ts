@@ -3,7 +3,7 @@ import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import CodeBlockView from "./index.vue";
 import { richDocLowlight } from "./helpers";
 
-/** 带语雀式顶栏（语言 + 格式化）的代码块 */
+/** 带顶栏（语言 / 复制 / 格式化）的代码块 */
 export const RichDocCodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return VueNodeViewRenderer(CodeBlockView);

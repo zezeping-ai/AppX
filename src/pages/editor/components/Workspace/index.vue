@@ -196,11 +196,14 @@ async function refreshTree() {
   }
 }
 
-async function ensureCanSwitchFromActiveTab(): Promise<boolean> {
-  if (!activeFile.value?.dirty) {
-    return true;
+/** 切走前把编辑器缓冲写回当前 tab，保留 dirty */
+function flushActiveEditorToTab() {
+  if (!activePath.value || !activeFile.value) {
+    return;
   }
-  return confirmDiscardUnsaved(activeFile.value.name);
+  const content = editorContent.value;
+  const dirty = activeFile.value.dirty || content !== activeFile.value.content;
+  updateActiveTabContent(content, dirty);
 }
 
 const encryptedFlow = useEncryptedFileFlow({
@@ -215,9 +218,8 @@ async function openFileByPath(path: string): Promise<boolean> {
     return true;
   }
 
-  if (!(await ensureCanSwitchFromActiveTab())) {
-    return false;
-  }
+  // 多标签：脏内容留在各 tab 缓冲，切换不打断、不丢弃
+  flushActiveEditorToTab();
 
   const existing = tabByPath.value.get(path);
   if (existing) {

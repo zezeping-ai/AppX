@@ -2,6 +2,7 @@
 import { Icon } from "@iconify/vue";
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
 import { message } from "ant-design-vue";
+import { useClipboard } from "@vueuse/core";
 import { computed, ref } from "vue";
 import {
   canFormatCodeLanguage,
@@ -12,14 +13,28 @@ import {
 const props = defineProps(nodeViewProps);
 
 const formatting = ref(false);
+const { copy, copied } = useClipboard({ copiedDuring: 1200, legacy: true });
 
 const language = computed(() => (props.node.attrs.language as string | null) ?? "");
 const canFormat = computed(() => canFormatCodeLanguage(language.value));
 const editable = computed(() => props.editor.isEditable);
+const hasCode = computed(() => Boolean(props.node.textContent));
 
 function onLanguageChange(event: Event) {
   const value = (event.target as HTMLSelectElement).value;
   props.updateAttributes({ language: value || null });
+}
+
+async function onCopy() {
+  const source = props.node.textContent;
+  if (!source) {
+    return;
+  }
+  try {
+    await copy(source);
+  } catch {
+    message.error("复制失败");
+  }
 }
 
 async function onFormat() {
@@ -67,31 +82,54 @@ async function onFormat() {
 <template>
   <NodeViewWrapper class="code-block" as="div">
     <div class="code-block__bar" contenteditable="false">
-      <select
-        class="code-block__lang"
-        :value="language"
-        :disabled="!editable"
-        title="代码语言"
-        @change="onLanguageChange"
-      >
-        <option
-          v-for="option in CODE_LANGUAGE_OPTIONS"
-          :key="option.value || 'plain'"
-          :value="option.value"
+      <label class="code-block__lang">
+        <select
+          class="code-block__lang-select"
+          :value="language"
+          :disabled="!editable"
+          title="代码语言"
+          @change="onLanguageChange"
         >
-          {{ option.label }}
-        </option>
-      </select>
-      <button
-        type="button"
-        class="code-block__format"
-        title="格式化代码"
-        :disabled="!editable || formatting || !canFormat"
-        @click="onFormat"
-      >
-        <Icon icon="mdi:code-braces" width="14" height="14" />
-        格式化
-      </button>
+          <option
+            v-for="option in CODE_LANGUAGE_OPTIONS"
+            :key="option.value || 'plain'"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+        <Icon
+          class="code-block__lang-chevron"
+          icon="mdi:chevron-down"
+          width="14"
+          height="14"
+          aria-hidden="true"
+        />
+      </label>
+      <div class="code-block__actions">
+        <button
+          type="button"
+          class="code-block__action"
+          title="格式化代码"
+          :disabled="!editable || formatting || !canFormat"
+          @click="onFormat"
+        >
+          <Icon icon="mdi:code-braces" width="14" height="14" />
+        </button>
+        <button
+          type="button"
+          class="code-block__action"
+          :title="copied ? '已复制' : '复制代码'"
+          :disabled="!hasCode"
+          @click="onCopy"
+        >
+          <Icon
+            :icon="copied ? 'mdi:check' : 'mdi:content-copy'"
+            width="14"
+            height="14"
+          />
+        </button>
+      </div>
     </div>
     <pre><code><NodeViewContent /></code></pre>
   </NodeViewWrapper>
@@ -112,44 +150,81 @@ async function onFormat() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 2px 4px 2px 6px;
   border-bottom: 1px solid var(--app-border);
   background: var(--app-surface-muted);
 }
 
 .code-block__lang {
-  height: 24px;
-  max-width: 140px;
-  padding: 0 6px;
-  border: 1px solid var(--app-border);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 160px;
+  color: var(--app-fg-secondary);
+}
+
+.code-block__lang-select {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  height: 26px;
+  margin: 0;
+  padding: 0 22px 0 8px;
+  border: 0;
   border-radius: 4px;
-  background: var(--app-surface);
-  color: var(--app-fg);
+  background: transparent;
+  color: inherit;
   font-size: 12px;
+  line-height: 26px;
   outline: none;
   cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--app-hover-bg);
+    color: var(--app-fg);
+  }
+
+  &:focus-visible {
+    background: var(--app-hover-bg);
+    color: var(--app-fg);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-active-fg) 40%, transparent);
+  }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
-
-  &:focus {
-    border-color: var(--app-active-fg);
-  }
 }
 
-.code-block__format {
+.code-block__lang-chevron {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.code-block__actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.code-block__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--app-fg-secondary);
-  font-size: 12px;
   cursor: pointer;
 
   &:hover:not(:disabled) {

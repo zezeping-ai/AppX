@@ -4,7 +4,7 @@ export async function confirmDiscardUnsaved(fileName: string): Promise<boolean> 
   return new Promise((resolve) => {
     Modal.confirm({
       title: "未保存的更改",
-      content: `「${fileName}」有未保存的修改，切换文件将丢失这些更改。`,
+      content: `「${fileName}」尚未保存，关闭后修改将无法恢复。`,
       okText: "放弃更改",
       okType: "danger",
       cancelText: "继续编辑",
