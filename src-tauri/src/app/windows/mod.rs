@@ -151,6 +151,16 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
         crate::app::editor::enqueue_open_paths(app_handle, paths, true);
         let _ = show_main_window(app_handle);
     }
+    // Dock 图标点击（窗口已隐藏）：与托盘左键同一套 show 逻辑
+    if let tauri::RunEvent::Reopen {
+        has_visible_windows,
+        ..
+    } = &event
+    {
+        if !has_visible_windows {
+            let _ = show_main_window(app_handle);
+        }
+    }
     macos_close::handle_run_event(app_handle, event);
 }
 
