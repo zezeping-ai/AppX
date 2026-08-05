@@ -13,7 +13,7 @@ declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     labelValue: {
       /** 插入标签值（Label 的扩展：标注 + 内容） */
-      insertLabelValue: (attrs?: { label?: string; value?: string }) => ReturnType;
+      insertLabelValue: (attrs?: { label?: string; value?: string; secret?: boolean }) => ReturnType;
     };
   }
 }
@@ -41,6 +41,14 @@ export const RichDocLabelValue = Node.create({
         parseHTML: (element) => element.getAttribute("data-value") ?? "",
         renderHTML: (attributes) => ({
           "data-value": attributes.value ?? "",
+        }),
+      },
+      /** 标记为敏感值，默认遮蔽显示 */
+      secret: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-secret") === "true",
+        renderHTML: (attributes) => ({
+          "data-secret": attributes.secret ? "true" : undefined,
         }),
       },
     };
@@ -76,6 +84,7 @@ export const RichDocLabelValue = Node.create({
           const node = state.schema.nodes.labelValue.create({
             label: attrs?.label?.trim() || "",
             value: attrs?.value ?? "",
+            secret: attrs?.secret ?? false,
           });
           if (!dispatch) {
             return true;

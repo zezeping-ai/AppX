@@ -29,8 +29,14 @@ const {
 
 const label = computed(() => String(props.node.attrs.label ?? ""));
 const value = computed(() => String(props.node.attrs.value ?? ""));
+const secret = computed(() => Boolean(props.node.attrs.secret));
+const revealed = ref(false);
+const masked = computed(() => secret.value && !revealed.value);
+const displayValue = computed(() =>
+  masked.value ? "•".repeat(value.value.length || 3) : value.value,
+);
 const labelSizer = computed(() => label.value || "标签");
-const valueSizer = computed(() => value.value || "值");
+const valueSizer = computed(() => (masked.value ? displayValue.value : value.value) || "值");
 const isEmpty = computed(() => !label.value && !value.value);
 
 const { copy, copied } = useClipboard({ copiedDuring: 1200, legacy: true });
@@ -130,6 +136,21 @@ function onValueKeydown(event: KeyboardEvent) {
   }
 }
 
+function toggleSecret() {
+  const next = !secret.value;
+  props.updateAttributes({ secret: next });
+  if (!next) revealed.value = false;
+}
+
+/** 点击：未标记时启用 secret；已标记时切换显示/隐藏 */
+function onSecretClick() {
+  if (!secret.value) {
+    toggleSecret();
+  } else {
+    revealed.value = !revealed.value;
+  }
+}
+
 async function onCopyValue() {
   if (!value.value) {
     return;
@@ -171,19 +192,35 @@ async function onCopyValue() {
       <span class="lv__sizer" aria-hidden="true">{{ valueSizer }}</span>
       <textarea
         ref="valueRef"
-        class="lv__input"
+        :class="['lv__input', { 'lv__input--masked': masked }]"
         rows="1"
         cols="1"
         wrap="soft"
         tabindex="-1"
-        :value="value"
-        :readonly="!editable"
+        :value="masked ? displayValue : value"
+        :readonly="!editable || masked"
         placeholder="值"
         @mousedown="onFieldMouseDown"
         @input="onValueInput"
         @keydown="onValueKeydown"
       />
     </span>
+    <button
+      v-if="editable || secret"
+      type="button"
+      class="lv__toggle-secret"
+      :class="{ 'lv__toggle-secret--active': secret }"
+      tabindex="-1"
+      :title="secret ? (revealed ? '隐藏值' : '显示值') : '标记为密码'"
+      @click="onSecretClick"
+      @contextmenu.prevent="secret && editable ? toggleSecret() : undefined"
+    >
+      <Icon
+        :icon="secret ? (revealed ? 'mdi:eye' : 'mdi:eye-off') : 'mdi:eye-off-outline'"
+        width="12"
+        height="12"
+      />
+    </button>
     <button
       type="button"
       class="lv__copy"
@@ -307,6 +344,7 @@ async function onCopyValue() {
   opacity: 0.7;
 }
 
+.lv__toggle-secret,
 .lv__copy {
   display: inline-flex;
   flex: 0 0 20px;
@@ -323,6 +361,23 @@ async function onCopyValue() {
   &:hover {
     background: var(--app-hover-bg);
     color: var(--app-fg);
+  }
+}
+
+.lv__cell--value .lv__input.lv__input--masked {
+  user-select: none;
+  color: var(--app-fg-muted);
+}
+
+.lv__toggle-secret:not(.lv__toggle-secret--active) {
+  opacity: 0;
+}
+
+.lv:hover .lv__toggle-secret:not(.lv__toggle-secret--active) {
+  opacity: 0.5;
+
+  &:hover {
+    opacity: 1;
   }
 }
 </style>
