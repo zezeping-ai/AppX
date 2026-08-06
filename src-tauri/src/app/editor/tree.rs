@@ -24,6 +24,23 @@ pub struct EditorTreeNode {
     pub children: Option<Vec<EditorTreeNode>>,
 }
 
+/// 工作区扁平文件条目（快速打开 / Cmd+P）
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorFileEntry {
+    pub name: String,
+    pub path: String,
+    /// 相对工作区根的路径，统一用 `/`
+    pub relative_path: String,
+    pub encrypted: bool,
+    pub custom_encrypted: bool,
+    pub language: String,
+    pub hidden: bool,
+}
+
+/// 快速打开索引上限，避免超大仓库卡死
+const MAX_WORKSPACE_FILES: usize = 20_000;
+
 /// 仅列出一层目录内容（懒加载）。目录节点 `children = None` 表示尚未展开加载。
 /// `workspace_root` 用于构建 ignore 匹配器；未提供时仅标记 hidden。
 pub fn list_directory(
@@ -93,6 +110,82 @@ pub fn list_directory(
     }
 
     Ok(nodes)
+}
+
+/// 工作区递归遍历（尊重 gitignore，跳过 `.git`）
+pub fn workspace_walk_builder(workspace_root: &Path) -> WalkBuilder {
+    let mut builder = WalkBuilder::new(workspace_root);
+    builder
+        .hidden(false)
+        .parents(true)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .require_git(false)
+        .follow_links(false)
+        .filter_entry(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .map(|name| name != ".git")
+                .unwrap_or(true)
+        });
+    builder
+}
+
+/// 递归列出工作区文件（WalkBuilder 自动跳过 `.gitignore` 等忽略项）。
+/// 仅返回文件，不含目录；用于 Cmd+P 快速打开。
+pub fn list_workspace_files(workspace_root: &Path) -> Result<Vec<EditorFileEntry>, String> {
+    if !workspace_root.is_dir() {
+        return Err(format!("不是有效目录：{}", workspace_root.display()));
+    }
+
+    let mut files = Vec::new();
+    for result in workspace_walk_builder(workspace_root).build() {
+        let entry = result.map_err(|err| format!("遍历工作区失败：{err}"))?;
+        let path = entry.path();
+        if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
+            continue;
+        }
+
+        let name = path
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if name.is_empty() || name == ".DS_Store" {
+            continue;
+        }
+        if !should_list_file(path) {
+            continue;
+        }
+
+        let relative = match path.strip_prefix(workspace_root) {
+            Ok(rel) if !rel.as_os_str().is_empty() => rel,
+            _ => continue,
+        };
+        let relative_path = relative
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+
+        files.push(EditorFileEntry {
+            name: name.clone(),
+            path: path_to_string(path),
+            relative_path,
+            encrypted: format::is_encrypted_path(path),
+            custom_encrypted: format::is_custom_encrypted_path(path),
+            language: format::language_from_path(path),
+            hidden: is_hidden_name(&name),
+        });
+
+        if files.len() >= MAX_WORKSPACE_FILES {
+            break;
+        }
+    }
+
+    files.sort_by(|a, b| compare_file_names(&a.relative_path, &b.relative_path));
+    Ok(files)
 }
 
 fn is_hidden_name(name: &str) -> bool {
@@ -363,6 +456,7 @@ fn is_same_or_descendant(ancestor: &Path, path: &Path) -> bool {
 mod tests {
     use super::{
         build_ignore_matcher, compare_file_names, is_hidden_name, is_ignored, list_directory,
+        list_workspace_files,
     };
     use std::cmp::Ordering;
     use std::fs;
@@ -443,6 +537,31 @@ mod tests {
         assert!(!src.ignored);
         let log = nodes.iter().find(|n| n.name == "debug.log").unwrap();
         assert!(log.ignored);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_workspace_files_skips_gitignore_and_returns_relative_paths() {
+        let dir = temp_dir("workspace-files");
+        fs::create_dir_all(dir.join("src")).unwrap();
+        fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
+        fs::write(dir.join(".gitignore"), "node_modules/\n*.log\n").unwrap();
+        fs::write(dir.join("src/app.ts"), "").unwrap();
+        fs::write(dir.join("readme.md"), "").unwrap();
+        fs::write(dir.join("debug.log"), "").unwrap();
+        fs::write(dir.join("node_modules/pkg/index.js"), "").unwrap();
+
+        let files = list_workspace_files(&dir).unwrap();
+        let relative: Vec<_> = files.iter().map(|f| f.relative_path.as_str()).collect();
+        assert!(relative.contains(&"src/app.ts"));
+        assert!(relative.contains(&"readme.md"));
+        assert!(!relative.iter().any(|p| p.contains("node_modules")));
+        assert!(!relative.iter().any(|p| p.ends_with(".log")));
+
+        let app = files.iter().find(|f| f.name == "app.ts").unwrap();
+        assert_eq!(app.relative_path, "src/app.ts");
+        assert_eq!(app.language, "typescript");
 
         let _ = fs::remove_dir_all(&dir);
     }

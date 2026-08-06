@@ -8,6 +8,7 @@ mod convert;
 mod format;
 mod open_paths;
 mod passphrase_store;
+mod search;
 mod settings;
 mod tree;
 

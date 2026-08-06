@@ -11,6 +11,9 @@ const props = withDefaults(
     autoHeight?: boolean;
     minHeight?: number;
     maxHeight?: number;
+    /** 跳转行号（1-based） */
+    revealLine?: number | null;
+    revealColumn?: number | null;
   }>(),
   {
     language: "plaintext",
@@ -18,6 +21,8 @@ const props = withDefaults(
     autoHeight: false,
     minHeight: 120,
     maxHeight: Number.POSITIVE_INFINITY,
+    revealLine: null,
+    revealColumn: null,
   },
 );
 
@@ -28,6 +33,8 @@ const emit = defineEmits<{
 const hostRef = ref<HTMLElement | null>(null);
 const languageRef = toRef(props, "language");
 const readOnlyRef = toRef(props, "readOnly");
+const revealLineRef = toRef(props, "revealLine");
+const revealColumnRef = toRef(props, "revealColumn");
 
 useMonacoEditor(hostRef, {
   language: () => languageRef.value,
@@ -37,6 +44,8 @@ useMonacoEditor(hostRef, {
   autoHeight: () => props.autoHeight,
   minHeight: () => props.minHeight,
   maxHeight: () => props.maxHeight,
+  revealLine: () => revealLineRef.value,
+  revealColumn: () => revealColumnRef.value,
 });
 </script>
 

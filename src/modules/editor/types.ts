@@ -19,6 +19,51 @@ export interface EditorTreeNode {
   children?: EditorTreeNode[] | null;
 }
 
+/** 工作区扁平文件（Cmd+P 快速打开） */
+export interface EditorFileEntry {
+  name: string;
+  path: string;
+  /** 相对工作区根，统一 `/` */
+  relativePath: string;
+  encrypted: boolean;
+  customEncrypted: boolean;
+  language: string;
+  hidden: boolean;
+}
+
+/** 工作区内容搜索（Cmd+Shift+F） */
+export interface WorkspaceSearchMatch {
+  line: number;
+  column: number;
+  preview: string;
+  matchStart: number;
+  matchEnd: number;
+}
+
+export interface WorkspaceSearchFile {
+  path: string;
+  relativePath: string;
+  name: string;
+  language: string;
+  matches: WorkspaceSearchMatch[];
+}
+
+export interface WorkspaceSearchResult {
+  files: WorkspaceSearchFile[];
+  matchCount: number;
+  filesScanned: number;
+  truncated: boolean;
+  skippedLocked: number;
+}
+
+/** 全局搜索选中一条匹配 */
+export interface SearchInFilesSelectPayload {
+  path: string;
+  line: number;
+  column: number;
+  language: string;
+}
+
 export interface OpenedEditorFile {
   path: string;
   name: string;

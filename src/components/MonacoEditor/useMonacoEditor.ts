@@ -12,6 +12,9 @@ export interface UseMonacoEditorOptions {
   autoHeight?: () => boolean;
   minHeight?: () => number;
   maxHeight?: () => number;
+  /** 打开后跳转到行（1-based）；与 revealColumn 配合 */
+  revealLine?: () => number | null | undefined;
+  revealColumn?: () => number | null | undefined;
 }
 
 export function useMonacoEditor(
@@ -89,7 +92,20 @@ export function useMonacoEditor(
     }
 
     ready.value = true;
+    applyReveal();
   });
+
+  function applyReveal() {
+    const ed = editor.value;
+    const line = options.revealLine?.();
+    if (!ed || line == null || line < 1) {
+      return;
+    }
+    const column = Math.max(1, options.revealColumn?.() ?? 1);
+    ed.revealPositionInCenter({ lineNumber: line, column });
+    ed.setPosition({ lineNumber: line, column });
+    ed.focus();
+  }
 
   watch(
     () => options.value(),
@@ -102,6 +118,16 @@ export function useMonacoEditor(
         current.setValue(nextValue);
       }
       syncAutoHeight();
+    },
+  );
+
+  watch(
+    () => [options.revealLine?.(), options.revealColumn?.()] as const,
+    () => {
+      if (!ready.value) {
+        return;
+      }
+      applyReveal();
     },
   );
 

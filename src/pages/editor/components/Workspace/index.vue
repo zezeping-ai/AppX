@@ -1,11 +1,14 @@
 <script setup lang="tsx">
 import { Modal, message } from "ant-design-vue";
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { uniq } from "lodash-es";
+import { useEventListener } from "@vueuse/core";
 import EditorTabs from "@/pages/editor/components/EditorTabs/index.vue";
 import FileExplorer from "@/pages/editor/components/FileExplorer/index.vue";
+import QuickOpen from "@/pages/editor/components/QuickOpen/index.vue";
+import SearchInFiles from "@/pages/editor/components/SearchInFiles/index.vue";
 import { toExplorerTree } from "@/pages/editor/components/FileExplorer/normalizeTree";
 import {
   ancestorDirectories,
@@ -46,7 +49,7 @@ import {
 } from "@/modules/editor/axdoc";
 import { fileStatusMark, isEncryptedFileName } from "@/modules/editor/encryption";
 import { createOpenedEditorFile } from "@/modules/editor/openedFile";
-import type { OpenedEditorFile } from "@/modules/editor/types";
+import type { OpenedEditorFile, SearchInFilesSelectPayload } from "@/modules/editor/types";
 import { useEncryptedFileFlow } from "./useEncryptedFileFlow";
 
 const RichDocEditor = defineAsyncComponent(
@@ -69,6 +72,12 @@ const loadingTree = ref(false);
 const saving = ref(false);
 /** 刷新会使进行中的子目录加载失效 */
 let treeLoadGeneration = 0;
+/** 递增以失效 Quick Open 文件索引缓存 */
+const fileIndexVersion = ref(0);
+const quickOpenVisible = ref(false);
+const searchInFilesVisible = ref(false);
+const revealLine = ref<number | null>(null);
+const revealColumn = ref<number | null>(null);
 const loadingDirectoryPromises = new Map<string, Promise<void>>();
 
 const tabByPath = ref<Map<string, OpenedEditorFile>>(new Map());
@@ -184,6 +193,7 @@ async function refreshTree() {
   }
 
   treeLoadGeneration += 1;
+  fileIndexVersion.value += 1;
   loadingDirectoryPromises.clear();
   loadingTree.value = true;
   try {
@@ -214,6 +224,9 @@ const encryptedFlow = useEncryptedFileFlow({
 });
 
 async function openFileByPath(path: string): Promise<boolean> {
+  revealLine.value = null;
+  revealColumn.value = null;
+
   if (activePath.value === path) {
     return true;
   }
@@ -600,17 +613,75 @@ function onEditorChange(value: string) {
   updateActiveTabContent(value);
 }
 
-function onKeydown(event: KeyboardEvent) {
-  const isSave = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s";
-  if (!isSave) {
-    return;
+async function openFromQuickOpen(path: string) {
+  const opened = await openFileByPath(path);
+  if (opened) {
+    rememberRecentFile(path);
   }
-  event.preventDefault();
-  void saveActiveFile();
 }
 
+async function openFromSearch(payload: SearchInFilesSelectPayload) {
+  const opened = await openFileByPath(payload.path);
+  if (!opened) {
+    return;
+  }
+  rememberRecentFile(payload.path);
+  if (isAppxdocLanguage(payload.language)) {
+    revealLine.value = null;
+    revealColumn.value = null;
+    return;
+  }
+  // 强制触发 Monaco watch（同一位置再次点击也跳转）
+  revealLine.value = null;
+  revealColumn.value = null;
+  await nextTick();
+  revealLine.value = payload.line;
+  revealColumn.value = payload.column;
+}
+
+function onKeydown(event: KeyboardEvent) {
+  const mod = event.metaKey || event.ctrlKey;
+  const key = event.key.toLowerCase();
+
+  if (mod && key === "f" && event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!workspaceRoot.value) {
+      message.info("请先打开工作文件夹");
+      return;
+    }
+    quickOpenVisible.value = false;
+    searchInFilesVisible.value = true;
+    return;
+  }
+
+  if (mod && key === "p") {
+    // 仅 Cmd/Ctrl+P；保留 Cmd+Shift+P 给系统/其他用途
+    if (event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (!workspaceRoot.value) {
+      message.info("请先打开工作文件夹");
+      return;
+    }
+    searchInFilesVisible.value = false;
+    quickOpenVisible.value = true;
+    return;
+  }
+
+  if (mod && key === "s" && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    void saveActiveFile();
+  }
+}
+
+// capture：抢在 Monaco 默认 Cmd+P（命令面板）之前
+useEventListener(window, "keydown", onKeydown, { capture: true });
+
 onMounted(async () => {
-  window.addEventListener("keydown", onKeydown);
   try {
     unlistenDragDrop = await getCurrentWebviewWindow().onDragDropEvent((event) => {
       if (event.payload.type !== "drop") {
@@ -646,7 +717,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener("keydown", onKeydown);
   unlistenDragDrop?.();
   unlistenDragDrop = null;
   unlistenOpenFiles?.();
@@ -732,12 +802,26 @@ watch(editorContent, (value) => {
             :key="activePath ?? 'monaco'"
             :model-value="editorContent"
             :language="activeLanguage"
+            :reveal-line="revealLine"
+            :reveal-column="revealColumn"
             @update:model-value="onEditorChange"
           />
           <div v-else class="encrypted-workspace__placeholder" />
         </div>
       </main>
     </div>
+
+    <QuickOpen
+      v-model:open="quickOpenVisible"
+      :workspace-root="workspaceRoot"
+      :index-version="fileIndexVersion"
+      @select="openFromQuickOpen"
+    />
+    <SearchInFiles
+      v-model:open="searchInFilesVisible"
+      :workspace-root="workspaceRoot"
+      @select="openFromSearch"
+    />
   </div>
 </template>
 

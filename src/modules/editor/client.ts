@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  EditorFileEntry,
   EditorTreeNode,
   FileInspect,
   UnlockEncryptedFileResult,
+  WorkspaceSearchResult,
 } from "@/modules/editor/types";
 
 export async function pickFolder(): Promise<string | null> {
@@ -20,6 +22,28 @@ export async function listDirectory(
   return invoke<EditorTreeNode[]>("editor_list_directory", {
     path,
     workspaceRoot: workspaceRoot ?? null,
+  });
+}
+
+/** 递归列出工作区文件（尊重 .gitignore），供 Cmd+P */
+export async function listWorkspaceFiles(
+  workspaceRoot: string,
+): Promise<EditorFileEntry[]> {
+  return invoke<EditorFileEntry[]>("editor_list_workspace_files", {
+    workspaceRoot,
+  });
+}
+
+/** 工作区内容搜索（尊重 .gitignore），供 Cmd+Shift+F */
+export async function searchWorkspace(
+  workspaceRoot: string,
+  query: string,
+  options?: { caseSensitive?: boolean },
+): Promise<WorkspaceSearchResult> {
+  return invoke<WorkspaceSearchResult>("editor_search_workspace", {
+    workspaceRoot,
+    query,
+    caseSensitive: options?.caseSensitive ?? false,
   });
 }
 

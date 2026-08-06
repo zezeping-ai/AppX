@@ -1,0 +1,127 @@
+.editor-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.editor-palette--quick {
+  padding-top: min(18vh, 140px);
+}
+
+.editor-palette--search {
+  padding-top: min(12vh, 96px);
+}
+
+.editor-palette__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  pointer-events: auto;
+}
+
+.editor-palette__panel {
+  position: relative;
+  z-index: 1;
+  max-height: min(640px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+  pointer-events: auto;
+  color: var(--app-fg);
+}
+
+.editor-palette__panel--quick {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(480px, calc(100vh - 48px));
+}
+
+.editor-palette__panel--search {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.editor-palette__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--app-border);
+
+  .ant-input-affix-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.editor-palette__search-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--app-fg-secondary);
+}
+
+.editor-palette__list {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-palette__empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--app-fg-secondary);
+}
+
+.editor-palette__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--app-border);
+  font-size: 11px;
+  color: var(--app-fg-muted, var(--app-fg-secondary));
+}
+
+.editor-palette__footer-count {
+  margin-left: auto;
+}
+
+.editor-palette__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.editor-palette__row--active {
+  background: var(--app-active-bg, rgba(59, 130, 246, 0.14));
+}
+
+.editor-palette__file-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.editor-palette__mark {
+  padding: 0;
+  background: transparent;
+  color: var(--app-active-fg, #2563eb);
+  font-weight: 700;
+}
+
+.editor-palette__mark--preview {
+  background: rgba(250, 204, 21, 0.35);
+  color: inherit;
+}

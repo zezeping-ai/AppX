@@ -45,6 +45,8 @@ macro_rules! app_invoke_handler {
             $crate::app::editor::editor_pick_folder,
             $crate::app::editor::editor_pick_file,
             $crate::app::editor::editor_list_directory,
+            $crate::app::editor::editor_list_workspace_files,
+            $crate::app::editor::editor_search_workspace,
             $crate::app::editor::editor_inspect_file,
             $crate::app::editor::editor_read_file,
             $crate::app::editor::editor_write_file,

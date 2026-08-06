@@ -10,7 +10,8 @@ use super::cipher;
 use super::convert;
 use super::format;
 use super::open_paths::{self, PendingOpenPaths};
-use super::tree::{self, EditorTreeNode};
+use super::tree::{self, EditorFileEntry, EditorTreeNode};
+use super::search::{self, WorkspaceSearchResult};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,6 +74,38 @@ pub fn editor_list_directory(
         .filter(|value| !value.is_empty())
         .map(PathBuf::from);
     tree::list_directory(root.as_path(), workspace.as_deref())
+}
+
+/// 递归列出工作区文件（尊重 `.gitignore`），供 Cmd+P 快速打开
+#[tauri::command]
+pub fn editor_list_workspace_files(
+    state: State<'_, AppLockSessionState>,
+    workspace_root: String,
+) -> Result<Vec<EditorFileEntry>, String> {
+    ensure_unlocked(&state)?;
+    let root = PathBuf::from(workspace_root.trim());
+    tree::list_workspace_files(root.as_path())
+}
+
+/// 工作区内容搜索（Cmd+Shift+F）
+#[tauri::command]
+pub fn editor_search_workspace(
+    app: tauri::AppHandle,
+    state: State<'_, AppLockSessionState>,
+    passphrase_store: State<'_, FilePassphraseStore>,
+    workspace_root: String,
+    query: String,
+    case_sensitive: Option<bool>,
+) -> Result<WorkspaceSearchResult, String> {
+    ensure_unlocked(&state)?;
+    let root = PathBuf::from(workspace_root.trim());
+    search::search_workspace(
+        &app,
+        &passphrase_store,
+        root.as_path(),
+        &query,
+        case_sensitive.unwrap_or(false),
+    )
 }
 
 fn parse_path(path: String) -> PathBuf {
