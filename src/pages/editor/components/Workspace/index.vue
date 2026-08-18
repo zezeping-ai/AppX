@@ -17,7 +17,7 @@ import {
   remapPathAfterMove,
   setDirectoryChildren,
 } from "@/pages/editor/components/FileExplorer/treeHelpers";
-import { confirmDiscardUnsaved } from "./confirmDiscardUnsaved";
+import { confirmCloseUnsavedTabs, confirmDiscardUnsaved } from "./confirmDiscardUnsaved";
 import {
   confirmOpenWithSystemApp,
   openWithSystemApp,
@@ -422,41 +422,96 @@ async function selectTab(path: string) {
 }
 
 async function closeTab(path: string) {
-  const tab = tabByPath.value.get(path);
-  if (!tab) {
+  await closeTabs([path]);
+}
+
+async function closeOtherTabs(path: string) {
+  await closeTabs(openTabs.value.map((tab) => tab.path).filter((item) => item !== path));
+}
+
+async function closeTabsToRight(path: string) {
+  const paths = [...tabByPath.value.keys()];
+  const idx = paths.indexOf(path);
+  if (idx < 0) {
+    return;
+  }
+  await closeTabs(paths.slice(idx + 1));
+}
+
+async function closeSavedTabs() {
+  await closeTabs(openTabs.value.filter((tab) => !tab.dirty).map((tab) => tab.path));
+}
+
+async function closeAllTabs() {
+  await closeTabs([...tabByPath.value.keys()]);
+}
+
+async function copyTabPath(path: string) {
+  try {
+    await navigator.clipboard.writeText(path);
+    message.success("已复制路径");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "复制失败");
+  }
+}
+
+async function closeTabs(paths: string[]) {
+  const unique = [...new Set(paths)].filter((path) => tabByPath.value.has(path));
+  if (!unique.length) {
     return;
   }
 
-  const wasActive = activePath.value === path;
-  if (tab.dirty) {
-    if (wasActive) {
-      updateActiveTabContent(editorContent.value, true);
+  if (activePath.value && unique.includes(activePath.value)) {
+    flushActiveEditorToTab();
+  }
+
+  const dirtyTabs = unique
+    .map((path) => tabByPath.value.get(path))
+    .filter((tab): tab is OpenedEditorFile => Boolean(tab?.dirty));
+
+  if (dirtyTabs.length === 1) {
+    const canClose = await confirmDiscardUnsaved(dirtyTabs[0].name);
+    if (!canClose) {
+      return;
     }
-    const canClose = await confirmDiscardUnsaved(tab.name);
+  } else if (dirtyTabs.length > 1) {
+    const canClose = await confirmCloseUnsavedTabs();
     if (!canClose) {
       return;
     }
   }
 
-  removeTab(path, wasActive);
+  removeTabs(unique);
 }
 
-function removeTab(path: string, wasActive = activePath.value === path) {
-  const tab = tabByPath.value.get(path);
-  // .x0：关标签即忘记会话口令，再次打开需重新输入
-  if (tab?.customEncrypted) {
-    void forgetFilePassphrase(path).catch((error) => {
-      console.warn("forget file passphrase failed", error);
-    });
+function removeTab(path: string) {
+  removeTabs([path]);
+}
+
+function removeTabs(paths: string[]) {
+  const unique = [...new Set(paths)];
+  if (!unique.length) {
+    return;
   }
 
   const tabPaths = [...tabByPath.value.keys()];
-  const closedIndex = tabPaths.findIndex((item) => item === path);
+  const activeIdx = activePath.value ? tabPaths.indexOf(activePath.value) : -1;
+  const wasActiveClosed = Boolean(activePath.value && unique.includes(activePath.value));
   const nextTabs = new Map(tabByPath.value);
-  nextTabs.delete(path);
+
+  for (const path of unique) {
+    const tab = nextTabs.get(path);
+    // .x0：关标签即忘记会话口令，再次打开需重新输入
+    if (tab?.customEncrypted) {
+      void forgetFilePassphrase(path).catch((error) => {
+        console.warn("forget file passphrase failed", error);
+      });
+    }
+    nextTabs.delete(path);
+  }
   tabByPath.value = nextTabs;
 
-  if (!wasActive) {
+  if (!wasActiveClosed) {
     return;
   }
 
@@ -467,7 +522,7 @@ function removeTab(path: string, wasActive = activePath.value === path) {
     return;
   }
 
-  const nextPath = remaining[Math.min(closedIndex, remaining.length - 1)] ?? remaining[0];
+  const nextPath = remaining[Math.min(Math.max(activeIdx, 0), remaining.length - 1)] ?? remaining[0];
   activePath.value = nextPath;
   syncEditorFromActiveTab();
 }
@@ -788,6 +843,11 @@ watch(editorContent, (value) => {
           :active-path="activePath"
           @select="selectTab"
           @close="closeTab"
+          @close-others="closeOtherTabs"
+          @close-right="closeTabsToRight"
+          @close-saved="closeSavedTabs"
+          @close-all="closeAllTabs"
+          @copy-path="copyTabPath"
         />
 
         <div class="encrypted-workspace__editor-main">
