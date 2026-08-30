@@ -1,9 +1,6 @@
 mod commands;
 mod settings;
 
-use std::thread;
-use std::time::Duration;
-
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -156,10 +153,6 @@ pub fn insert_palette_item(
     let content = entry.content.clone();
     hide_palette_window(app)?;
     focus_target::restore();
-
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis(120));
-        text_delivery::insert_at_focus(&content);
-    });
+    text_delivery::insert_at_focus(&content);
     Ok(())
 }

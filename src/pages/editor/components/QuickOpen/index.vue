@@ -5,9 +5,9 @@ import {
   EditorPaletteOverlay,
   resolvePaletteFileIcon,
   segmentsFromMarks,
-  usePaletteEscape,
-  usePaletteListNav,
 } from "@/pages/editor/components/EditorPalette";
+import { usePaletteEscape } from "@/hooks/usePaletteEscape";
+import { usePaletteListNav } from "@/hooks/usePaletteListNav";
 import { listWorkspaceFiles } from "@/modules/editor/client";
 import type { EditorFileEntry } from "@/modules/editor/types";
 import { filterFilesByFuzzy } from "./fuzzyMatch";

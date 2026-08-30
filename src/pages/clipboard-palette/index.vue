@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { Icon } from "@iconify/vue";
 import {
   getStatus,
-  type ApplyAction,
   type ClipboardItemSummary,
 } from "@/modules/clipboardAssistant";
 import { isAppSessionLocked } from "@/modules/appLock";
+import { useFloatingPaletteKeyboard } from "@/hooks/useFloatingPaletteKeyboard";
+import type { PaletteSearchInputRef } from "@/hooks/focusPaletteSearch";
 import PaletteVirtualList from "@/pages/clipboard-palette/components/PaletteVirtualList.vue";
 import PaletteSourceTabs from "@/pages/clipboard-palette/components/PaletteSourceTabs.vue";
 import type { PaletteItemCommand } from "@/pages/clipboard-palette/components/PaletteItemCard.vue";
@@ -35,7 +36,6 @@ const {
   confirmDeleteItem,
   openLink,
   revealFile,
-  focusSearch,
   bootstrapPalette,
   hidePalette,
 } = useClipboardPalette();
@@ -52,9 +52,39 @@ const isSideLayout = computed(
 const tabOrientation = computed(() => (isSideLayout.value ? "vertical" : "horizontal"));
 const showSourceTabs = computed(() => sourceTabs.value.length > 0);
 
-type SearchInputRef = { focus?: () => void; input?: HTMLInputElement };
-const searchInputRef = ref<SearchInputRef | null>(null);
-const hoveredIndex = ref<number | null>(null);
+const searchInputRef = ref<PaletteSearchInputRef | null>(null);
+const virtualListRef = ref<{ scrollToActiveIndex: () => void } | null>(null);
+
+function toggleActionMode() {
+  actionMode.value = actionMode.value === "paste" ? "copy" : "paste";
+}
+
+const { onSearchKeydown, focusSearch } = useFloatingPaletteKeyboard<ClipboardItemSummary>({
+  activeIndex,
+  keyword,
+  list: () => items.value,
+  horizontal: () => isHorizontalList.value,
+  scrollToActive: () => virtualListRef.value?.scrollToActiveIndex(),
+  onApply: (item) => void runAction(item, actionMode.value),
+  onEscape: () => void hidePalette(),
+  onToggleActionMode: toggleActionMode,
+  shortcutActions: {
+    numberKeys: true,
+    onPin: (item) => void togglePin(item),
+    onDelete: (item) => confirmDeleteItem(item),
+  },
+});
+
+const commandHandlers: Record<PaletteItemCommand, (item: ClipboardItemSummary) => void> = {
+  pastePlain: (item) => void runAction(item, "paste", "plain"),
+  pasteRich: (item) => void runAction(item, "paste", "rich"),
+  copyPlain: (item) => void runAction(item, "copy", "plain"),
+  copyRich: (item) => void runAction(item, "copy", "rich"),
+  openLink: (item) => void openLink(item),
+  revealFile: (item) => void revealFile(item),
+  pin: (item) => void togglePin(item),
+  delete: (item) => confirmDeleteItem(item),
+};
 
 async function ensureUsableOrHide(): Promise<boolean> {
   try {
@@ -83,120 +113,8 @@ function onPaletteOpen() {
     actionMode.value = "paste";
     await bootstrapPalette();
     focusSearch(searchInputRef.value, openSearchOnShow.value);
+    void nextTick(() => virtualListRef.value?.scrollToActiveIndex());
   })();
-}
-
-function selectItem(item: ClipboardItemSummary | undefined) {
-  void runAction(item, actionMode.value);
-}
-
-function onItemAction(event: MouseEvent, item: ClipboardItemSummary, action: ApplyAction) {
-  event.stopPropagation();
-  void runAction(item, action);
-}
-
-function onItemCommand(item: ClipboardItemSummary, command: PaletteItemCommand) {
-  if (command === "pastePlain") {
-    void runAction(item, "paste", "plain");
-    return;
-  }
-  if (command === "pasteRich") {
-    void runAction(item, "paste", "rich");
-    return;
-  }
-  if (command === "copyPlain") {
-    void runAction(item, "copy", "plain");
-    return;
-  }
-  if (command === "copyRich") {
-    void runAction(item, "copy", "rich");
-    return;
-  }
-  if (command === "openLink") {
-    void openLink(item);
-    return;
-  }
-  if (command === "revealFile") {
-    void revealFile(item);
-    return;
-  }
-  if (command === "pin") {
-    void togglePin(item);
-    return;
-  }
-  if (command === "delete") {
-    confirmDeleteItem(item);
-  }
-}
-
-function toggleActionMode() {
-  actionMode.value = actionMode.value === "paste" ? "copy" : "paste";
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    void hidePalette();
-  }
-}
-
-function onSearchKeydown(event: KeyboardEvent) {
-  const list = items.value;
-
-  if (event.key === "Tab") {
-    event.preventDefault();
-    toggleActionMode();
-    return;
-  }
-
-  if (/^[1-9]$/.test(event.key) && list.length) {
-    const index = Number(event.key) - 1;
-    if (index < list.length) {
-      event.preventDefault();
-      void runAction(list[index], actionMode.value);
-    }
-    return;
-  }
-
-  if (event.key === "ArrowDown" && list.length) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value + 1) % list.length;
-    return;
-  }
-  if (event.key === "ArrowUp" && list.length) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value - 1 + list.length) % list.length;
-    return;
-  }
-  if (event.key === "ArrowRight" && list.length && isHorizontalList.value) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value + 1) % list.length;
-    return;
-  }
-  if (event.key === "ArrowLeft" && list.length && isHorizontalList.value) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value - 1 + list.length) % list.length;
-    return;
-  }
-  if (event.key === "Enter" && list.length) {
-    event.preventDefault();
-    void runAction(list[activeIndex.value], actionMode.value);
-    return;
-  }
-  if (event.key.toLowerCase() === "p" && list[activeIndex.value]) {
-    event.preventDefault();
-    void togglePin(list[activeIndex.value]);
-    return;
-  }
-  if (event.key === "Delete" && list[activeIndex.value]) {
-    event.preventDefault();
-    confirmDeleteItem(list[activeIndex.value]);
-    return;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    void hidePalette();
-  }
 }
 
 function onClipboardChanged() {
@@ -206,15 +124,12 @@ function onClipboardChanged() {
 onMounted(() => {
   window.addEventListener("appx:clipboard-palette-open", onPaletteOpen);
   window.addEventListener("appx:clipboard-changed", onClipboardChanged);
-  window.addEventListener("keydown", onKeydown);
-  // 预创建的隐藏窗口仅暖机；勿在挂载时因瞬时 IPC 失败把面板关掉
   void bootstrapPalette().catch(() => {});
 });
 
 onUnmounted(() => {
   window.removeEventListener("appx:clipboard-palette-open", onPaletteOpen);
   window.removeEventListener("appx:clipboard-changed", onClipboardChanged);
-  window.removeEventListener("keydown", onKeydown);
 });
 </script>
 
@@ -255,18 +170,16 @@ onUnmounted(() => {
 
           <PaletteVirtualList
             v-else
+            ref="virtualListRef"
             :items="items"
             :active-index="activeIndex"
-            :hover-index="hoveredIndex"
-            :action-mode="actionMode"
             :show-source-app-icon="showSourceAppIcon"
             :horizontal="isHorizontalList"
             :item-width="PALETTE_ITEM_WIDTH"
             :item-height="PALETTE_ITEM_HEIGHT"
-            @select="selectItem"
-            @action="onItemAction"
-            @command="onItemCommand"
-            @hover="hoveredIndex = $event"
+            @select="(item) => void runAction(item, actionMode)"
+            @command="(item, command) => commandHandlers[command](item)"
+            @active-index="activeIndex = $event"
           />
 
           <footer class="clipboard-palette__footer">

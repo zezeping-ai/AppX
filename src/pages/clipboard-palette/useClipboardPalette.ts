@@ -1,7 +1,7 @@
 import { useDebounceFn } from "@vueuse/core";
 import { Modal } from "ant-design-vue";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   applyItem,
   getContent,
@@ -186,24 +186,6 @@ export function useClipboardPalette() {
     }
   }
 
-  function focusSearch(
-    inputRef: { focus?: () => void; input?: HTMLInputElement } | null,
-    enabled = openSearchOnShow.value,
-  ) {
-    if (!enabled) return;
-    const run = () => {
-      inputRef?.focus?.();
-      inputRef?.input?.focus?.();
-    };
-    void nextTick(() => {
-      requestAnimationFrame(() => {
-        run();
-        // 窗口 show/focus 可能晚于首帧，补一次确保搜索框获得焦点
-        setTimeout(run, 50);
-      });
-    });
-  }
-
   async function selectSource(bundle: string | undefined) {
     selectedSource.value = bundle;
     await loadItems(!keyword.value.trim());
@@ -245,7 +227,6 @@ export function useClipboardPalette() {
     confirmDeleteItem,
     openLink,
     revealFile,
-    focusSearch,
     bootstrapPalette,
     hidePalette,
   };

@@ -1,44 +1,47 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { Icon } from "@iconify/vue";
-import { Modal } from "ant-design-vue";
 import type { MenuProps } from "ant-design-vue";
-import { CodeSnippetRecord } from "@/models";
 import {
-  CODE_SNIPPET_GROUPS,
   iconOfSnippetGroup,
   labelOfSnippetGroup,
-  copyPaletteItem,
-  hidePalette,
-  insertPaletteItem,
-  listPaletteItems,
   formatAbbreviationTrigger,
-  getCodeSnippetSettings,
   inlineExpansionTrigger,
-  setInlineExpansionTrigger,
-  syncAllSnippetsToRuntime,
-  type CodeSnippetGroup,
   type CodeSnippetPaletteItem,
 } from "@/modules/codeSnippets";
-import { getErrorMessage } from "@/shared/error";
-import { isAppSessionLocked } from "@/modules/appLock";
+import { useFloatingPaletteKeyboard } from "@/hooks/useFloatingPaletteKeyboard";
+import type { PaletteSearchInputRef } from "@/hooks/focusPaletteSearch";
+import {
+  useSnippetPalette,
+  type SnippetPaletteAction,
+} from "@/pages/snippet-palette/useSnippetPalette";
 
-type PaletteAction = "insert" | "copy";
-type SnippetContextCommand = PaletteAction | "delete";
+type SnippetContextCommand = SnippetPaletteAction | "delete";
 
 const paletteSize = "middle" as const;
 
-const keyword = ref("");
-const selectedGroup = ref<CodeSnippetGroup | undefined>(undefined);
-const loading = ref(true);
-const items = ref<CodeSnippetPaletteItem[]>([]);
-const activeIndex = ref(0);
-const actionMode = ref<PaletteAction>("insert");
-type SearchInputRef = {
-  focus: () => void;
-};
+const {
+  keyword,
+  selectedGroup,
+  loading,
+  items,
+  filtered,
+  groupFilters,
+  activeIndex,
+  actionMode,
+  selectGroup,
+  toggleActionMode,
+  selectItem,
+  onItemAction,
+  removeSnippet,
+  runAction,
+  resetForOpen,
+  bootstrap,
+  hidePalette,
+} = useSnippetPalette();
 
-const searchInputRef = ref<SearchInputRef | null>(null);
+const searchInputRef = ref<PaletteSearchInputRef | null>(null);
+const listRef = ref<HTMLElement | null>(null);
 
 const snippetContextMenuItems: MenuProps["items"] = [
   { key: "insert", label: "插入" },
@@ -47,122 +50,15 @@ const snippetContextMenuItems: MenuProps["items"] = [
   { key: "delete", label: "删除", danger: true },
 ];
 
-const groupFilters = computed(() => {
-  const counts = new Map<CodeSnippetGroup, number>();
-  for (const item of items.value) {
-    counts.set(item.group, (counts.get(item.group) ?? 0) + 1);
-  }
-  return CODE_SNIPPET_GROUPS.filter((group) => counts.has(group.value)).map((group) => ({
-    ...group,
-    count: counts.get(group.value) ?? 0,
-  }));
+const { onSearchKeydown, focusSearch } = useFloatingPaletteKeyboard<CodeSnippetPaletteItem>({
+  activeIndex,
+  keyword,
+  list: () => filtered.value,
+  listRef,
+  onApply: (item) => void runAction(item, actionMode.value),
+  onEscape: () => void hidePalette(),
+  onToggleActionMode: toggleActionMode,
 });
-
-const filtered = computed(() => {
-  const q = keyword.value.trim().toLowerCase();
-  return items.value.filter((item) => {
-    if (selectedGroup.value && item.group !== selectedGroup.value) return false;
-    if (!q) return true;
-    return (
-      item.name.toLowerCase().includes(q) ||
-      item.abbreviation.toLowerCase().includes(q) ||
-      labelOfSnippetGroup(item.group).toLowerCase().includes(q)
-    );
-  });
-});
-
-watch([filtered, selectedGroup], () => {
-  activeIndex.value = 0;
-});
-
-function focusSearch() {
-  void nextTick(() => {
-    requestAnimationFrame(() => {
-      searchInputRef.value?.focus();
-    });
-  });
-}
-
-async function ensureUnlockedOrHide(): Promise<boolean> {
-  try {
-    if (await isAppSessionLocked()) {
-      await hidePalette();
-      return false;
-    }
-  } catch {
-    // 忽略异常，避免面板卡死
-  }
-  return true;
-}
-
-function onPaletteOpen() {
-  void (async () => {
-    if (!(await ensureUnlockedOrHide())) return;
-    keyword.value = "";
-    selectedGroup.value = undefined;
-    activeIndex.value = 0;
-    actionMode.value = "insert";
-    await loadItems();
-    focusSearch();
-  })();
-}
-
-async function loadItems() {
-  loading.value = true;
-  try {
-    items.value = await listPaletteItems();
-    activeIndex.value = 0;
-  } catch (error) {
-    console.error(getErrorMessage(error, "加载代码段失败"));
-  } finally {
-    loading.value = false;
-  }
-}
-
-function selectGroup(group: CodeSnippetGroup | undefined) {
-  selectedGroup.value = group;
-}
-
-async function runAction(item: CodeSnippetPaletteItem | undefined, action: PaletteAction) {
-  if (!item) return;
-  try {
-    if (action === "copy") {
-      await copyPaletteItem(item.id);
-    } else {
-      await insertPaletteItem(item.id);
-    }
-  } catch (error) {
-    console.error(getErrorMessage(error, action === "copy" ? "拷贝失败" : "插入失败"));
-  }
-}
-
-function selectItem(item: CodeSnippetPaletteItem | undefined) {
-  void runAction(item, actionMode.value);
-}
-
-function onItemAction(event: MouseEvent, item: CodeSnippetPaletteItem, action: PaletteAction) {
-  event.stopPropagation();
-  void runAction(item, action);
-}
-
-function removeSnippet(item: CodeSnippetPaletteItem) {
-  Modal.confirm({
-    title: "删除代码段",
-    content: `确认删除「${item.name}」？`,
-    okText: "删除",
-    okButtonProps: { danger: true },
-    cancelText: "取消",
-    onOk: async () => {
-      try {
-        await CodeSnippetRecord.destroy(item.id);
-        await syncAllSnippetsToRuntime();
-        await loadItems();
-      } catch (error) {
-        console.error(getErrorMessage(error, "删除失败"));
-      }
-    },
-  });
-}
 
 function onSnippetContextAction(item: CodeSnippetPaletteItem, command: SnippetContextCommand) {
   if (command === "delete") {
@@ -178,66 +74,23 @@ function createSnippetContextMenuClick(item: CodeSnippetPaletteItem) {
   };
 }
 
-function toggleActionMode() {
-  actionMode.value = actionMode.value === "insert" ? "copy" : "insert";
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    void hidePalette();
-  }
-}
-
-function onSearchKeydown(event: KeyboardEvent) {
-  const list = filtered.value;
-
-  if (event.key === "Tab") {
-    event.preventDefault();
-    toggleActionMode();
-    return;
-  }
-
-  if (event.key === "ArrowDown" && list.length) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value + 1) % list.length;
-    return;
-  }
-  if (event.key === "ArrowUp" && list.length) {
-    event.preventDefault();
-    activeIndex.value = (activeIndex.value - 1 + list.length) % list.length;
-    return;
-  }
-  if (event.key === "Enter" && list.length) {
-    event.preventDefault();
-    void runAction(list[activeIndex.value], actionMode.value);
-    return;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    void hidePalette();
-  }
+function onPaletteOpen() {
+  void (async () => {
+    if (!(await resetForOpen())) return;
+    focusSearch(searchInputRef.value);
+  })();
 }
 
 onMounted(() => {
   window.addEventListener("appx:palette-open", onPaletteOpen);
   void (async () => {
-    if (!(await ensureUnlockedOrHide())) return;
-    try {
-      const settings = await getCodeSnippetSettings();
-      setInlineExpansionTrigger(settings.inlineExpansionTrigger);
-    } catch {
-      // 独立窗口读取失败时保留默认触发键
-    }
-    await loadItems();
-    focusSearch();
+    if (!(await bootstrap())) return;
+    focusSearch(searchInputRef.value);
   })();
-  window.addEventListener("keydown", onKeydown);
 });
 
 onUnmounted(() => {
   window.removeEventListener("appx:palette-open", onPaletteOpen);
-  window.removeEventListener("keydown", onKeydown);
 });
 </script>
 
@@ -282,82 +135,83 @@ onUnmounted(() => {
       </div>
 
       <div v-if="loading" class="snippet-palette__empty">加载中…</div>
-    <div v-else-if="!filtered.length" class="snippet-palette__empty">没有匹配的代码段</div>
-    <ul v-else class="snippet-palette__list">
-      <li
-        v-for="(item, index) in filtered"
-        :key="item.id"
-        class="snippet-palette__item"
-        :class="{ 'snippet-palette__item--active': index === activeIndex }"
-        @mouseenter="activeIndex = index"
-      >
-        <a-dropdown :trigger="['contextmenu']" class="snippet-palette__item-dropdown">
-          <div class="snippet-palette__item-body" @click="selectItem(item)">
-            <div class="snippet-palette__item-main">
-              <div class="snippet-palette__item-title">
-                <span class="snippet-palette__group-tag">
-                  <Icon :icon="iconOfSnippetGroup(item.group)" aria-hidden="true" />
-                  {{ labelOfSnippetGroup(item.group) }}
-                </span>
-                <span class="snippet-palette__name">{{ item.name }}</span>
+      <div v-else-if="!filtered.length" class="snippet-palette__empty">没有匹配的代码段</div>
+      <ul v-else ref="listRef" class="snippet-palette__list">
+        <li
+          v-for="(item, index) in filtered"
+          :key="item.id"
+          :data-index="index"
+          class="snippet-palette__item"
+          :class="{ 'snippet-palette__item--active': index === activeIndex }"
+          @mouseenter="activeIndex = index"
+        >
+          <a-dropdown :trigger="['contextmenu']" class="snippet-palette__item-dropdown">
+            <div class="snippet-palette__item-body" @click="selectItem(item)">
+              <div class="snippet-palette__item-main">
+                <div class="snippet-palette__item-title">
+                  <span class="snippet-palette__group-tag">
+                    <Icon :icon="iconOfSnippetGroup(item.group)" aria-hidden="true" />
+                    {{ labelOfSnippetGroup(item.group) }}
+                  </span>
+                  <span class="snippet-palette__name">{{ item.name }}</span>
+                </div>
+                <span class="snippet-palette__abbr">{{
+                  formatAbbreviationTrigger(item.abbreviation, inlineExpansionTrigger)
+                }}</span>
               </div>
-              <span class="snippet-palette__abbr">{{
-                formatAbbreviationTrigger(item.abbreviation, inlineExpansionTrigger)
-              }}</span>
+              <div class="snippet-palette__actions">
+                <a-button
+                  :type="actionMode === 'insert' ? 'primary' : 'default'"
+                  @click="onItemAction($event, item, 'insert')"
+                >
+                  <template #icon>
+                    <Icon icon="mdi:keyboard-return" aria-hidden="true" />
+                  </template>
+                  插入
+                </a-button>
+                <a-button
+                  :type="actionMode === 'copy' ? 'primary' : 'default'"
+                  @click="onItemAction($event, item, 'copy')"
+                >
+                  <template #icon>
+                    <Icon icon="mdi:content-copy" aria-hidden="true" />
+                  </template>
+                  拷贝
+                </a-button>
+              </div>
             </div>
-            <div class="snippet-palette__actions">
-              <a-button
-                :type="actionMode === 'insert' ? 'primary' : 'default'"
-                @click="onItemAction($event, item, 'insert')"
-              >
-                <template #icon>
-                  <Icon icon="mdi:keyboard-return" aria-hidden="true" />
-                </template>
-                插入
-              </a-button>
-              <a-button
-                :type="actionMode === 'copy' ? 'primary' : 'default'"
-                @click="onItemAction($event, item, 'copy')"
-              >
-                <template #icon>
-                  <Icon icon="mdi:content-copy" aria-hidden="true" />
-                </template>
-                拷贝
-              </a-button>
-            </div>
-          </div>
-          <template #overlay>
-            <a-menu
-              :items="snippetContextMenuItems"
-              @click="createSnippetContextMenuClick(item)"
-            />
-          </template>
-        </a-dropdown>
-      </li>
-    </ul>
+            <template #overlay>
+              <a-menu
+                :items="snippetContextMenuItems"
+                @click="createSnippetContextMenuClick(item)"
+              />
+            </template>
+          </a-dropdown>
+        </li>
+      </ul>
 
-    <footer class="snippet-palette__footer">
-      <span class="snippet-palette__footer-hint">↑↓ 选择</span>
-      <span class="snippet-palette__footer-hint">Tab 切换操作</span>
-      <div class="snippet-palette__footer-mode">
-        <a-button
-          :type="actionMode === 'insert' ? 'primary' : 'text'"
-          @click="actionMode = 'insert'"
-        >
-          <span class="snippet-palette__footer-mode-label">
-            <Icon icon="mdi:keyboard-return" aria-hidden="true" />
-            <span>直接插入</span>
-          </span>
-        </a-button>
-        <a-button
-          :type="actionMode === 'copy' ? 'primary' : 'text'"
-          @click="actionMode = 'copy'"
-        >
-          拷贝
-        </a-button>
-      </div>
-      <span class="snippet-palette__footer-hint">Esc 关闭</span>
-    </footer>
+      <footer class="snippet-palette__footer">
+        <span class="snippet-palette__footer-hint">↑↓ 选择</span>
+        <span class="snippet-palette__footer-hint">Tab 切换操作</span>
+        <div class="snippet-palette__footer-mode">
+          <a-button
+            :type="actionMode === 'insert' ? 'primary' : 'text'"
+            @click="actionMode = 'insert'"
+          >
+            <span class="snippet-palette__footer-mode-label">
+              <Icon icon="mdi:keyboard-return" aria-hidden="true" />
+              <span>直接插入</span>
+            </span>
+          </a-button>
+          <a-button
+            :type="actionMode === 'copy' ? 'primary' : 'text'"
+            @click="actionMode = 'copy'"
+          >
+            拷贝
+          </a-button>
+        </div>
+        <span class="snippet-palette__footer-hint">Esc 关闭</span>
+      </footer>
     </div>
   </a-config-provider>
 </template>

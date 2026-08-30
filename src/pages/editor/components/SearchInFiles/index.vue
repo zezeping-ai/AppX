@@ -6,9 +6,9 @@ import {
   EditorPaletteOverlay,
   resolvePaletteFileIcon,
   segmentsFromRange,
-  usePaletteEscape,
-  usePaletteListNav,
 } from "@/pages/editor/components/EditorPalette";
+import { usePaletteEscape } from "@/hooks/usePaletteEscape";
+import { usePaletteListNav } from "@/hooks/usePaletteListNav";
 import { searchWorkspace } from "@/modules/editor/client";
 import type {
   SearchInFilesSelectPayload,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useResizeObserver, useVirtualList } from "@vueuse/core";
 import { computed, nextTick, ref, watch, type ComponentPublicInstance } from "vue";
-import type { ApplyAction, ClipboardItemSummary } from "@/modules/clipboardAssistant";
+import type { ClipboardItemSummary } from "@/modules/clipboardAssistant";
 import {
   PALETTE_ITEM_GAP,
   PALETTE_ITEM_HEIGHT,
@@ -15,8 +15,6 @@ const props = withDefaults(
   defineProps<{
     items: ClipboardItemSummary[];
     activeIndex: number;
-    hoverIndex?: number | null;
-    actionMode: ApplyAction;
     showSourceAppIcon: boolean;
     horizontal?: boolean;
     itemHeight?: number;
@@ -30,9 +28,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   select: [ClipboardItemSummary];
-  action: [MouseEvent, ClipboardItemSummary, ApplyAction];
   command: [ClipboardItemSummary, PaletteItemCommand];
-  hover: [number | null];
+  activeIndex: [number];
 }>();
 
 /** 条目底部与滚动条/面板底边的间距 */
@@ -106,23 +103,20 @@ function scrollHorizontalTo(index: number) {
   el.scrollLeft = Math.min(targetLeft, maxLeft);
 }
 
-watch(
-  () => props.activeIndex,
-  (index) => {
-    if (index < 0) return;
-    if (props.horizontal) {
-      void nextTick(() => scrollHorizontalTo(index));
-      return;
-    }
-    scrollTo(index);
-  },
-);
-
-function onListMouseLeave() {
-  emit("hover", null);
+/** 仅由键盘导航 / 打开面板时显式调用，勿在 activeIndex 变化时自动滚（会与 mouseenter 形成反馈环） */
+function scrollToActiveIndex() {
+  const index = props.activeIndex;
+  if (index < 0) return;
+  if (props.horizontal) {
+    scrollHorizontalTo(index);
+    return;
+  }
+  scrollTo(index);
 }
 
-/** 底部横条：滚轮纵向增量转为横向滚动。 */
+defineExpose({ scrollToActiveIndex });
+
+/** 底部横条：滚轮纵向增量转为横向滚动 */
 function onHorizontalWheel(event: WheelEvent) {
   if (!props.horizontal) return;
   const el = event.currentTarget as HTMLElement;
@@ -136,13 +130,11 @@ function onHorizontalWheel(event: WheelEvent) {
 
 <template>
   <div class="palette-virtual-host">
-    <!-- 顶部/底部：横向全量列表 -->
     <div
       v-if="horizontal"
       ref="scrollEl"
       class="palette-virtual palette-virtual--horizontal"
       @wheel="onHorizontalWheel"
-      @mouseleave="onListMouseLeave"
     >
       <div
         class="palette-virtual__wrapper"
@@ -156,12 +148,12 @@ function onHorizontalWheel(event: WheelEvent) {
             width: `${itemWidth}px`,
             height: `${resolvedItemHeight}px`,
           }"
-          @mouseenter="emit('hover', index)"
-          @contextmenu="emit('hover', index)"
+          @mouseenter="emit('activeIndex', index)"
+          @contextmenu="emit('activeIndex', index)"
         >
           <PaletteItemCard
             :item="item"
-            :active="index === activeIndex || index === hoverIndex"
+            :active="index === activeIndex"
             :show-source-app-icon="showSourceAppIcon"
             @select="emit('select', item)"
             @command="emit('command', item, $event)"
@@ -170,13 +162,11 @@ function onHorizontalWheel(event: WheelEvent) {
       </div>
     </div>
 
-    <!-- 左右侧栏：纵向虚拟列表 -->
     <div
       v-else
       :ref="setScrollContainerRef"
       v-bind="containerBind"
       class="palette-virtual"
-      @mouseleave="onListMouseLeave"
     >
       <div :style="verticalWrapperStyle" class="palette-virtual__wrapper">
         <div
@@ -184,12 +174,12 @@ function onHorizontalWheel(event: WheelEvent) {
           :key="item.id"
           class="palette-virtual__item"
           :style="{ height: `${itemHeight}px` }"
-          @mouseenter="emit('hover', index)"
-          @contextmenu="emit('hover', index)"
+          @mouseenter="emit('activeIndex', index)"
+          @contextmenu="emit('activeIndex', index)"
         >
           <PaletteItemCard
             :item="item"
-            :active="index === activeIndex || index === hoverIndex"
+            :active="index === activeIndex"
             :show-source-app-icon="showSourceAppIcon"
             @select="emit('select', item)"
             @command="emit('command', item, $event)"
