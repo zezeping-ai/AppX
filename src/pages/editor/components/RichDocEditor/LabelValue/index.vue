@@ -38,6 +38,16 @@ const displayValue = computed(() =>
 const labelSizer = computed(() => label.value || "标签");
 const valueSizer = computed(() => (masked.value ? displayValue.value : value.value) || "值");
 const isEmpty = computed(() => !label.value && !value.value);
+const secretTitle = computed(() => {
+  if (!secret.value) return "标记为密码";
+  if (!editable.value) return revealed.value ? "隐藏值" : "显示值";
+  return "取消密码标记";
+});
+const secretIcon = computed(() => {
+  if (!secret.value) return "mdi:eye-off-outline";
+  if (!editable.value && revealed.value) return "mdi:eye";
+  return "mdi:eye-off";
+});
 
 const { copy, copied } = useClipboard({ copiedDuring: 1200, legacy: true });
 
@@ -142,13 +152,16 @@ function toggleSecret() {
   if (!next) revealed.value = false;
 }
 
-/** 点击：未标记时启用 secret；已标记时切换显示/隐藏 */
+/**
+ * 可编辑：切换 secret 标记（写入文档，可保存）
+ * 只读：临时窥视明文（不改文档）
+ */
 function onSecretClick() {
-  if (!secret.value) {
-    toggleSecret();
-  } else {
-    revealed.value = !revealed.value;
+  if (!editable.value) {
+    if (secret.value) revealed.value = !revealed.value;
+    return;
   }
+  toggleSecret();
 }
 
 async function onCopyValue() {
@@ -211,12 +224,11 @@ async function onCopyValue() {
       class="lv__toggle-secret"
       :class="{ 'lv__toggle-secret--active': secret }"
       tabindex="-1"
-      :title="secret ? (revealed ? '隐藏值' : '显示值') : '标记为密码'"
+      :title="secretTitle"
       @click="onSecretClick"
-      @contextmenu.prevent="secret && editable ? toggleSecret() : undefined"
     >
       <Icon
-        :icon="secret ? (revealed ? 'mdi:eye' : 'mdi:eye-off') : 'mdi:eye-off-outline'"
+        :icon="secretIcon"
         width="12"
         height="12"
       />
