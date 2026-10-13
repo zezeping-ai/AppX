@@ -28,7 +28,7 @@ pub fn set_paused(app: &AppHandle, paused: bool) -> Result<(), String> {
     }
 
     let depth = PAUSE_DEPTH
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
         .unwrap_or(0);
     if depth != 1 {
         return Ok(());
