@@ -56,7 +56,7 @@ pub fn show_palette_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let own_bundle_id = app.config().identifier.clone();
-    focus_target::capture(&own_bundle_id);
+    focus_target::capture(app, &own_bundle_id);
 
     if let Some(window) = app.get_webview_window(PALETTE_WINDOW_LABEL) {
         navigate_palette(&window)?;
@@ -77,7 +77,21 @@ pub fn show_palette_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 主动关闭：还原打开前焦点。
 pub fn hide_palette_window(app: &AppHandle) -> Result<(), String> {
+    hide_palette_ui(app)?;
+    focus_target::restore(app);
+    Ok(())
+}
+
+/// 被动解散（会话锁定等）：不抢焦点。
+pub fn dismiss_palette_window(app: &AppHandle) -> Result<(), String> {
+    hide_palette_ui(app)?;
+    focus_target::discard();
+    Ok(())
+}
+
+fn hide_palette_ui(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(PALETTE_WINDOW_LABEL) {
         window.hide().map_err(|err| err.to_string())?;
     }
@@ -136,7 +150,6 @@ pub fn copy_palette_item(
 
     clipboard::set_text_persist(&entry.content)?;
     hide_palette_window(app)?;
-    focus_target::restore();
     Ok(())
 }
 
@@ -152,7 +165,6 @@ pub fn insert_palette_item(
 
     let content = entry.content.clone();
     hide_palette_window(app)?;
-    focus_target::restore();
     text_delivery::insert_at_focus(&content);
     Ok(())
 }

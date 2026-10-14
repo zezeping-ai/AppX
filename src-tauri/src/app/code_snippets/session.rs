@@ -17,7 +17,7 @@ fn on_locked(app: &AppHandle) -> Result<(), String> {
     app.global_shortcut()
         .unregister_all()
         .map_err(|err| format!("取消注册全局快捷键失败：{err}"))?;
-    palette::hide_palette_window(app)
+    palette::dismiss_palette_window(app)
 }
 
 fn on_unlocked(app: &AppHandle) -> Result<(), String> {

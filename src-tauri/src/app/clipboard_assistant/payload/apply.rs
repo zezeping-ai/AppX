@@ -2,7 +2,6 @@ use tauri::AppHandle;
 
 use crate::app::clipboard;
 use crate::app::clipboard::rich;
-use crate::app::focus_target;
 use crate::app::text_delivery;
 
 use super::super::history::{load_payload_for_apply, touch_item};
@@ -35,7 +34,6 @@ pub fn apply_item(
     }
 
     hide_palette_window(app)?;
-    focus_target::restore();
     super::super::sounds::play(app, super::super::sounds::SoundKind::Paste, None, false);
 
     if format == ApplyFormat::Rich {

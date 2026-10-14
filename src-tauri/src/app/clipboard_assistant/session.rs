@@ -11,7 +11,7 @@ pub fn register_hooks() {
 
 fn on_locked(app: &AppHandle) -> Result<(), String> {
     ingest::stop_monitoring();
-    palette::hide_palette_window(app)?;
+    palette::dismiss_palette_window(app)?;
     if let Some(state) = app.try_state::<std::sync::Arc<super::ClipboardAssistantState>>() {
         if state.settings()?.clear_on_lock {
             history::clear_unpinned(state.inner())?;

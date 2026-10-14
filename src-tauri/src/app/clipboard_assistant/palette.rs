@@ -24,7 +24,6 @@ const PALETTE_ENTRY: &str = "index.html#/clipboard-palette";
 /// 打开后短暂忽略点外关闭，避免热键同一次点击误关。
 const DISMISS_ARM_DELAY: Duration = Duration::from_millis(250);
 const SIDE_PANEL_WIDTH: f64 = 320.0;
-const MAIN_WINDOW_LABEL: &str = "main";
 
 static DISMISS_ON_BLUR_ARMED: AtomicBool = AtomicBool::new(false);
 
@@ -79,13 +78,9 @@ pub fn ensure_window_ready(app: &AppHandle) {
 pub fn toggle_palette_window(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(PALETTE_WINDOW_LABEL) {
         if window.is_visible().unwrap_or(false) {
-            disarm_dismiss_on_blur();
-            save_geometry_if_needed(app, &window)?;
-            hide_window(app, &window);
-        } else {
-            show_palette_window(app)?;
+            return hide_palette_window(app);
         }
-        return Ok(());
+        return show_palette_window(app);
     }
     show_palette_window(app)
 }
@@ -96,7 +91,7 @@ pub fn show_palette_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let own_bundle_id = app.config().identifier.clone();
-    focus_target::capture(&own_bundle_id);
+    focus_target::capture(app, &own_bundle_id);
 
     if let Some(window) = app.get_webview_window(PALETTE_WINDOW_LABEL) {
         return present_window(&window, app);
@@ -121,11 +116,25 @@ pub fn show_palette_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 主动关闭（Esc / 粘贴 / 复制后隐藏）：还原打开前焦点。
 pub fn hide_palette_window(app: &AppHandle) -> Result<(), String> {
+    hide_palette_ui(app)?;
+    focus_target::restore(app);
+    Ok(())
+}
+
+/// 被动解散（点外关闭 / 会话锁定）：不抢焦点。
+pub fn dismiss_palette_window(app: &AppHandle) -> Result<(), String> {
+    hide_palette_ui(app)?;
+    focus_target::discard();
+    Ok(())
+}
+
+fn hide_palette_ui(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(PALETTE_WINDOW_LABEL) {
         disarm_dismiss_on_blur();
         save_geometry_if_needed(app, &window)?;
-        hide_window(app, &window);
+        hide_panel_only(&window);
     }
     Ok(())
 }
@@ -252,19 +261,12 @@ fn edge_thickness(layout: &str, settings: &settings::ClipboardAssistantSettings)
     }
 }
 
-fn hide_window(app: &AppHandle, window: &WebviewWindow) {
+fn hide_panel_only(window: &WebviewWindow) {
     #[cfg(target_os = "macos")]
     crate::app::windows::clipboard_panel::hide_panel(window);
     #[cfg(not(target_os = "macos"))]
     {
         let _ = window.hide();
-    }
-    if !focus_target::has_captured_target() {
-        if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-            if main.is_visible().unwrap_or(false) {
-                let _ = main.set_focus();
-            }
-        }
     }
 }
 
@@ -287,9 +289,7 @@ fn make_outside_click_callback(app: &AppHandle) -> impl Fn() + Send + Sync + 'st
         if !window.is_visible().unwrap_or(false) {
             return;
         }
-        disarm_dismiss_on_blur();
-        let _ = save_geometry_if_needed(&app, &window);
-        hide_window(&app, &window);
+        let _ = dismiss_palette_window(&app);
     }
 }
 
@@ -340,9 +340,7 @@ fn attach_dismiss_on_blur(window: &WebviewWindow) {
         if !window.is_visible().unwrap_or(false) {
             return;
         }
-        disarm_dismiss_on_blur();
-        let _ = save_geometry_if_needed(&app, &window);
-        hide_window(&app, &window);
+        let _ = dismiss_palette_window(&app);
     });
 }
 

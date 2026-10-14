@@ -1,67 +1,145 @@
-//! 浮层窗口打开前记录前台应用，关闭后切回（命令面板、剪贴板历史等共用）。
+//! 浮层打开前记录焦点目标，关闭后统一还原（命令面板、剪切面板共用）。
+//!
+//! 调用约定：
+//! - 打开前：`capture`
+//! - 粘贴 / Esc 等主动关闭：`restore`（把焦点还回去）
+//! - 点外关闭等被动解散：`discard`（用户已点到别处，不抢焦点）
 
 use std::sync::Mutex;
 
-static FOCUS_TARGET_APP_ID: Mutex<Option<String>> = Mutex::new(None);
+use tauri::{AppHandle, Manager};
 
-/// 打开浮层前记录当前前台应用（跳过 AppX 自身）。
-pub fn capture(own_app_id: &str) {
-    let (app_id, _) = crate::app::platform::frontmost_app();
-    let Some(app_id) = app_id else {
+const MAIN_WINDOW_LABEL: &str = "main";
+
+struct CapturedFocus {
+    /// 平台应用标识（bundle id / 可执行路径 / wm_class:pid）
+    app_id: String,
+    /// AppX 自身：面板 make_key 会抢走 WebView 编辑焦点，还需还原 DOM 节点
+    web_editable: bool,
+}
+
+static TARGET: Mutex<Option<CapturedFocus>> = Mutex::new(None);
+
+/// 打开浮层前记录当前前台目标；每次都会清掉上次残留。
+pub fn capture(app: &AppHandle, own_app_id: &str) {
+    discard();
+
+    let own = crate::app::platform::is_own_app_foreground(own_app_id);
+    let app_id = if own {
+        own_app_id.to_string()
+    } else {
+        let Some(id) = crate::app::platform::frontmost_app().0 else {
+            return;
+        };
+        id
+    };
+
+    if own {
+        capture_own_web_focus(app);
+    }
+
+    if let Ok(mut guard) = TARGET.lock() {
+        *guard = Some(CapturedFocus {
+            app_id,
+            web_editable: own,
+        });
+    }
+}
+
+/// 还原到 `capture` 时的目标（取走后清空，可重复调用）。
+pub fn restore(app: &AppHandle) {
+    let Some(target) = take() else {
         return;
     };
-    if crate::app::platform::is_own_app_foreground(own_app_id) {
+    if target.web_editable {
+        restore_own_web_focus(app);
         return;
     }
-    if let Ok(mut guard) = FOCUS_TARGET_APP_ID.lock() {
-        *guard = Some(app_id);
+    activate_app(&target.app_id);
+}
+
+/// 放弃还原，只清状态（点外关闭、会话锁定等）。
+pub fn discard() {
+    let _ = take();
+}
+
+fn take() -> Option<CapturedFocus> {
+    TARGET.lock().ok().and_then(|mut guard| guard.take())
+}
+
+/// 在面板抢 key 之前记下可编辑节点，供粘贴前还原。
+fn capture_own_web_focus(app: &AppHandle) {
+    let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        return;
+    };
+    let _ = main.eval(
+        r#"(function () {
+  try {
+    var a = document.activeElement;
+    if (!a || a === document.body || a === document.documentElement) {
+      window.__appxPasteTarget = null;
+      return;
     }
+    if (!(a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) {
+      var host = a.closest && a.closest('[contenteditable="true"], [contenteditable=""]');
+      if (!host) {
+        window.__appxPasteTarget = null;
+        return;
+      }
+      a = host;
+    }
+    window.__appxPasteTarget = a;
+  } catch (_) {
+    window.__appxPasteTarget = null;
+  }
+})();"#,
+    );
 }
 
-/// 打开浮层前是否已记录外部前台应用。
-pub fn has_captured_target() -> bool {
-    FOCUS_TARGET_APP_ID
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone())
-        .is_some()
+fn restore_own_web_focus(app: &AppHandle) {
+    let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        return;
+    };
+    if main.is_visible().unwrap_or(false) {
+        let _ = main.set_focus();
+    }
+    let _ = main.eval(
+        r#"(function () {
+  try {
+    var a = window.__appxPasteTarget;
+    window.__appxPasteTarget = null;
+    if (!a || !document.contains(a)) return;
+    a.focus({ preventScroll: true });
+  } catch (_) {}
+})();"#,
+    );
 }
 
-/// 将焦点切回打开浮层前的应用。
-pub fn restore() {
+fn activate_app(app_id: &str) {
     #[cfg(target_os = "macos")]
-    restore_macos();
+    activate_macos(app_id);
     #[cfg(target_os = "windows")]
-    restore_windows();
+    activate_windows(app_id);
     #[cfg(all(unix, not(target_os = "macos")))]
-    restore_linux_x11();
+    activate_linux_x11(app_id);
 }
 
 #[cfg(target_os = "macos")]
-fn restore_macos() {
+fn activate_macos(app_id: &str) {
     use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication};
     use objc2_foundation::NSString;
 
-    let app_id = FOCUS_TARGET_APP_ID
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
-    let Some(app_id) = app_id else {
-        return;
-    };
-
-    let ns_bundle = NSString::from_str(&app_id);
+    let ns_bundle = NSString::from_str(app_id);
     let apps = NSRunningApplication::runningApplicationsWithBundleIdentifier(&ns_bundle);
     if apps.count() == 0 {
         return;
     }
-
     let app = apps.objectAtIndex(0);
     let _ = app.activateWithOptions(NSApplicationActivationOptions::empty());
 }
 
 #[cfg(target_os = "windows")]
-fn restore_windows() {
+fn activate_windows(target: &str) {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
 
@@ -73,14 +151,6 @@ fn restore_windows() {
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow,
-    };
-
-    let target = FOCUS_TARGET_APP_ID
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
-    let Some(target) = target else {
-        return;
     };
 
     struct EnumState {
@@ -127,7 +197,7 @@ fn restore_windows() {
     }
 
     let mut state = EnumState {
-        target,
+        target: target.to_string(),
         found: HWND::default(),
     };
     unsafe {
@@ -142,24 +212,17 @@ fn restore_windows() {
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn restore_linux_x11() {
+fn activate_linux_x11(target: &str) {
     use x11rb::connection::Connection;
     use x11rb::protocol::xproto::{AtomEnum, ConnectionExt as _, PropMode};
     use x11rb::rust_connection::RustConnection;
     use x11rb::wrapper::ConnectionExt as _;
 
-    let target = FOCUS_TARGET_APP_ID
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
-    let Some(target) = target else {
-        return;
-    };
-    let target_pid = target
+    let Some(target_pid) = target
         .split(':')
         .nth(1)
-        .and_then(|s| s.parse::<u32>().ok());
-    let Some(target_pid) = target_pid else {
+        .and_then(|s| s.parse::<u32>().ok())
+    else {
         return;
     };
 
@@ -187,14 +250,7 @@ fn restore_linux_x11() {
 
     for &window in &tree.children {
         let Some(reply) = conn
-            .get_property(
-                false,
-                window,
-                pid_atom,
-                AtomEnum::CARDINAL,
-                0,
-                1,
-            )
+            .get_property(false, window, pid_atom, AtomEnum::CARDINAL, 0, 1)
             .ok()
             .and_then(|c| c.reply().ok())
         else {
