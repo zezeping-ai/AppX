@@ -69,7 +69,7 @@ const { onSearchKeydown, focusSearch } = useFloatingPaletteKeyboard<ClipboardIte
   onEscape: () => void hidePalette(),
   onToggleActionMode: toggleActionMode,
   shortcutActions: {
-    numberKeys: true,
+    // 搜索框聚焦时数字应正常输入，不启用 1–9 快捷粘贴
     onPin: (item) => void togglePin(item),
     onDelete: (item) => confirmDeleteItem(item),
   },

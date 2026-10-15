@@ -52,11 +52,12 @@ const contextMenuItems = computed<MenuProps["items"]>(() => {
     props.item.badges.some((badge) => badge.kind === "rich");
 
   if (rich) {
+    // 与富文本并列时标注「纯文本」，避免「粘贴」含义不清
     items.push(
       {
         key: "pastePlain",
         icon: menuIcon("mdi:content-paste"),
-        label: menuLabel("粘贴"),
+        label: menuLabel("粘贴（纯文本）"),
       },
       {
         key: "pasteRich",
@@ -66,7 +67,7 @@ const contextMenuItems = computed<MenuProps["items"]>(() => {
       {
         key: "copyPlain",
         icon: menuIcon("mdi:content-copy"),
-        label: menuLabel("复制"),
+        label: menuLabel("复制（纯文本）"),
       },
       {
         key: "copyRich",
