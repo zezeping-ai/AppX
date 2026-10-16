@@ -186,27 +186,10 @@ onUnmounted(() => {
             <span class="clipboard-palette__footer-hint">
               {{ isHorizontalList ? "←→ 选择" : "↑↓ 选择" }}
             </span>
-            <span class="clipboard-palette__footer-hint">Tab 切换操作</span>
-            <div class="clipboard-palette__footer-mode">
-              <a-button
-                :type="actionMode === 'paste' ? 'primary' : 'text'"
-                @click="actionMode = 'paste'"
-              >
-                <span class="clipboard-palette__footer-mode-label">
-                  <Icon icon="mdi:content-paste" aria-hidden="true" />
-                  <span>粘贴</span>
-                </span>
-              </a-button>
-              <a-button
-                :type="actionMode === 'copy' ? 'primary' : 'text'"
-                @click="actionMode = 'copy'"
-              >
-                <span class="clipboard-palette__footer-mode-label">
-                  <Icon icon="mdi:content-copy" aria-hidden="true" />
-                  <span>复制</span>
-                </span>
-              </a-button>
-            </div>
+            <span class="clipboard-palette__footer-hint">
+              Enter {{ actionMode === "paste" ? "粘贴" : "复制" }}
+            </span>
+            <span class="clipboard-palette__footer-hint">Tab 切换</span>
             <span class="clipboard-palette__footer-hint">右键更多</span>
             <span class="clipboard-palette__footer-hint">Esc 关闭</span>
           </footer>
@@ -226,19 +209,6 @@ onUnmounted(() => {
   box-sizing: border-box;
   background: var(--app-bg);
   color: var(--app-fg);
-
-  &--topPanel,
-  &--bottomPanel {
-    .clipboard-palette__main {
-      padding-bottom: 0;
-    }
-  }
-
-  &--topPanel {
-    .clipboard-palette__main {
-      padding-top: 0;
-    }
-  }
 
   &--leftPanel,
   &--rightPanel,
@@ -263,25 +233,17 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
   min-width: 0;
-  padding: 12px;
-
-  .clipboard-palette--bottomPanel & {
-    padding-top: 8px;
-  }
-
-  .clipboard-palette--topPanel & {
-    padding-bottom: 8px;
-  }
+  padding: 10px 12px 12px;
 
   .clipboard-palette--leftPanel & {
-    padding: 12px 8px 12px 0;
+    padding: 10px 8px 12px 0;
   }
 
   .clipboard-palette--rightPanel & {
-    padding: 12px 0 12px 8px;
+    padding: 10px 0 12px 8px;
   }
 }
 
@@ -303,38 +265,16 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
-  padding-top: 2px;
+  padding: 4px 0 2px;
   font-size: 12px;
   color: var(--app-fg-muted);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .clipboard-palette__footer-hint {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-}
-
-.clipboard-palette__footer-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-
-  :deep(.ant-btn) {
-    display: inline-flex;
-    align-items: center;
-    padding-inline: 8px;
-    height: 28px;
-  }
-}
-
-.clipboard-palette__footer-mode-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  line-height: 1;
-  font-size: 12px;
 }
 </style>

@@ -3,6 +3,7 @@
 pub mod rich;
 pub mod image;
 pub mod files;
+pub mod sequence;
 pub mod transient;
 
 use std::sync::atomic::{AtomicU32, Ordering};

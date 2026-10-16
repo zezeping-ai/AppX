@@ -23,6 +23,11 @@ export {
   tintVarOfContentType,
 } from "@/modules/clipboardAssistant/contentTypes";
 export {
+  extraBadgesOf,
+  formatItemCreatedAt,
+  itemHasRichFormat,
+} from "@/modules/clipboardAssistant/itemHelpers";
+export {
   contrastTextOnFill,
   normalizeCssColor,
   resolveClipboardColor,

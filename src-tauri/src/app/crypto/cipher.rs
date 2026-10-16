@@ -5,10 +5,12 @@ use aes_gcm::{
 use rand::Rng;
 
 use super::format;
-use super::key::derive_key_from_passphrase;
+use super::key::{derive_key_argon2, derive_key_sha256};
 
 pub fn encrypt_bytes_with_passphrase(passphrase: &str, plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let key = derive_key_from_passphrase(passphrase);
+    let mut salt = [0u8; format::SALT_LEN];
+    rand::rng().fill(&mut salt);
+    let key = derive_key_argon2(passphrase, &salt)?;
     let cipher =
         Aes256Gcm::new_from_slice(&key).map_err(|err| format!("初始化加密器失败：{err}"))?;
 
@@ -20,30 +22,44 @@ pub fn encrypt_bytes_with_passphrase(passphrase: &str, plaintext: &[u8]) -> Resu
         .encrypt(nonce, plaintext)
         .map_err(|err| format!("加密失败：{err}"))?;
 
-    let mut output = Vec::with_capacity(format::HEADER_LEN + ciphertext.len());
+    let mut output = Vec::with_capacity(format::HEADER_LEN_V2 + ciphertext.len());
     output.extend_from_slice(format::MAGIC);
-    output.push(format::VERSION);
+    output.push(format::VERSION_V2);
+    output.extend_from_slice(&salt);
     output.extend_from_slice(&nonce_bytes);
     output.extend_from_slice(&ciphertext);
     Ok(output)
 }
 
 pub fn decrypt_bytes_with_passphrase(passphrase: &str, payload: &[u8]) -> Result<Vec<u8>, String> {
-    if payload.len() < format::HEADER_LEN {
+    if payload.len() < format::HEADER_LEN_V1 {
         return Err("文件过短，不是有效的 AppX 加密格式".to_string());
     }
     if &payload[..4] != format::MAGIC {
         return Err("文件头无效，不是 AppX 加密格式".to_string());
     }
-    if payload[4] != format::VERSION {
-        return Err(format!("不支持的格式版本：{}", payload[4]));
-    }
 
-    let key = derive_key_from_passphrase(passphrase);
+    let version = payload[4];
+    let (key, nonce_start, header_len) = match version {
+        format::VERSION_V1 => {
+            let key = derive_key_sha256(passphrase);
+            (key, 5, format::HEADER_LEN_V1)
+        }
+        format::VERSION_V2 => {
+            if payload.len() < format::HEADER_LEN_V2 {
+                return Err("文件过短，不是有效的 AppX 加密格式（v2）".to_string());
+            }
+            let salt = &payload[5..5 + format::SALT_LEN];
+            let key = derive_key_argon2(passphrase, salt)?;
+            (key, 5 + format::SALT_LEN, format::HEADER_LEN_V2)
+        }
+        other => return Err(format!("不支持的格式版本：{other}")),
+    };
+
     let cipher =
         Aes256Gcm::new_from_slice(&key).map_err(|err| format!("初始化解密器失败：{err}"))?;
-    let nonce = Nonce::from_slice(&payload[5..format::HEADER_LEN]);
-    let ciphertext = &payload[format::HEADER_LEN..];
+    let nonce = Nonce::from_slice(&payload[nonce_start..nonce_start + format::NONCE_LEN]);
+    let ciphertext = &payload[header_len..];
 
     cipher
         .decrypt(nonce, ciphertext)

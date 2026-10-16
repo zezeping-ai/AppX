@@ -1,15 +1,19 @@
-<script lang="tsx" setup>
+<script lang="ts" setup>
+import { Empty as AEmpty, Pagination as APagination } from "ant-design-vue";
+import HistoryGrid from "@/pages/clipboard-assistant/components/HistoryGrid.vue";
 import { useClipboardHistory } from "@/pages/clipboard-assistant/useClipboardHistory";
 
 const {
   status,
   pageBlocked,
   sessionLocked,
+  showSourceAppIcon,
   list,
   listPagination,
-  columns,
-  rowKey,
   onSearch,
+  openDetail,
+  togglePin,
+  removeItem,
   clearUnpinned,
   contentTypes,
 } = useClipboardHistory();
@@ -43,7 +47,7 @@ const {
       "
     />
 
-    <a-card v-else :bordered="false" class="clipboard-assistant-page__card">
+    <div v-else class="clipboard-assistant-page__panel">
       <div class="clipboard-assistant-page__toolbar">
         <a-input
           v-model:value="list.query.keyword"
@@ -70,24 +74,38 @@ const {
         <a-button @click="onSearch">搜索</a-button>
       </div>
 
-      <a-table
-        :columns="columns"
-        :data-source="list.records"
-        :loading="list.isLoading"
-        :pagination="listPagination"
-        :row-key="rowKey"
-        size="small"
-      />
-    </a-card>
+      <div class="clipboard-assistant-page__list">
+        <a-spin :spinning="list.isLoading">
+          <HistoryGrid
+            v-if="list.records.length"
+            :items="list.records"
+            :show-source-app-icon="showSourceAppIcon"
+            @detail="openDetail"
+            @pin="togglePin"
+            @delete="removeItem"
+          />
+          <div v-else class="clipboard-assistant-page__empty">
+            <AEmpty description="暂无历史记录" />
+          </div>
+        </a-spin>
+      </div>
+
+      <div class="clipboard-assistant-page__pager">
+        <APagination v-bind="listPagination" />
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .clipboard-assistant-page {
-  height: 100%;
+  flex: 1;
   min-height: 0;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px 20px 24px;
+  box-sizing: border-box;
 }
 
 .clipboard-assistant-page__header {
@@ -96,6 +114,7 @@ const {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .clipboard-assistant-page__title {
@@ -112,10 +131,19 @@ const {
 
 .clipboard-assistant-page__alert {
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
-.clipboard-assistant-page__card {
+.clipboard-assistant-page__panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--app-surface);
+  border-radius: 8px;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
 }
 
 .clipboard-assistant-page__toolbar {
@@ -123,19 +151,26 @@ const {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
-:deep(.clipboard-assistant-page__detail-text) {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+.clipboard-assistant-page__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
-:deep(.clipboard-assistant-page__detail-files) {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 12px;
+.clipboard-assistant-page__empty {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clipboard-assistant-page__pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 </style>

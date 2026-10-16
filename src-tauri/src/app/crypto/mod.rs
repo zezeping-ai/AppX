@@ -1,4 +1,4 @@
-//! AppX 公共加密能力（AES-256-GCM，口令经 SHA-256 派生密钥）
+//! AppX 公共加密能力（AES-256-GCM；新文件 Argon2id 派生，兼容旧版 SHA-256）
 
 mod cipher;
 pub mod commands;

@@ -1,6 +1,7 @@
 mod commands;
 mod guard;
 mod model;
+mod pin;
 mod runtime;
 mod state;
 mod storage;

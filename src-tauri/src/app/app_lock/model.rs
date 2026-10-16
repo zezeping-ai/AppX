@@ -11,6 +11,9 @@ pub struct AppLockSettings {
     /// 从托盘/隐藏状态再次显示主窗口时锁定
     #[serde(default)]
     pub lock_on_window_show: bool,
+    /// 解锁 PIN 的 Argon2id PHC 哈希；空表示尚未设置（旧配置兼容）
+    #[serde(default)]
+    pub unlock_pin_hash: Option<String>,
 }
 
 impl Default for AppLockSettings {
@@ -19,6 +22,7 @@ impl Default for AppLockSettings {
             enabled: false,
             lock_on_startup: true,
             lock_on_window_show: false,
+            unlock_pin_hash: None,
         }
     }
 }
@@ -29,6 +33,15 @@ pub struct SaveAppLockSettingsInput {
     pub enabled: bool,
     pub lock_on_startup: bool,
     pub lock_on_window_show: bool,
+    /// 设置或更换解锁 PIN；`None` 表示不改动已有哈希
+    #[serde(default)]
+    pub unlock_pin: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnlockSessionInput {
+    pub pin: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -38,6 +51,8 @@ pub struct AppLockSettingsView {
     pub lock_on_startup: bool,
     pub lock_on_window_show: bool,
     pub session_locked: bool,
+    /// 是否已配置解锁 PIN（后端校验所需）
+    pub has_unlock_pin: bool,
 }
 
 pub fn to_view(settings: &AppLockSettings, session_locked: bool) -> AppLockSettingsView {
@@ -46,6 +61,11 @@ pub fn to_view(settings: &AppLockSettings, session_locked: bool) -> AppLockSetti
         lock_on_startup: settings.lock_on_startup,
         lock_on_window_show: settings.lock_on_window_show,
         session_locked,
+        has_unlock_pin: settings
+            .unlock_pin_hash
+            .as_ref()
+            .map(|h| !h.is_empty())
+            .unwrap_or(false),
     }
 }
 

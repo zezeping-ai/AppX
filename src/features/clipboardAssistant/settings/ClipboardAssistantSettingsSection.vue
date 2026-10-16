@@ -33,6 +33,12 @@ const maxHistoryItems = ref(500);
 const paletteLayout = ref<PaletteLayout>("bottomPanel");
 const paletteMaxItems = ref(80);
 const autoHideOnPaste = ref(true);
+const autoHideOnClickOutside = ref(true);
+const openSearchOnShow = ref(true);
+const rememberWindowPosition = ref(true);
+const showSourceAppIcon = ref(true);
+const dedupeMode = ref("consecutive");
+const excludedAppsText = ref("");
 const clearOnLock = ref(false);
 const copySoundEnabled = ref(true);
 const pasteSoundEnabled = ref(true);
@@ -40,6 +46,17 @@ const copySoundPath = ref("");
 const pasteSoundPath = ref("");
 
 let lastPersistedShortcut = paletteShortcut.value;
+
+function parseExcludedApps(text: string): string[] {
+  return text
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function formatExcludedApps(apps: string[] | undefined): string {
+  return (apps ?? []).join("\n");
+}
 
 const featuresActive = computed(() => enabled.value);
 const paletteActive = computed(() => featuresActive.value && paletteEnabled.value);
@@ -55,6 +72,12 @@ function applySettings(settings: ClipboardAssistantSettings) {
   paletteLayout.value = normalizePaletteLayout(settings.paletteLayout);
   paletteMaxItems.value = settings.paletteMaxItems;
   autoHideOnPaste.value = settings.autoHideOnPaste;
+  autoHideOnClickOutside.value = settings.autoHideOnClickOutside;
+  openSearchOnShow.value = settings.openSearchOnShow;
+  rememberWindowPosition.value = settings.rememberWindowPosition;
+  showSourceAppIcon.value = settings.showSourceAppIcon;
+  dedupeMode.value = settings.dedupeMode || "consecutive";
+  excludedAppsText.value = formatExcludedApps(settings.excludedApps);
   clearOnLock.value = settings.clearOnLock;
   copySoundEnabled.value = settings.copySoundEnabled ?? true;
   pasteSoundEnabled.value = settings.pasteSoundEnabled ?? true;
@@ -75,6 +98,12 @@ function currentInput(): ClipboardAssistantSettings {
     paletteLayout: paletteLayout.value,
     paletteMaxItems: paletteMaxItems.value,
     autoHideOnPaste: autoHideOnPaste.value,
+    autoHideOnClickOutside: autoHideOnClickOutside.value,
+    openSearchOnShow: openSearchOnShow.value,
+    rememberWindowPosition: rememberWindowPosition.value,
+    showSourceAppIcon: showSourceAppIcon.value,
+    dedupeMode: dedupeMode.value,
+    excludedApps: parseExcludedApps(excludedAppsText.value),
     clearOnLock: clearOnLock.value,
     copySoundEnabled: copySoundEnabled.value,
     pasteSoundEnabled: pasteSoundEnabled.value,
@@ -169,6 +198,41 @@ async function onPaletteMaxItemsChange(value: number | string | null) {
 async function onToggleAutoHideOnPaste(checked: boolean) {
   autoHideOnPaste.value = checked;
   await persistSettings(checked ? "已开启：粘贴后关闭剪切面板" : "已关闭：粘贴后关闭剪切面板");
+}
+
+async function onToggleAutoHideOnClickOutside(checked: boolean) {
+  autoHideOnClickOutside.value = checked;
+  await persistSettings(checked ? "已开启：点击外部关闭面板" : "已关闭：点击外部关闭面板");
+}
+
+async function onToggleOpenSearchOnShow(checked: boolean) {
+  openSearchOnShow.value = checked;
+  await persistSettings(checked ? "已开启：打开面板时聚焦搜索" : "已关闭：打开面板时聚焦搜索");
+}
+
+async function onToggleRememberWindowPosition(checked: boolean) {
+  rememberWindowPosition.value = checked;
+  await persistSettings(checked ? "已开启：记住面板位置" : "已关闭：记住面板位置");
+}
+
+async function onToggleShowSourceAppIcon(checked: boolean) {
+  showSourceAppIcon.value = checked;
+  await persistSettings(checked ? "已开启：显示来源应用图标" : "已关闭：显示来源应用图标");
+}
+
+async function onDedupeModeChange(value: string) {
+  if (saving.value || loading.value || !featuresActive.value) return;
+  if (value === dedupeMode.value) return;
+  dedupeMode.value = value;
+  await persistSettings("去重策略已更新");
+}
+
+async function onExcludedAppsBlur() {
+  if (saving.value || loading.value || !featuresActive.value) return;
+  const next = parseExcludedApps(excludedAppsText.value);
+  const prev = loadedSettings.value?.excludedApps ?? [];
+  if (next.join("\n") === prev.join("\n")) return;
+  await persistSettings("排除应用已更新");
 }
 
 async function onToggleClearOnLock(checked: boolean) {
@@ -328,6 +392,79 @@ onMounted(() => {
                 :checked="autoHideOnPaste"
                 :disabled="!featuresActive || saving || loading"
                 @update:checked="onToggleAutoHideOnPaste"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">点击外部关闭面板</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="autoHideOnClickOutside"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleAutoHideOnClickOutside"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">打开时聚焦搜索</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="openSearchOnShow"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleOpenSearchOnShow"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">记住面板位置</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="rememberWindowPosition"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleRememberWindowPosition"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">显示来源应用图标</span>
+            <div class="clipboard-settings__value">
+              <a-switch
+                size="small"
+                :checked="showSourceAppIcon"
+                :disabled="!featuresActive || saving || loading"
+                @update:checked="onToggleShowSourceAppIcon"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row">
+            <span class="clipboard-settings__label">去重策略</span>
+            <div class="clipboard-settings__value">
+              <a-select
+                :value="dedupeMode"
+                size="small"
+                style="width: 160px"
+                :disabled="!featuresActive || saving || loading"
+                :options="[
+                  { value: 'consecutive', label: '连续重复去重' },
+                  { value: 'none', label: '不去重' },
+                ]"
+                @update:value="onDedupeModeChange"
+              />
+            </div>
+          </div>
+          <div class="clipboard-settings__row clipboard-settings__row--top">
+            <span class="clipboard-settings__label">排除应用</span>
+            <div class="clipboard-settings__value clipboard-settings__value--block">
+              <a-textarea
+                v-model:value="excludedAppsText"
+                size="small"
+                :rows="3"
+                placeholder="每行一个 Bundle ID / 可执行路径"
+                :disabled="!featuresActive || saving || loading"
+                @blur="onExcludedAppsBlur"
               />
             </div>
           </div>
@@ -501,6 +638,12 @@ onMounted(() => {
   & + & {
     border-top: 1px solid var(--app-border, rgba(0, 0, 0, 0.06));
   }
+
+  &--top {
+    align-items: start;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
 }
 
 .clipboard-settings__label {
@@ -514,6 +657,10 @@ onMounted(() => {
   justify-content: flex-end;
   align-items: center;
   min-width: 0;
+
+  &--block {
+    display: block;
+  }
 }
 
 .clipboard-settings__number {

@@ -10,12 +10,14 @@ import {
   ConfigProvider,
   Divider,
   Dropdown,
+  Empty,
   Form,
   Input,
   InputNumber,
   Layout,
   Menu,
   Modal,
+  Pagination,
   Radio,
   Row,
   Select,
@@ -92,6 +94,10 @@ const register = (name: string, component: any) => {
     register(component.name, component);
   }
 });
+
+// 走官方 install，确保 AEmpty / APagination 名称注册完整
+app.use(Empty);
+app.use(Pagination);
 
 register("ATypographyTitle", Typography.Title);
 register("ATypographyText", Typography.Text);

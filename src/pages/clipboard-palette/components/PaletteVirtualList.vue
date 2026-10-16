@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { useResizeObserver, useVirtualList } from "@vueuse/core";
-import { computed, nextTick, ref, watch, type ComponentPublicInstance } from "vue";
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type ComponentPublicInstance,
+} from "vue";
 import type { ClipboardItemSummary } from "@/modules/clipboardAssistant";
 import {
   PALETTE_ITEM_GAP,
@@ -40,6 +48,38 @@ const SCROLLBAR_RESERVE = 10;
 const scrollEl = ref<HTMLElement | null>(null);
 const viewportHeight = ref(0);
 const horizontalContentOverflows = ref(false);
+
+/**
+ * 键盘导航滚动后，静止光标下的卡片会冒泡 mouseenter，导致跳选。
+ * 仅在指针真正移动后才允许 hover 改选。
+ */
+let hoverSelectArmed = false;
+let lastPointerX = Number.NaN;
+let lastPointerY = Number.NaN;
+
+function onWindowPointerMove(event: PointerEvent) {
+  if (event.clientX === lastPointerX && event.clientY === lastPointerY) return;
+  lastPointerX = event.clientX;
+  lastPointerY = event.clientY;
+  hoverSelectArmed = true;
+}
+
+function suppressHoverSelect() {
+  hoverSelectArmed = false;
+}
+
+function onItemPointerEnter(index: number) {
+  if (!hoverSelectArmed) return;
+  emit("activeIndex", index);
+}
+
+onMounted(() => {
+  window.addEventListener("pointermove", onWindowPointerMove, { passive: true });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("pointermove", onWindowPointerMove);
+});
 
 function updateViewportMetrics() {
   const el = scrollEl.value;
@@ -103,10 +143,11 @@ function scrollHorizontalTo(index: number) {
   el.scrollLeft = Math.min(targetLeft, maxLeft);
 }
 
-/** 仅由键盘导航 / 打开面板时显式调用，勿在 activeIndex 变化时自动滚（会与 mouseenter 形成反馈环） */
+/** 仅由键盘导航 / 打开面板时显式调用；滚动前压制 hover，避免静止光标跳选 */
 function scrollToActiveIndex() {
   const index = props.activeIndex;
   if (index < 0) return;
+  suppressHoverSelect();
   if (props.horizontal) {
     scrollHorizontalTo(index);
     return;
@@ -148,7 +189,7 @@ function onHorizontalWheel(event: WheelEvent) {
             width: `${itemWidth}px`,
             height: `${resolvedItemHeight}px`,
           }"
-          @mouseenter="emit('activeIndex', index)"
+          @pointerenter="onItemPointerEnter(index)"
           @contextmenu="emit('activeIndex', index)"
         >
           <PaletteItemCard
@@ -174,7 +215,7 @@ function onHorizontalWheel(event: WheelEvent) {
           :key="item.id"
           class="palette-virtual__item"
           :style="{ height: `${itemHeight}px` }"
-          @mouseenter="emit('activeIndex', index)"
+          @pointerenter="onItemPointerEnter(index)"
           @contextmenu="emit('activeIndex', index)"
         >
           <PaletteItemCard

@@ -20,7 +20,7 @@ pub struct ImageCapture {
 
 /// 单次读取系统剪贴板（Classifier 前唯一读盘点）。
 pub fn read_once() -> Result<ClipboardRead, String> {
-  clipboard::with_pasteboard_lock(read_once_inner)
+    clipboard::with_pasteboard_lock(read_once_inner)
 }
 
 fn read_once_inner() -> Result<ClipboardRead, String> {
@@ -61,9 +61,16 @@ pub fn fingerprint(read: &ClipboardRead) -> String {
     }
     if let Some(img) = &read.image {
         hasher.update(b"img:");
-        hasher.update(&img.bytes[..img.bytes.len().min(4096)]);
+        // 尺寸 + 首尾采样，避免每次哈希整图前 4KB
         hasher.update(img.width.to_le_bytes());
         hasher.update(img.height.to_le_bytes());
+        hasher.update(img.bytes.len().to_le_bytes());
+        let n = img.bytes.len().min(256);
+        hasher.update(&img.bytes[..n]);
+        if img.bytes.len() > 256 {
+            let start = img.bytes.len() - 256;
+            hasher.update(&img.bytes[start..]);
+        }
     }
     if let Some(text) = &read.text {
         hasher.update(b"text:");
@@ -86,13 +93,41 @@ pub fn fingerprint(read: &ClipboardRead) -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn read_macos_files() -> Option<Vec<String>> {
-  use std::process::Command;
+fn pasteboard_may_contain_files() -> bool {
+    use objc2_app_kit::NSPasteboard;
 
-  let output = Command::new("osascript")
-    .args([
-      "-e",
-      r#"
+    let pasteboard = NSPasteboard::generalPasteboard();
+    let Some(types) = pasteboard.types() else {
+        return false;
+    };
+    // 无文件类型时跳过 osascript；常见：public.file-url / NSFilenamesPboardType
+    for ty in types.iter() {
+        let s = ty.to_string();
+        if s == "public.file-url"
+            || s == "NSFilenamesPboardType"
+            || s == "com.apple.pasteboard.promised-file-url"
+            || s.contains("file-url")
+            || s.contains("Filenames")
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(target_os = "macos")]
+fn read_macos_files() -> Option<Vec<String>> {
+    use std::process::Command;
+
+    // 无文件类型时跳过昂贵的 osascript
+    if !pasteboard_may_contain_files() {
+        return None;
+    }
+
+    let output = Command::new("osascript")
+        .args([
+            "-e",
+            r#"
         try
           set fileList to {}
           repeat with itemRef in (the clipboard as list)
@@ -110,24 +145,24 @@ fn read_macos_files() -> Option<Vec<String>> {
           return ""
         end try
       "#,
-    ])
-    .output()
-    .ok()?;
-  if !output.status.success() {
-    return None;
-  }
-  let text = String::from_utf8_lossy(&output.stdout);
-  let paths: Vec<String> = text
-    .lines()
-    .map(str::trim)
-    .filter(|line| !line.is_empty() && std::path::Path::new(line).exists())
-    .map(str::to_string)
-    .collect();
-  if paths.is_empty() {
-    None
-  } else {
-    Some(paths)
-  }
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let paths: Vec<String> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && std::path::Path::new(line).exists())
+        .map(str::to_string)
+        .collect();
+    if paths.is_empty() {
+        None
+    } else {
+        Some(paths)
+    }
 }
 
 pub fn frontmost_app() -> (Option<String>, Option<String>) {

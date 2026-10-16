@@ -5,6 +5,7 @@ import { Icon } from "@iconify/vue";
 import type { MenuProps } from "ant-design-vue";
 import {
   contrastTextOnFill,
+  itemHasRichFormat,
   resolveClipboardColor,
   tintVarOfContentType,
   type ClipboardItemSummary,
@@ -46,12 +47,7 @@ function menuLabel(text: string, hint?: string) {
 
 const contextMenuItems = computed<MenuProps["items"]>(() => {
   const items: MenuProps["items"] = [];
-  // hasRichFormat 与「富文本」徽章任一成立即展示富文本操作
-  const rich =
-    props.item.hasRichFormat ||
-    props.item.badges.some((badge) => badge.kind === "rich");
-
-  if (rich) {
+  if (itemHasRichFormat(props.item)) {
     // 与富文本并列时标注「纯文本」，避免「粘贴」含义不清
     items.push(
       {
@@ -257,7 +253,33 @@ watchEffect(() => {
 
   &--active {
     border-color: var(--app-active-fg);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-active-fg) 35%, transparent);
+    border-width: 2px;
+    // 边框加宽后抵消位移，避免选中时卡片跳动
+    padding: 9px 9px 9px 13px;
+    background: color-mix(in srgb, var(--app-active-bg) 55%, var(--app-surface));
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--app-active-fg) 28%, transparent),
+      0 4px 14px color-mix(in srgb, var(--app-active-fg) 18%, transparent);
+
+    .palette-card__accent {
+      width: 5px;
+      background: var(--app-active-fg);
+    }
+
+    &.palette-card--neutral-bg {
+      background: color-mix(in srgb, var(--app-active-bg) 70%, var(--app-surface));
+    }
+
+    // 颜色块保留原底色，只靠描边/光晕区分
+    &.palette-card--color {
+      background: var(--color-fill);
+    }
+
+    &.palette-card--image {
+      padding-top: 5px;
+      padding-bottom: 5px;
+      padding-right: 7px;
+    }
   }
 
   &--neutral-bg {

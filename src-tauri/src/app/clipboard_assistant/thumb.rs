@@ -7,7 +7,8 @@ use image::{DynamicImage, ImageFormat, RgbaImage};
 
 use super::db::thumb_path;
 
-const THUMB_MAX: u32 = 560;
+/// 列表/面板预览足够清晰，过大只徒增编解码成本
+const THUMB_MAX: u32 = 320;
 
 /// 解码剪贴板图片：优先识别编码格式，否则按 arboard 原始 RGBA 像素解析。
 pub fn decode_image(bytes: &[u8], dimensions: Option<(u32, u32)>) -> Result<DynamicImage, String> {

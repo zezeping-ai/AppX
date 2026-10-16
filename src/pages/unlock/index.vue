@@ -10,11 +10,14 @@ import {
   unlockAppLockSession,
 } from "@/modules/appLock";
 import { bootstrapAfterUnlock } from "@/modules/bootstrapAfterUnlock";
+import { getErrorMessage } from "@/shared/error";
 
 const router = useRouter();
 const route = useRoute();
 
 const loading = ref(false);
+const unlocking = ref(false);
+const pin = ref("");
 const view = ref<Awaited<ReturnType<typeof getAppLockSettings>> | null>(null);
 const biometryStatus = ref<Awaited<ReturnType<typeof getBiometryStatusView>> | null>(null);
 
@@ -23,12 +26,14 @@ const redirectTo = computed(() => {
   return typeof raw === "string" && raw.trim() ? raw : "/editor";
 });
 
+const needsPin = computed(() => view.value?.hasUnlockPin ?? false);
+
 async function refresh() {
   loading.value = true;
   try {
     view.value = await getAppLockSettings();
   } catch (error) {
-    message.error(String(error));
+    message.error(getErrorMessage(error, "加载应用锁状态失败"));
   } finally {
     loading.value = false;
   }
@@ -38,25 +43,45 @@ async function refreshBiometryStatus() {
   biometryStatus.value = await getBiometryStatusView();
 }
 
-async function unlockAndRedirect() {
+async function unlockAndRedirect(pinValue: string) {
+  unlocking.value = true;
   try {
-    await unlockAppLockSession();
+    await unlockAppLockSession({ pin: pinValue });
     await bootstrapAfterUnlock().catch((error) => {
       console.warn("[bootstrap] post-unlock sync failed:", error);
     });
     await router.replace(redirectTo.value);
   } catch (error) {
-    message.error(String(error));
+    message.error(getErrorMessage(error, "解锁失败"));
+  } finally {
+    unlocking.value = false;
   }
+}
+
+async function onSubmitPin() {
+  if (needsPin.value && !pin.value.trim()) {
+    message.warning("请输入解锁 PIN");
+    return;
+  }
+  await unlockAndRedirect(pin.value);
 }
 
 async function tryBiometry() {
   try {
     await authenticateBiometry("请验证以解锁 AppX");
-    await unlockAndRedirect();
+    // 生物识别仅作身份确认，解锁仍须后端校验 PIN
+    if (needsPin.value) {
+      if (pin.value.trim()) {
+        await unlockAndRedirect(pin.value);
+      } else {
+        message.info("生物识别通过，请输入解锁 PIN");
+      }
+      return;
+    }
+    await unlockAndRedirect("");
   } catch (error) {
     if (isBiometryUserDismissed(error)) return;
-    message.error(String(error));
+    message.error(getErrorMessage(error, "生物识别失败"));
   }
 }
 
@@ -70,7 +95,7 @@ onMounted(async () => {
     return;
   }
 
-  if (biometryStatus.value?.available) {
+  if (biometryStatus.value?.available && !needsPin.value) {
     await tryBiometry();
   }
 });
@@ -83,7 +108,11 @@ onMounted(async () => {
         <div>
           <a-typography-title :level="4" class="m-0!">解锁 AppX</a-typography-title>
           <a-typography-text type="secondary" class="text-[12px]">
-            可使用生物识别或设备登录密码解锁
+            {{
+              needsPin
+                ? "请输入解锁 PIN；可先使用生物识别确认身份"
+                : "可使用生物识别解锁（建议尽快在偏好设置中配置 PIN）"
+            }}
           </a-typography-text>
         </div>
 
@@ -100,21 +129,27 @@ onMounted(async () => {
           show-icon
         />
 
+        <a-input-password
+          v-model:value="pin"
+          size="large"
+          placeholder="解锁 PIN"
+          :maxlength="64"
+          :disabled="unlocking"
+          @press-enter="onSubmitPin"
+        />
+
         <a-space>
+          <a-button type="primary" :loading="unlocking" @click="onSubmitPin">
+            解锁
+          </a-button>
           <a-button
             v-if="biometryStatus?.available"
-            type="primary"
+            :disabled="unlocking"
             @click="tryBiometry"
           >
-            使用生物识别解锁
+            使用生物识别
           </a-button>
         </a-space>
-        <a-alert
-          v-if="biometryStatus && !biometryStatus.available"
-          type="warning"
-          message="当前设备不可用生物识别，请在支持生物识别的设备上使用应用锁。"
-          show-icon
-        />
       </a-space>
     </a-card>
   </div>
