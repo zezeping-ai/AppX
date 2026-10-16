@@ -147,7 +147,7 @@ pub fn start_listener(app: AppHandle) -> Result<(), String> {
     stub::start_listener(app)
 }
 
-/// 在 refresh_runtime 中于 snippet 快捷键重注册之后调用。
+/// 在本域 provider 中于 snippet 快捷键重注册之后调用。
 pub fn refresh_trigger(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {

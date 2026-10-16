@@ -1,7 +1,6 @@
 //! 向 runtime 协调器注册会话锁/解锁回调，避免 app_lock 直接依赖本模块
 
 use tauri::AppHandle;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 use crate::app::code_snippets;
 use crate::app::palette;
@@ -14,13 +13,12 @@ pub fn register_hooks() {
 
 fn on_locked(app: &AppHandle) -> Result<(), String> {
     code_snippets::set_expansion_paused(true);
-    app.global_shortcut()
-        .unregister_all()
-        .map_err(|err| format!("取消注册全局快捷键失败：{err}"))?;
+    // 全局快捷键清空由 global_shortcut::setup 的 on_locked 统一处理
     palette::dismiss_palette_window(app)
 }
 
-fn on_unlocked(app: &AppHandle) -> Result<(), String> {
+fn on_unlocked(_app: &AppHandle) -> Result<(), String> {
+    // 快捷键由 global_shortcut::setup 在解锁链末尾统一 refresh_all
     code_snippets::set_expansion_paused(false);
-    code_snippets::refresh_runtime(app)
+    Ok(())
 }

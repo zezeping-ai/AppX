@@ -28,12 +28,14 @@ pub use commands::*;
 pub use protocol::register_protocols;
 
 use crate::app::app_lock::is_session_locked;
+use crate::app::global_shortcut;
 
 use state::ClipboardAssistantState;
 
 pub fn setup(app: &AppHandle) -> Result<(), String> {
     session::register_hooks();
     settings::load_runtime_flags(app);
+    global_shortcut::register_provider(register_shortcut);
 
     let conn = db::open_db(&db::db_path(app)?)?;
     let _ = db::refresh_text_previews(&conn);
@@ -56,6 +58,8 @@ pub fn setup(app: &AppHandle) -> Result<(), String> {
     // 仅未锁定时预创建；锁定启动时创建会干扰主窗口激活/解锁页
     if !is_session_locked(app) {
         palette::ensure_window_ready(app);
+        // 本域 provider 刚注册；再刷一次以带上剪切助手快捷键
+        global_shortcut::refresh_all(app)?;
     }
 
     Ok(())
@@ -82,5 +86,5 @@ pub fn refresh_runtime(app: &AppHandle) -> Result<(), String> {
 pub fn sync_runtime(app: &AppHandle) -> Result<(), String> {
     refresh_runtime(app)?;
     palette::ensure_window_ready(app);
-    crate::app::code_snippets::refresh_runtime(app)
+    global_shortcut::refresh_all(app)
 }

@@ -25,5 +25,6 @@ fn on_unlocked(app: &AppHandle) -> Result<(), String> {
         ingest::restart_monitoring(app)?;
     }
     palette::ensure_window_ready(app);
-    crate::app::code_snippets::refresh_runtime(app)
+    // 快捷键由 global_shortcut::setup 在解锁链末尾统一 refresh_all
+    Ok(())
 }

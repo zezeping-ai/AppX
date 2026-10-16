@@ -35,6 +35,8 @@ pub fn run() {
             app::app_lock::setup(app.handle(), app.state())?;
             app::code_snippets::setup(app.handle())?;
             app::clipboard_assistant::setup(app.handle())?;
+            // 须在各域 register_provider 之后，解锁时才能刷齐全部快捷键
+            app::global_shortcut::setup();
             app::menu::setup(app)?;
             app::tray::setup(app)?;
             app::updates::schedule_startup_update_check(app.handle());
