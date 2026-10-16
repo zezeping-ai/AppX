@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { message } from "ant-design-vue";
 import { useClipboard } from "@vueuse/core";
 import { useThemePreferences, type ThemeMode } from "@/features/appearance";
@@ -69,7 +69,7 @@ onMounted(() => {
           <template #suffix>
             <a-tooltip title="复制路径">
               <a-button type="text" size="small" :disabled="!dbPath" @click="onCopyPath">
-                <Icon icon="mdi:content-copy" width="14" height="14" />
+                <Icon icon="mdi:content-copy" :size="14" />
               </a-button>
             </a-tooltip>
           </template>
@@ -77,7 +77,7 @@ onMounted(() => {
         <a-space size="small">
           <a-button size="small" :loading="revealing" :disabled="!dbPath" @click="onRevealInFolder">
             <template #icon>
-              <Icon icon="mdi:folder-open-outline" width="14" height="14" />
+              <Icon icon="mdi:folder-open-outline" :size="14" />
             </template>
             在文件管理器中显示
           </a-button>

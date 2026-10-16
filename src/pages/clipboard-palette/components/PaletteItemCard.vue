@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, ref, watchEffect } from "vue";
 import { useElementSize } from "@vueuse/core";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import type { MenuProps } from "ant-design-vue";
 import {
   contrastTextOnFill,
@@ -34,7 +34,7 @@ const emit = defineEmits<{
 
 /** a-menu items.label / icon 要直接给 VNode，传函数会被 toString 成源码 */
 function menuIcon(name: string) {
-  return h(Icon, { icon: name, width: 15, height: 15 });
+  return h(Icon, { icon: name, size: 15 });
 }
 
 /** 文案 + 右侧快捷键提示，与文件树右键菜单风格对齐 */
@@ -195,7 +195,7 @@ watchEffect(() => {
           <span v-if="item.sourceAppName" class="palette-card__app-name">{{ item.sourceAppName }}</span>
         </div>
         <span v-if="item.pinned" class="palette-card__pin" title="已固定">
-          <Icon icon="mdi:pin" aria-hidden="true" />
+          <Icon icon="mdi:pin" />
         </span>
         <span v-for="badge in item.badges" :key="badge.kind" class="palette-card__badge">
           {{ badge.label }}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { computed, nextTick, ref, toRef, watch } from "vue";
 import ExplorerInlineInput from "@/pages/editor/components/FileExplorer/ExplorerInlineInput/index.vue";
 import ExplorerNode from "@/pages/editor/components/FileExplorer/ExplorerNode/index.vue";
@@ -540,7 +540,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="onHeaderNewFile"
         >
-          <Icon icon="mdi:file-code-outline" width="15" height="15" />
+          <Icon icon="mdi:file-code-outline" :size="15" />
         </button>
         <button
           type="button"
@@ -549,7 +549,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="onHeaderNewDoc"
         >
-          <Icon icon="mdi:notebook-edit-outline" width="15" height="15" />
+          <Icon icon="mdi:notebook-edit-outline" :size="15" />
         </button>
         <button
           type="button"
@@ -558,7 +558,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="onHeaderNewFolder"
         >
-          <Icon icon="mdi:folder-plus-outline" width="15" height="15" />
+          <Icon icon="mdi:folder-plus-outline" :size="15" />
         </button>
         <button
           type="button"
@@ -567,7 +567,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="emit('refresh')"
         >
-          <Icon icon="mdi:refresh" width="15" height="15" />
+          <Icon icon="mdi:refresh" :size="15" />
         </button>
         <button
           type="button"
@@ -576,7 +576,7 @@ const showRootInline = computed(() => {
           :disabled="!workspaceRoot"
           @click="collapseAll"
         >
-          <Icon icon="mdi:unfold-less-horizontal" width="15" height="15" />
+          <Icon icon="mdi:unfold-less-horizontal" :size="15" />
         </button>
       </div>
     </div>
@@ -633,10 +633,9 @@ const showRootInline = computed(() => {
       >
         <Icon
           :icon="ghost.icon"
-          width="14"
-          height="14"
           class="file-explorer__drag-ghost-icon"
           :style="ghost.iconColor ? { color: ghost.iconColor } : undefined"
+          :size="14"
         />
         <span class="file-explorer__drag-ghost-label">{{ ghost.title }}</span>
       </div>
@@ -661,9 +660,8 @@ const showRootInline = computed(() => {
             <Icon
               v-if="action.icon"
               :icon="action.icon"
-              width="15"
-              height="15"
               class="file-explorer__context-icon"
+              :size="15"
             />
             <span class="file-explorer__context-label">{{ action.label }}</span>
             <span v-if="action.hint" class="file-explorer__context-hint">{{ action.hint }}</span>

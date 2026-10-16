@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import {
   getStatus,
   type ClipboardItemSummary,
@@ -161,7 +161,7 @@ onUnmounted(() => {
             @keydown="onSearchKeydown"
           >
             <template #prefix>
-              <Icon icon="mdi:magnify" class="clipboard-palette__search-icon" aria-hidden="true" />
+              <Icon icon="mdi:magnify" class="clipboard-palette__search-icon" />
             </template>
           </a-input>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import type { PaletteSourceTab } from "@/pages/clipboard-palette/useClipboardPalette";
 
 defineProps<{
@@ -26,7 +26,7 @@ const emit = defineEmits<{
       title="全部"
       @click="emit('select', undefined)"
     >
-      <Icon icon="mdi:view-grid-outline" aria-hidden="true" />
+      <Icon icon="mdi:view-grid-outline" />
     </button>
     <button
       v-for="source in sources"
@@ -43,7 +43,7 @@ const emit = defineEmits<{
         class="palette-source-tabs__icon"
         alt=""
       />
-      <Icon v-else icon="mdi:application-outline" aria-hidden="true" />
+      <Icon v-else icon="mdi:application-outline" />
     </button>
   </nav>
 </template>

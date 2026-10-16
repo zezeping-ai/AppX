@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 
 withDefaults(
   defineProps<{
@@ -35,7 +35,7 @@ const emit = defineEmits<{
       <div class="editor-palette__backdrop" @click="emit('close')" />
       <div class="editor-palette__panel" :class="`editor-palette__panel--${variant}`">
         <div class="editor-palette__search">
-          <Icon :icon="searchIcon" class="editor-palette__search-icon" aria-hidden="true" />
+          <Icon :icon="searchIcon" class="editor-palette__search-icon" />
           <slot name="input" />
           <slot name="searchExtras" />
         </div>

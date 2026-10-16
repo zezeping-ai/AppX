@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import {
   EditorPaletteOverlay,
   resolvePaletteFileIcon,
@@ -169,7 +169,6 @@ function selectAt(index: number) {
           :icon="item.icon.icon"
           class="editor-palette__file-icon"
           :style="{ color: item.icon.color }"
-          aria-hidden="true"
         />
         <div class="quick-open__meta">
           <div class="quick-open__name">

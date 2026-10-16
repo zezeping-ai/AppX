@@ -32,11 +32,11 @@ import {
 import "ant-design-vue/dist/reset.css";
 import AppRoot from "@/App.vue";
 import { router } from "@/router";
-import { setupLocalIcons } from "@/shared/iconify";
+import { setupIconify } from "@/components/Icon";
 import "@/styles/tailwind.css";
 import "@/styles/global.scss";
 
-setupLocalIcons();
+setupIconify();
 
 const app = createApp(AppRoot);
 

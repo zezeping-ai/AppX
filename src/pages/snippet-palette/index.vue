@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import type { MenuProps } from "ant-design-vue";
 import {
   iconOfSnippetGroup,
@@ -106,7 +106,7 @@ onUnmounted(() => {
         @keydown="onSearchKeydown"
       >
         <template #prefix>
-          <Icon icon="mdi:magnify" class="snippet-palette__search-icon" aria-hidden="true" />
+          <Icon icon="mdi:magnify" class="snippet-palette__search-icon" />
         </template>
       </a-input>
 
@@ -128,7 +128,7 @@ onUnmounted(() => {
           :class="{ 'snippet-palette__group--active': selectedGroup === group.value }"
           @click="selectGroup(group.value)"
         >
-          <Icon :icon="group.icon" class="snippet-palette__group-icon" aria-hidden="true" />
+          <Icon :icon="group.icon" class="snippet-palette__group-icon" />
           {{ group.label }}
           <span class="snippet-palette__group-count">{{ group.count }}</span>
         </button>
@@ -150,7 +150,7 @@ onUnmounted(() => {
               <div class="snippet-palette__item-main">
                 <div class="snippet-palette__item-title">
                   <span class="snippet-palette__group-tag">
-                    <Icon :icon="iconOfSnippetGroup(item.group)" aria-hidden="true" />
+                    <Icon :icon="iconOfSnippetGroup(item.group)" />
                     {{ labelOfSnippetGroup(item.group) }}
                   </span>
                   <span class="snippet-palette__name">{{ item.name }}</span>
@@ -165,7 +165,7 @@ onUnmounted(() => {
                   @click="onItemAction($event, item, 'insert')"
                 >
                   <template #icon>
-                    <Icon icon="mdi:keyboard-return" aria-hidden="true" />
+                    <Icon icon="mdi:keyboard-return" />
                   </template>
                   插入
                 </a-button>
@@ -174,7 +174,7 @@ onUnmounted(() => {
                   @click="onItemAction($event, item, 'copy')"
                 >
                   <template #icon>
-                    <Icon icon="mdi:content-copy" aria-hidden="true" />
+                    <Icon icon="mdi:content-copy" />
                   </template>
                   拷贝
                 </a-button>
@@ -199,7 +199,7 @@ onUnmounted(() => {
             @click="actionMode = 'insert'"
           >
             <span class="snippet-palette__footer-mode-label">
-              <Icon icon="mdi:keyboard-return" aria-hidden="true" />
+              <Icon icon="mdi:keyboard-return" />
               <span>直接插入</span>
             </span>
           </a-button>

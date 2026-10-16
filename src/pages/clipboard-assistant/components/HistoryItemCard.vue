@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import {
   contrastTextOnFill,
   resolveClipboardColor,
@@ -72,7 +72,7 @@ const colorOnFill = computed(() =>
           }}</span>
         </div>
         <span v-if="item.pinned" class="history-card__pin" title="已固定">
-          <Icon icon="mdi:pin" aria-hidden="true" />
+          <Icon icon="mdi:pin" />
         </span>
         <span v-for="badge in item.badges" :key="badge.kind" class="history-card__badge">
           {{ badge.label }}

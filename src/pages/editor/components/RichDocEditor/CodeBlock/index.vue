@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
 import { message } from "ant-design-vue";
 import { useClipboard } from "@vueuse/core";
@@ -101,9 +101,7 @@ async function onFormat() {
         <Icon
           class="code-block__lang-chevron"
           icon="mdi:chevron-down"
-          width="14"
-          height="14"
-          aria-hidden="true"
+          :size="14"
         />
       </label>
       <div class="code-block__actions">
@@ -114,7 +112,7 @@ async function onFormat() {
           :disabled="!editable || formatting || !canFormat"
           @click="onFormat"
         >
-          <Icon icon="mdi:code-braces" width="14" height="14" />
+          <Icon icon="mdi:code-braces" :size="14" />
         </button>
         <button
           type="button"
@@ -125,8 +123,7 @@ async function onFormat() {
         >
           <Icon
             :icon="copied ? 'mdi:check' : 'mdi:content-copy'"
-            width="14"
-            height="14"
+            :size="14"
           />
         </button>
       </div>

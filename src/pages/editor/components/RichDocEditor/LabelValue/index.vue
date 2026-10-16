@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
 import { message } from "ant-design-vue";
 import { useClipboard } from "@vueuse/core";
@@ -229,8 +229,7 @@ async function onCopyValue() {
     >
       <Icon
         :icon="secretIcon"
-        width="12"
-        height="12"
+        :size="12"
       />
     </button>
     <button
@@ -240,7 +239,7 @@ async function onCopyValue() {
       :title="copied ? '已复制' : '复制'"
       @click="onCopyValue"
     >
-      <Icon :icon="copied ? 'mdi:check' : 'mdi:content-copy'" width="12" height="12" />
+      <Icon :icon="copied ? 'mdi:check' : 'mdi:content-copy'" :size="12" />
     </button>
   </NodeViewWrapper>
 </template>

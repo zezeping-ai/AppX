@@ -1,5 +1,5 @@
 <script lang="tsx" setup>
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { App as AntApp, Button, Tag } from "ant-design-vue";
 import type { ColumnsType } from "ant-design-vue/es/table";
 import { computed, h, onMounted } from "vue";

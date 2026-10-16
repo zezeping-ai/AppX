@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { message } from "ant-design-vue";
 import {
   applyItem,
@@ -92,7 +92,7 @@ async function onCopy(format: "plain" | "rich") {
     <div class="history-detail__tags">
       <a-tag class="history-detail__type">
         <span class="history-detail__type-inner">
-          <Icon :icon="typeIcon" width="14" height="14" />
+          <Icon :icon="typeIcon" :size="14" />
           {{ typeLabel }}
         </span>
       </a-tag>

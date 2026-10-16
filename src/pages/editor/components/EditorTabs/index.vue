@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { useEventListener } from "@vueuse/core";
 import { encryptionFileIcon } from "@/modules/editor/encryption";
 import type { OpenedEditorFile } from "@/modules/editor/types";
@@ -144,7 +144,7 @@ useEventListener(window, "keydown", (event: KeyboardEvent) => {
       @click="emit('select', tab.path)"
       @contextmenu="openTabMenu(tab.path, $event)"
     >
-      <Icon :icon="encryptionFileIcon(tab)" width="14" height="14" />
+      <Icon :icon="encryptionFileIcon(tab)" :size="14" />
       <span class="editor-tabs__label">
         {{ tab.name }}<span v-if="tab.dirty" class="editor-tabs__dirty">*</span>
       </span>

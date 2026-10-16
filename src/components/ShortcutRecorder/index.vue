@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { useEventListener } from "@vueuse/core";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { captureShortcut, formatShortcutLabel } from "@/shared/shortcut";
@@ -102,7 +102,7 @@ useEventListener(
       aria-label="清除快捷键"
       @click="clear"
     >
-      <Icon icon="mdi:close" width="14" height="14" />
+      <Icon icon="mdi:close" :size="14" />
     </button>
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { APP_NAV_ITEMS } from "./nav";
 import { isAppSessionLocked } from "@/modules/appLock";
 import { UNLOCK_ROUTE_PATH } from "@/router/standalone";
@@ -56,7 +56,7 @@ onUnmounted(() => {
           :class="{ 'app-layout__nav-item--active': activeNavKey === item.key }"
           :title="collapsed ? item.label : undefined"
         >
-          <Icon :icon="item.icon" aria-hidden="true" />
+          <Icon :icon="item.icon" />
           <span v-if="!collapsed">{{ item.label }}</span>
         </router-link>
       </nav>
@@ -67,7 +67,7 @@ onUnmounted(() => {
         :aria-label="collapsed ? '展开侧边栏' : '折叠侧边栏'"
         @click="collapsed = !collapsed"
       >
-        <Icon :icon="collapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" aria-hidden="true" />
+        <Icon :icon="collapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" />
       </button>
     </aside>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { nextTick, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -44,9 +44,8 @@ function onBlur() {
     <span class="explorer-inline__chevron" />
     <Icon
       :icon="kind === 'folder' ? 'mdi:folder-outline' : 'mdi:file-document-outline'"
-      width="15"
-      height="15"
       class="explorer-inline__icon"
+      :size="15"
     />
     <input
       ref="inputRef"

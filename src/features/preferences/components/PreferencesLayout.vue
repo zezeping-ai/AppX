@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { useThemePreferences } from "@/features/appearance";
 import {
   APP_PREFERENCE_SECTIONS,
@@ -63,7 +63,7 @@ const activeSection = computed(
       >
         <a-menu-item v-for="section in APP_PREFERENCE_SECTIONS" :key="section.key">
           <a-space>
-            <Icon :icon="section.icon" aria-hidden="true" />
+            <Icon :icon="section.icon" />
             <span>{{ section.label }}</span>
           </a-space>
         </a-menu-item>
@@ -78,7 +78,7 @@ const activeSection = computed(
       >
         <a-menu-item v-for="section in FEATURE_PREFERENCE_SECTIONS" :key="section.key">
           <a-space>
-            <Icon :icon="section.icon" aria-hidden="true" />
+            <Icon :icon="section.icon" />
             <span>{{ section.label }}</span>
           </a-space>
         </a-menu-item>

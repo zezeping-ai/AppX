@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import type { Editor } from "@tiptap/vue-3";
 import { computed } from "vue";
 import {
@@ -117,10 +117,10 @@ function onPickUnderlineColor(value: string | null) {
         @click="toggleUnderline"
       >
         <span class="rich-doc-toolbar__drop-main" title="下划线">
-          <Icon icon="mdi:format-underline" width="16" height="16" />
+          <Icon icon="mdi:format-underline" :size="16" />
         </span>
         <template #icon>
-          <Icon icon="mdi:chevron-down" width="14" height="14" />
+          <Icon icon="mdi:chevron-down" :size="14" />
         </template>
         <template #overlay>
           <div class="rich-doc-toolbar__palette" @mousedown.prevent>
@@ -145,8 +145,7 @@ function onPickUnderlineColor(value: string | null) {
                 <Icon
                   v-if="c.value == null"
                   icon="mdi:format-color-marker-cancel"
-                  width="14"
-                  height="14"
+                  :size="14"
                 />
               </button>
             </div>
@@ -166,7 +165,7 @@ function onPickUnderlineColor(value: string | null) {
           title="字体颜色"
           :class="{ 'is-active': colorActive }"
         >
-          <Icon icon="mdi:format-color-text" width="16" height="16" />
+          <Icon icon="mdi:format-color-text" :size="16" />
           <span
             class="rich-doc-toolbar__color-bar"
             :style="{
@@ -197,8 +196,7 @@ function onPickUnderlineColor(value: string | null) {
                 <Icon
                   v-if="c.value == null"
                   icon="mdi:format-color-marker-cancel"
-                  width="14"
-                  height="14"
+                  :size="14"
                 />
               </button>
             </div>
@@ -218,7 +216,7 @@ function onPickUnderlineColor(value: string | null) {
           title="突出显示"
           :class="{ 'is-active': highlightActive }"
         >
-          <Icon icon="mdi:format-color-highlight" width="16" height="16" />
+          <Icon icon="mdi:format-color-highlight" :size="16" />
           <span
             class="rich-doc-toolbar__color-bar"
             :style="{
@@ -249,8 +247,7 @@ function onPickUnderlineColor(value: string | null) {
                 <Icon
                   v-if="c.value == null"
                   icon="mdi:format-color-marker-cancel"
-                  width="14"
-                  height="14"
+                  :size="14"
                 />
               </button>
             </div>
@@ -270,9 +267,9 @@ function onPickUnderlineColor(value: string | null) {
           class="rich-doc-toolbar__btn rich-doc-toolbar__font-btn"
           :class="{ 'is-active': fontFamilyActive }"
         >
-          <Icon icon="mdi:format-font" width="16" height="16" />
+          <Icon icon="mdi:format-font" :size="16" />
           <span>{{ fontFamilyLabel }}</span>
-          <Icon icon="mdi:chevron-down" width="12" height="12" />
+          <Icon icon="mdi:chevron-down" :size="12" />
         </button>
         <template #overlay>
           <a-menu
@@ -295,9 +292,9 @@ function onPickUnderlineColor(value: string | null) {
           class="rich-doc-toolbar__btn rich-doc-toolbar__size-btn"
           :class="{ 'is-active': fontSizeActive }"
         >
-          <Icon icon="mdi:format-size" width="16" height="16" />
+          <Icon icon="mdi:format-size" :size="16" />
           <span>{{ fontSizeLabel }}</span>
-          <Icon icon="mdi:chevron-down" width="12" height="12" />
+          <Icon icon="mdi:chevron-down" :size="12" />
         </button>
         <template #overlay>
           <a-menu
@@ -318,10 +315,10 @@ function onPickUnderlineColor(value: string | null) {
         @click="insertLabel"
       >
         <span class="rich-doc-toolbar__drop-main" title="插入标签">
-          <Icon icon="mdi:label-outline" width="16" height="16" />
+          <Icon icon="mdi:label-outline" :size="16" />
         </span>
         <template #icon>
-          <Icon icon="mdi:chevron-down" width="14" height="14" />
+          <Icon icon="mdi:chevron-down" :size="14" />
         </template>
         <template #overlay>
           <a-menu :items="labelMenu.items" @click="onLabelMenuClick" />
@@ -337,10 +334,10 @@ function onPickUnderlineColor(value: string | null) {
         @click="insertTable"
       >
         <span class="rich-doc-toolbar__drop-main" title="插入表格">
-          <Icon icon="mdi:table" width="16" height="16" />
+          <Icon icon="mdi:table" :size="16" />
         </span>
         <template #icon>
-          <Icon icon="mdi:chevron-down" width="14" height="14" />
+          <Icon icon="mdi:chevron-down" :size="14" />
         </template>
         <template #overlay>
           <a-menu :items="tableMenu.items" @click="onTableMenuClick" />
@@ -356,7 +353,7 @@ function onPickUnderlineColor(value: string | null) {
         :disabled="item.disabled?.()"
         @click="item.run()"
       >
-        <Icon v-if="item.icon" :icon="item.icon" width="16" height="16" />
+        <Icon v-if="item.icon" :icon="item.icon" :size="16" />
         <template v-else>{{ item.label }}</template>
       </button>
     </template>

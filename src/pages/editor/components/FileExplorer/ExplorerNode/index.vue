@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { computed } from "vue";
 import ExplorerInlineInput from "@/pages/editor/components/FileExplorer/ExplorerInlineInput/index.vue";
 import type { ExplorerTreeItem } from "@/pages/editor/components/FileExplorer/normalizeTree";
@@ -141,16 +141,15 @@ function onPointerDown(event: PointerEvent) {
         class="explorer-chevron"
         @click="onChevronClick"
       >
-        <Icon :icon="isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'" width="14" height="14" />
+        <Icon :icon="isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'" :size="14" />
       </button>
       <span v-else class="explorer-chevron explorer-chevron--placeholder" />
 
       <Icon
         :icon="fileIcon.icon"
-        width="15"
-        height="15"
         class="explorer-icon"
         :style="!isDimmed && fileIcon.color ? { color: fileIcon.color } : undefined"
+        :size="15"
       />
       <span class="explorer-label">{{ node.title }}</span>
     </div>

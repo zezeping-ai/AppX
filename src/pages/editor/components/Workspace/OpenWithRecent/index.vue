@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -65,17 +65,17 @@ function onRemoveRecent(kind: RecentKind, path: string) {
     @click="emit('openFolder')"
   >
     <span class="open-with-recent__main">
-      <Icon icon="mdi:folder-open-outline" width="16" height="16" />
+      <Icon icon="mdi:folder-open-outline" :size="16" />
       打开文件夹
     </span>
     <template #icon>
-      <Icon icon="mdi:chevron-down" width="14" height="14" />
+      <Icon icon="mdi:chevron-down" :size="14" />
     </template>
     <template #overlay>
       <a-menu class="open-with-recent__menu">
         <a-menu-item key="__open_file__" @click="emit('openFile')">
           <div class="open-with-recent__action">
-            <Icon icon="mdi:file-document-outline" width="15" height="15" />
+            <Icon icon="mdi:file-document-outline" :size="15" />
             <span>打开文件</span>
           </div>
         </a-menu-item>
@@ -86,7 +86,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
           <a-menu-item-group>
             <template #title>
               <span class="open-with-recent__group-title">
-                <Icon icon="mdi:folder-outline" width="14" height="14" />
+                <Icon icon="mdi:folder-outline" :size="14" />
                 最近文件夹
               </span>
             </template>
@@ -98,9 +98,8 @@ function onRemoveRecent(kind: RecentKind, path: string) {
               <div class="open-with-recent__item">
                 <Icon
                   icon="mdi:folder-outline"
-                  width="16"
-                  height="16"
                   class="open-with-recent__item-icon open-with-recent__item-icon--folder"
+                  :size="16"
                 />
                 <div class="open-with-recent__item-content">
                   <span class="open-with-recent__item-name">{{ entry.name }}</span>
@@ -115,7 +114,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
                   title="删除"
                   @click.stop="onRemoveRecent('folder', entry.path)"
                 >
-                  <Icon icon="mdi:close" width="14" height="14" />
+                  <Icon icon="mdi:close" :size="14" />
                 </button>
               </div>
             </a-menu-item>
@@ -126,7 +125,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
           <a-menu-item-group>
             <template #title>
               <span class="open-with-recent__group-title">
-                <Icon icon="mdi:file-document-outline" width="14" height="14" />
+                <Icon icon="mdi:file-document-outline" :size="14" />
                 最近文件
               </span>
             </template>
@@ -138,9 +137,8 @@ function onRemoveRecent(kind: RecentKind, path: string) {
               <div class="open-with-recent__item">
                 <Icon
                   icon="mdi:file-document-outline"
-                  width="16"
-                  height="16"
                   class="open-with-recent__item-icon open-with-recent__item-icon--file"
+                  :size="16"
                 />
                 <div class="open-with-recent__item-content">
                   <span class="open-with-recent__item-name">{{ entry.name }}</span>
@@ -155,7 +153,7 @@ function onRemoveRecent(kind: RecentKind, path: string) {
                   title="删除"
                   @click.stop="onRemoveRecent('file', entry.path)"
                 >
-                  <Icon icon="mdi:close" width="14" height="14" />
+                  <Icon icon="mdi:close" :size="14" />
                 </button>
               </div>
             </a-menu-item>

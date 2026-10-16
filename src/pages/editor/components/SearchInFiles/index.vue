@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { Icon } from "@iconify/vue";
+import { Icon } from "@/components/Icon";
 import { useDebounceFn } from "@vueuse/core";
 import {
   EditorPaletteOverlay,
@@ -339,14 +339,12 @@ function setActiveRow(row: FlatRow, index: number) {
             <Icon
               :icon="expanded.has(row.file.path) ? 'mdi:chevron-down' : 'mdi:chevron-right'"
               class="search-in-files__chevron"
-              aria-hidden="true"
             />
           </button>
           <Icon
             :icon="row.icon.icon"
             class="editor-palette__file-icon search-in-files__file-icon"
             :style="{ color: row.icon.color }"
-            aria-hidden="true"
           />
           <div class="search-in-files__file-meta">
             <span class="search-in-files__file-name">{{ row.file.name }}</span>
