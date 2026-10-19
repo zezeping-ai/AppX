@@ -21,6 +21,7 @@ import { confirmCloseUnsavedTabs, confirmDiscardUnsaved } from "./confirmDiscard
 import {
   confirmOpenWithSystemApp,
   openWithSystemApp,
+  revealInFolder,
 } from "./openWithSystemApp";
 import OpenWithRecent from "./OpenWithRecent/index.vue";
 import { useRecentOpens } from "./useRecentOpens";
@@ -824,6 +825,7 @@ watch(editorContent, (value) => {
           :load-children="loadDirectoryChildren"
           @open="openFileByPath"
           @open-with-system="openWithSystemApp"
+          @reveal-in-folder="revealInFolder"
           @refresh="refreshTree"
           @create-file="onExplorerCreateFile"
           @create-folder="onExplorerCreateFolder"

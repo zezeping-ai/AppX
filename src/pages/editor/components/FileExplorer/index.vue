@@ -29,6 +29,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   open: [path: string];
   openWithSystem: [path: string];
+  revealInFolder: [path: string];
   refresh: [];
   createFile: [directory: string, fileName: string];
   createFolder: [directory: string, folderName: string];
@@ -355,6 +356,12 @@ const contextActions = computed<ContextMenuAction[]>(() => {
     return [
       ...CREATE_CONTEXT_ACTIONS,
       { key: "rename", label: "重命名", icon: "mdi:pencil-outline", divider: true },
+      {
+        key: "reveal-in-folder",
+        label: "在文件夹中显示",
+        icon: "mdi:folder-eye-outline",
+        divider: true,
+      },
       { key: "delete", label: "删除", icon: "mdi:delete-outline", danger: true },
     ];
   }
@@ -384,15 +391,22 @@ const contextActions = computed<ContextMenuAction[]>(() => {
     actions.push(...convertActions);
   }
 
-  // .axdoc / 加密文件的系统默认应用就是 AppX，不再提供此项
+  // 系统侧：用系统应用打开（非 AppX 自有格式）+ 在文件夹中显示
+  const systemActions: ContextMenuAction[] = [];
   if (!isAppxOwnedFile(node.path)) {
-    actions.push({
+    systemActions.push({
       key: "open-with-system",
       label: "用系统应用打开",
       icon: "mdi:application-export",
-      divider: true,
     });
   }
+  systemActions.push({
+    key: "reveal-in-folder",
+    label: "在文件夹中显示",
+    icon: "mdi:folder-eye-outline",
+  });
+  systemActions[0] = { ...systemActions[0], divider: true };
+  actions.push(...systemActions);
 
   actions.push({
     key: "delete",
@@ -492,6 +506,10 @@ function onContextAction(key: string) {
   }
   if (key === "open-with-system") {
     emit("openWithSystem", node.path);
+    return;
+  }
+  if (key === "reveal-in-folder") {
+    emit("revealInFolder", node.path);
     return;
   }
   if (key === "rename") {

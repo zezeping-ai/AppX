@@ -1,5 +1,5 @@
 import { Modal, message } from "ant-design-vue";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { isAppxOwnedFile } from "@/modules/editor/ownedFile";
 
 function fileNameOf(path: string): string {
@@ -17,6 +17,17 @@ export async function openWithSystemApp(path: string): Promise<boolean> {
     return true;
   } catch (error) {
     message.error(`无法用系统应用打开：${String(error)}`);
+    return false;
+  }
+}
+
+/** 在系统文件管理器中定位文件/文件夹 */
+export async function revealInFolder(path: string): Promise<boolean> {
+  try {
+    await revealItemInDir(path);
+    return true;
+  } catch (error) {
+    message.error(`无法在文件夹中显示：${String(error)}`);
     return false;
   }
 }
