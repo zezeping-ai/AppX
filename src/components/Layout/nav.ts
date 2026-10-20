@@ -23,4 +23,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     icon: "mdi:clipboard-text-clock-outline",
     enabled: true,
   },
+  {
+    key: "image-optim",
+    label: "图片优化",
+    to: "/image-optim",
+    icon: "mdi:file-image-outline",
+    enabled: true,
+  },
 ];

@@ -3,6 +3,7 @@ import type { AppRouteRecord } from "@/router/types";
 export const EDITOR_ROUTE_PATH = "/editor";
 export const CODE_SNIPPETS_ROUTE_PATH = "/code-snippets";
 export const CLIPBOARD_ASSISTANT_ROUTE_PATH = "/clipboard-assistant";
+export const IMAGE_OPTIM_ROUTE_PATH = "/image-optim";
 
 /** 主窗口 Layout 子路由；页面组件在 src/pages/<name>/，在此注册 */
 export const pageRoutes: AppRouteRecord[] = [
@@ -23,5 +24,11 @@ export const pageRoutes: AppRouteRecord[] = [
     name: "clipboard-assistant",
     component: () => import("@/pages/clipboard-assistant/index.vue"),
     meta: { feature: "clipboard-assistant" },
+  },
+  {
+    path: "image-optim",
+    name: "image-optim",
+    component: () => import("@/pages/image-optim/index.vue"),
+    meta: { feature: "image-optim" },
   },
 ];

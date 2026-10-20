@@ -4,8 +4,15 @@ import { AppLockSettingsSection } from "@/features/appLock";
 import { CodeSnippetsSettingsSection } from "@/features/codeSnippets";
 import { ClipboardAssistantSettingsSection } from "@/features/clipboardAssistant";
 import { EditorSettingsSection } from "@/features/editor";
+import { ImageOptimSettingsSection } from "@/features/imageOptim";
 
-export type PreferenceSectionKey = "app" | "security" | "editor" | "code-snippets" | "clipboard-assistant";
+export type PreferenceSectionKey =
+  | "app"
+  | "security"
+  | "editor"
+  | "code-snippets"
+  | "clipboard-assistant"
+  | "image-optim";
 
 export type PreferenceSection = {
   key: PreferenceSectionKey;
@@ -47,6 +54,12 @@ export const FEATURE_PREFERENCE_SECTIONS: PreferenceSection[] = [
     label: "剪切助手",
     icon: "mdi:clipboard-text-clock-outline",
     component: ClipboardAssistantSettingsSection,
+  },
+  {
+    key: "image-optim",
+    label: "图片优化",
+    icon: "mdi:file-image-outline",
+    component: ImageOptimSettingsSection,
   },
 ];
 

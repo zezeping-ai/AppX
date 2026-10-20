@@ -41,6 +41,13 @@ macro_rules! app_invoke_handler {
             $crate::app::app_lock::app_lock_save_settings,
             $crate::app::app_lock::app_lock_lock_session,
             $crate::app::app_lock::app_lock_unlock_session,
+            // image_optim
+            $crate::app::image_optim::image_optim_pick_files,
+            $crate::app::image_optim::image_optim_pick_folder,
+            $crate::app::image_optim::image_optim_expand_paths,
+            $crate::app::image_optim::image_optim_optimize_file,
+            $crate::app::image_optim::image_optim_get_settings,
+            $crate::app::image_optim::image_optim_save_settings,
             // editor
             $crate::app::editor::editor_pick_folder,
             $crate::app::editor::editor_pick_file,

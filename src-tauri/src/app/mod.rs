@@ -6,6 +6,7 @@ pub mod crypto;
 pub mod editor;
 pub mod focus_target;
 pub mod global_shortcut;
+pub mod image_optim;
 pub mod ipc;
 pub mod palette;
 pub mod platform;
