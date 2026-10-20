@@ -4,6 +4,7 @@ import { replaceAll } from "@milkdown/kit/utils";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/vue";
 import { tryOnScopeDispose } from "@vueuse/core";
 import { defineComponent, h, watch, type Ref } from "vue";
+import { secretCrepeFeatureConfigs, secretFeature } from "./secret";
 
 export type UseMarkdownEditorOptions = {
   modelValue: Ref<string> | (() => string);
@@ -37,7 +38,9 @@ export function useMarkdownEditor(options: UseMarkdownEditorOptions) {
             [Crepe.Feature.Latex]: false,
             [Crepe.Feature.TopBar]: false,
           },
+          featureConfigs: secretCrepeFeatureConfigs,
         });
+        instance.addFeature(secretFeature);
         instance.setReadonly(getReadOnly());
         instance.on((listener) => {
           listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {

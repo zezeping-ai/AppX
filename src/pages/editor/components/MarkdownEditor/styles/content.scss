@@ -56,6 +56,91 @@
     min-height: 100%;
     box-sizing: border-box;
   }
+
+  /* 密文芯片：原生 toDOM，选中态用 ProseMirror-selectednode */
+  .md-secret {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+    margin: 0 1px;
+    padding: 1px 4px 1px 6px;
+    border: 1px solid var(--crepe-color-outline);
+    border-radius: 4px;
+    background: var(--crepe-color-surface);
+    color: var(--crepe-color-on-surface);
+    vertical-align: baseline;
+    line-height: 1.4;
+    font-size: 0.92em;
+  }
+
+  .md-secret.ProseMirror-selectednode {
+    outline: 2px solid var(--app-active-fg, #1677ff);
+    outline-offset: 1px;
+  }
+
+  .md-secret__text {
+    max-width: 28ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .md-secret__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--crepe-color-outline);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--crepe-color-hover);
+      color: var(--crepe-color-on-surface);
+    }
+  }
+}
+
+/* 密文 NodeSelection 悬浮条（Crepe 工具条不支持原子节点选区） */
+.markdown-editor {
+  position: relative;
+
+  .md-secret-float {
+    position: absolute;
+    z-index: 20;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 8px;
+    background: var(--crepe-color-surface, var(--app-surface));
+    box-shadow: var(--crepe-shadow-1, 0 1px 4px rgb(0 0 0 / 16%));
+    border: 1px solid var(--crepe-color-outline, var(--app-border));
+  }
+
+  .md-secret-float__btn {
+    appearance: none;
+    border: 0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    background: transparent;
+    color: var(--crepe-color-on-surface, var(--app-fg));
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--crepe-color-hover, var(--app-hover-bg));
+    }
+  }
 }
 
 [data-theme="dark"] .markdown-editor .milkdown {
