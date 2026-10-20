@@ -48,6 +48,7 @@ import {
   isAxdocFileName,
   parseAxdocContent,
 } from "@/modules/editor/axdoc";
+import { isMarkdownLanguage } from "@/modules/editor/markdown";
 import { fileStatusMark, isEncryptedFileName } from "@/modules/editor/encryption";
 import { createOpenedEditorFile } from "@/modules/editor/openedFile";
 import type { OpenedEditorFile, SearchInFilesSelectPayload } from "@/modules/editor/types";
@@ -55,6 +56,9 @@ import { useEncryptedFileFlow } from "./useEncryptedFileFlow";
 
 const RichDocEditor = defineAsyncComponent(
   () => import("@/pages/editor/components/RichDocEditor/index.vue"),
+);
+const MarkdownEditor = defineAsyncComponent(
+  () => import("@/pages/editor/components/MarkdownEditor/index.vue"),
 );
 
 const { savedWorkspaceRoot, rememberWorkspaceRoot } = useWorkspacePersistence();
@@ -94,6 +98,7 @@ const activeFile = computed(() =>
 const hasActiveFile = computed(() => Boolean(activeFile.value));
 const activeLanguage = computed(() => activeFile.value?.language ?? "plaintext");
 const isRichDocActive = computed(() => isAppxdocLanguage(activeLanguage.value));
+const isMarkdownActive = computed(() => isMarkdownLanguage(activeLanguage.value));
 
 const statusText = computed(() => {
   if (!activeFile.value) {
@@ -682,7 +687,7 @@ async function openFromSearch(payload: SearchInFilesSelectPayload) {
     return;
   }
   rememberRecentFile(payload.path);
-  if (isAppxdocLanguage(payload.language)) {
+  if (isAppxdocLanguage(payload.language) || isMarkdownLanguage(payload.language)) {
     revealLine.value = null;
     revealColumn.value = null;
     return;
@@ -856,6 +861,12 @@ watch(editorContent, (value) => {
           <RichDocEditor
             v-if="hasActiveFile && isRichDocActive"
             :key="activePath ?? 'richdoc'"
+            :model-value="editorContent"
+            @update:model-value="onEditorChange"
+          />
+          <MarkdownEditor
+            v-else-if="hasActiveFile && isMarkdownActive"
+            :key="activePath ?? 'markdown'"
             :model-value="editorContent"
             @update:model-value="onEditorChange"
           />

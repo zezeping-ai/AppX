@@ -5,3 +5,4 @@ export * from "@/modules/editor/openedFile";
 export * from "@/modules/editor/ownedFile";
 export * from "@/modules/editor/settings";
 export * from "@/modules/editor/axdoc";
+export * from "@/modules/editor/markdown";

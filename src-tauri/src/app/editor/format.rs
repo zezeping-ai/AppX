@@ -341,4 +341,17 @@ mod tests {
         assert!(is_default_encrypted_path(&encrypted));
         assert!(ensure_writable_path(Path::new("/tmp/untitled.axdoc.x")).is_ok());
     }
+
+    #[test]
+    fn maps_markdown_language_hint() {
+        let plain = PathBuf::from("/tmp/readme.md");
+        let default_enc = PathBuf::from("/tmp/readme.md.x");
+        let custom_enc = PathBuf::from("/tmp/readme.md.x0");
+        assert_eq!(language_from_path(&plain), "markdown");
+        assert_eq!(language_from_path(&default_enc), "markdown");
+        assert_eq!(language_from_path(&custom_enc), "markdown");
+        assert!(is_default_encrypted_path(&default_enc));
+        assert!(is_custom_encrypted_path(&custom_enc));
+        assert!(ensure_writable_path(Path::new("/tmp/untitled.md.x")).is_ok());
+    }
 }

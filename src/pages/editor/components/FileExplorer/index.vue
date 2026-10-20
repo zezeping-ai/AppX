@@ -15,6 +15,7 @@ import {
   DEFAULT_AXDOC_FILE_NAME,
   DEFAULT_TEXT_FILE_NAME,
 } from "@/modules/editor/axdoc";
+import { DEFAULT_MARKDOWN_FILE_NAME } from "@/modules/editor/markdown";
 import { isAppxOwnedFile } from "@/modules/editor/ownedFile";
 
 const props = defineProps<{
@@ -51,6 +52,12 @@ const CREATE_CONTEXT_ACTIONS: ContextMenuAction[] = [
     label: "新建文本",
     hint: ".txt.x",
     icon: "mdi:file-code-outline",
+  },
+  {
+    key: "new-markdown",
+    label: "新建 Markdown",
+    hint: ".md.x",
+    icon: "mdi:language-markdown",
   },
   {
     key: "new-doc",
@@ -202,6 +209,10 @@ function startCreateFile(parentPath: string) {
   void startCreateEntry(parentPath, DEFAULT_TEXT_FILE_NAME);
 }
 
+function startCreateMarkdown(parentPath: string) {
+  void startCreateEntry(parentPath, DEFAULT_MARKDOWN_FILE_NAME);
+}
+
 function startCreateDoc(parentPath: string) {
   void startCreateEntry(parentPath, DEFAULT_AXDOC_FILE_NAME);
 }
@@ -267,26 +278,6 @@ function onInlineConfirm(value: string) {
     return;
   }
   emit("rename", state.targetPath, trimmed);
-}
-
-function onHeaderNewFile() {
-  if (!props.workspaceRoot) {
-    return;
-  }
-  const parent = resolveParentDirectory(
-    props.activePath ? findNode(props.treeData, props.activePath) : null,
-  );
-  startCreateFile(parent ?? props.workspaceRoot);
-}
-
-function onHeaderNewDoc() {
-  if (!props.workspaceRoot) {
-    return;
-  }
-  const parent = resolveParentDirectory(
-    props.activePath ? findNode(props.treeData, props.activePath) : null,
-  );
-  startCreateDoc(parent ?? props.workspaceRoot);
 }
 
 function onHeaderNewFolder() {
@@ -484,6 +475,10 @@ function onContextAction(key: string) {
     if (parentPath) startCreateFile(parentPath);
     return;
   }
+  if (key === "new-markdown") {
+    if (parentPath) startCreateMarkdown(parentPath);
+    return;
+  }
   if (key === "new-doc") {
     if (parentPath) startCreateDoc(parentPath);
     return;
@@ -551,24 +546,6 @@ const showRootInline = computed(() => {
   <div class="file-explorer" @click="closeContextMenu" @contextmenu.prevent>
     <div class="file-explorer__header">
       <div class="file-explorer__actions">
-        <button
-          type="button"
-          class="file-explorer__action"
-          title="新建文本 (.txt.x)"
-          :disabled="!workspaceRoot"
-          @click="onHeaderNewFile"
-        >
-          <Icon icon="mdi:file-code-outline" :size="15" />
-        </button>
-        <button
-          type="button"
-          class="file-explorer__action"
-          title="新建富文本 (.axdoc.x)"
-          :disabled="!workspaceRoot"
-          @click="onHeaderNewDoc"
-        >
-          <Icon icon="mdi:notebook-edit-outline" :size="15" />
-        </button>
         <button
           type="button"
           class="file-explorer__action"

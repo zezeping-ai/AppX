@@ -1,0 +1,66 @@
+/* Milkdown Crepe：映射 AppX 主题，保持面板/图标/光标对比度
+ *
+ * Crepe 语义（勿再映射到几乎透明的 border / surface-muted）：
+ * - surface：悬浮面板底色（toolbar / slash / tooltip）
+ * - outline：未激活图标、分割线、次要描边（约 45% 对比）
+ * - primary：激活态图标
+ * - hover / selected：交互反馈
+ */
+
+.markdown-editor .milkdown {
+  --crepe-color-background: var(--app-surface);
+  --crepe-color-on-background: var(--app-fg);
+  /* 面板略抬于编辑区底色，避免与正文融在一起 */
+  --crepe-color-surface: color-mix(in srgb, var(--app-fg) 4%, var(--app-surface));
+  --crepe-color-surface-low: color-mix(in srgb, var(--app-fg) 7%, var(--app-surface));
+  --crepe-color-on-surface: var(--app-fg);
+  --crepe-color-on-surface-variant: var(--app-fg-secondary);
+  /* 图标/描边：Crepe 默认约 #a8a8a8，对应 app-fg-muted */
+  --crepe-color-outline: var(--app-fg-muted);
+  --crepe-color-primary: var(--app-fg);
+  --crepe-color-secondary: color-mix(in srgb, var(--app-fg) 12%, var(--app-surface));
+  --crepe-color-on-secondary: var(--app-fg);
+  --crepe-color-inverse: color-mix(in srgb, var(--app-fg) 88%, var(--app-surface));
+  --crepe-color-on-inverse: var(--app-surface);
+  --crepe-color-inline-code: var(--app-danger-fg);
+  --crepe-color-error: var(--app-danger-fg);
+  --crepe-color-hover: var(--app-hover-bg-strong);
+  --crepe-color-selected: var(--app-active-bg);
+  --crepe-color-inline-area: color-mix(in srgb, var(--app-fg) 10%, var(--app-surface));
+
+  --crepe-shadow-1:
+    0 1px 3px 1px rgb(0 0 0 / 12%), 0 1px 2px 0 rgb(0 0 0 / 18%);
+  --crepe-shadow-2:
+    0 2px 6px 2px rgb(0 0 0 / 12%), 0 1px 2px 0 rgb(0 0 0 / 18%);
+
+  --crepe-base-font-size: 15px;
+  --crepe-font-default: inherit;
+  --crepe-font-title: inherit;
+  --crepe-font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  width: 100%;
+  height: 100%;
+  background: var(--crepe-color-background);
+  color: var(--crepe-color-on-background);
+
+  /* 虚拟光标用前景色；勿改 caret-color（原生 caret 需保持 transparent） */
+  .ProseMirror-focused {
+    --prosemirror-virtual-cursor-color: var(--app-fg);
+  }
+
+  .editor {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 28px 32px 64px;
+    outline: none;
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+}
+
+[data-theme="dark"] .markdown-editor .milkdown {
+  --crepe-shadow-1:
+    0 1px 3px 1px rgb(0 0 0 / 45%), 0 1px 2px 0 rgb(0 0 0 / 55%);
+  --crepe-shadow-2:
+    0 2px 6px 2px rgb(0 0 0 / 45%), 0 1px 2px 0 rgb(0 0 0 / 55%);
+}
