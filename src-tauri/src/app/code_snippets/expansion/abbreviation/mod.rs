@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager};
 
 use crate::app::app_lock::is_session_locked;
-use crate::app::code_snippets::registry::SnippetRegistry;
+use crate::app::code_snippets::{self, registry::SnippetRegistry};
 use crate::app::code_snippets::settings::is_inline_expansion_enabled;
 use crate::app::text_delivery::replace_trigger;
 
@@ -82,8 +82,17 @@ pub(crate) fn try_expand_on_trigger(app: &AppHandle) {
         return;
     };
 
+    let snippet_id = entry.id;
+    let content = match code_snippets::resolve_plaintext(app, snippet_id, None) {
+        Ok(text) => text,
+        Err(err) => {
+            log::warn!("[code_snippets] abbrev resolve #{snippet_id} failed: {err}");
+            return;
+        }
+    };
+
     log::info!("[code_snippets] expanding `{key}` via lookback");
-    replace_trigger(abbrev.chars().count(), &entry.content);
+    replace_trigger(abbrev.chars().count(), &content);
 }
 
 /// 在光标前文本窗口内找最近的 `:`，提取合法缩写。

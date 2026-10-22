@@ -1,9 +1,8 @@
-use base64::Engine;
+use serde::Serialize;
 use tauri::{AppHandle, State};
 
 use crate::app::app_lock::{ensure_unlocked, AppLockSessionState};
-use crate::app::crypto::decrypt_bytes_with_passphrase;
-use crate::app::security::load_default_passphrase;
+use crate::app::platform;
 
 use super::expansion;
 use super::model::{SnippetEntry, SnippetSyncItem};
@@ -13,11 +12,20 @@ use super::settings::{
     CodeSnippetSettingsView, SaveCodeSnippetSettingsInput,
 };
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontmostAppView {
+    pub app_id: Option<String>,
+    pub app_name: Option<String>,
+    pub is_own: bool,
+}
+
 #[tauri::command]
 pub fn code_snippets_set_expansion_paused(paused: bool) {
     expansion::set_expansion_paused(paused);
 }
 
+/// 同步轻量索引（缩写 / 快捷键 → id）；正文触发时再查库。
 #[tauri::command]
 pub fn code_snippets_sync(
     app: AppHandle,
@@ -26,7 +34,6 @@ pub fn code_snippets_sync(
     registry: State<'_, SnippetRegistry>,
 ) -> Result<(), String> {
     ensure_unlocked(&state)?;
-    let passphrase = load_default_passphrase(&app)?;
     let mut entries = Vec::with_capacity(snippets.len());
 
     for item in snippets {
@@ -34,13 +41,6 @@ pub fn code_snippets_sync(
         if abbreviation.is_empty() {
             continue;
         }
-
-        let payload = base64::engine::general_purpose::STANDARD
-            .decode(item.content.trim())
-            .map_err(|err| format!("snippet #{} `{}` 密文无效：{err}", item.id, abbreviation))?;
-        let plain = decrypt_bytes_with_passphrase(&passphrase, &payload)?;
-        let content = String::from_utf8(plain)
-            .map_err(|err| format!("snippet `{}` 解密结果无效：{err}", abbreviation))?;
 
         let shortcut = item
             .shortcut
@@ -52,7 +52,6 @@ pub fn code_snippets_sync(
             name: item.name.trim().to_string(),
             abbreviation,
             shortcut,
-            content,
             group: normalize_snippet_group(&item.group),
         });
     }
@@ -88,6 +87,23 @@ pub fn code_snippets_save_settings(
     apply_runtime_flags(&settings);
     super::refresh_runtime(&app)?;
     Ok(CodeSnippetSettingsView::from(&settings))
+}
+
+/// 表单「选择目标应用」：返回当前前台 App（含是否为本进程）。
+#[tauri::command]
+pub fn code_snippets_get_frontmost_app(
+    app: AppHandle,
+    state: State<'_, AppLockSessionState>,
+) -> Result<FrontmostAppView, String> {
+    ensure_unlocked(&state)?;
+    let own_id = app.config().identifier.clone();
+    let (app_id, app_name) = platform::frontmost_app();
+    let is_own = platform::is_own_app_foreground(&own_id);
+    Ok(FrontmostAppView {
+        app_id,
+        app_name,
+        is_own,
+    })
 }
 
 fn normalize_snippet_group(raw: &str) -> String {

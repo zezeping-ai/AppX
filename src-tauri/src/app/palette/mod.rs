@@ -143,12 +143,8 @@ pub fn copy_palette_item(
     id: i64,
     registry: &SnippetRegistry,
 ) -> Result<(), String> {
-    let snapshot = registry.snapshot();
-    let Some(entry) = snapshot.by_id.get(&id) else {
-        return Err(format!("代码段 #{id} 不存在"));
-    };
-
-    clipboard::set_text_persist(&entry.content)?;
+    let content = resolve_palette_content(app, id, registry)?;
+    clipboard::set_text_persist(&content)?;
     hide_palette_window(app)?;
     Ok(())
 }
@@ -158,13 +154,21 @@ pub fn insert_palette_item(
     id: i64,
     registry: &SnippetRegistry,
 ) -> Result<(), String> {
-    let snapshot = registry.snapshot();
-    let Some(entry) = snapshot.by_id.get(&id) else {
-        return Err(format!("代码段 #{id} 不存在"));
-    };
-
-    let content = entry.content.clone();
+    let content = resolve_palette_content(app, id, registry)?;
     hide_palette_window(app)?;
     text_delivery::insert_at_focus(&content);
     Ok(())
+}
+
+/// 面板打开时前台是 AppX，用打开前捕获的目标 App 做变体匹配。
+fn resolve_palette_content(
+    app: &AppHandle,
+    id: i64,
+    registry: &SnippetRegistry,
+) -> Result<String, String> {
+    if registry.snapshot().by_id.get(&id).is_none() {
+        return Err(format!("代码段 #{id} 不存在"));
+    }
+    let target = focus_target::captured_app_id();
+    crate::app::code_snippets::resolve_plaintext(app, id, target.as_deref())
 }

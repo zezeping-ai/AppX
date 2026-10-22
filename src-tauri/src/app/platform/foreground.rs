@@ -140,10 +140,10 @@ fn linux_x11_frontmost_app() -> (Option<String>, Option<String>) {
     let Some((pid, wm_class)) = linux_x11_active_window_meta() else {
         return (None, None);
     };
-    let app_id = format!("{wm_class}:{pid}");
+    // 仅用 wm_class 作为稳定 app_id（勿带 pid，否则无法持久绑定 snippet 变体）
     let name = linux_desktop_name_for_wm_class(&wm_class)
         .or_else(|| std::fs::read_to_string(format!("/proc/{pid}/comm")).ok());
-    (Some(app_id), name)
+    (Some(wm_class), name)
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]

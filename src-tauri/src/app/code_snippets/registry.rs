@@ -6,8 +6,11 @@ use super::model::{PaletteItem, SnippetEntry};
 #[derive(Default)]
 pub struct SnippetRegistry {
     inner: Arc<RwLock<RegistrySnapshot>>,
+    /// 懒解密缓存：`(snippet_id, app_key)` → 明文；`app_key` 空串表示默认内容
+    plaintext: Arc<RwLock<HashMap<(i64, String), String>>>,
 }
 
+/// 仅索引：缩写 / id / 快捷键 → 条目元数据（无正文）
 #[derive(Default, Clone)]
 pub struct RegistrySnapshot {
     pub by_abbreviation: HashMap<String, SnippetEntry>,
@@ -46,6 +49,8 @@ impl SnippetRegistry {
         if let Ok(mut guard) = self.inner.write() {
             *guard = snapshot;
         }
+        // 索引变更后正文可能已改，丢弃懒解密缓存
+        self.clear_plaintext_cache();
     }
 
     pub fn snapshot(&self) -> RegistrySnapshot {
@@ -53,6 +58,26 @@ impl SnippetRegistry {
             .read()
             .map(|guard| guard.clone())
             .unwrap_or_default()
+    }
+
+    pub fn cached_plaintext(&self, id: i64, app_key: &str) -> Option<String> {
+        self.plaintext
+            .read()
+            .ok()?
+            .get(&(id, app_key.to_string()))
+            .cloned()
+    }
+
+    pub fn store_plaintext(&self, id: i64, app_key: &str, plain: String) {
+        if let Ok(mut guard) = self.plaintext.write() {
+            guard.insert((id, app_key.to_string()), plain);
+        }
+    }
+
+    pub fn clear_plaintext_cache(&self) {
+        if let Ok(mut guard) = self.plaintext.write() {
+            guard.clear();
+        }
     }
 
     pub fn palette_items(&self) -> Vec<PaletteItem> {

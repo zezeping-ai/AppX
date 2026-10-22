@@ -11,7 +11,8 @@ pub fn run() {
         .manage(app::app_lock::AppLockSessionState::default())
         .manage(app::editor::FilePassphraseStore::default())
         .manage(app::editor::PendingOpenPaths::default())
-        .manage(app::code_snippets::SnippetRegistry::default());
+        .manage(app::code_snippets::SnippetRegistry::default())
+        .manage(app::code_snippets::SnippetDb::default());
     builder = app::clipboard_assistant::register_protocols(builder);
 
     #[cfg(desktop)]

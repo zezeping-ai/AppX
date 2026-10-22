@@ -17,6 +17,7 @@ macro_rules! app_invoke_handler {
             $crate::app::code_snippets::code_snippets_open_accessibility_settings,
             $crate::app::code_snippets::code_snippets_get_settings,
             $crate::app::code_snippets::code_snippets_save_settings,
+            $crate::app::code_snippets::code_snippets_get_frontmost_app,
             // palette（code_snippets 子能力）
             $crate::app::palette::code_snippets_list_palette_items,
             $crate::app::palette::code_snippets_insert_palette_item,

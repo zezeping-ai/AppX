@@ -13,6 +13,7 @@ pub fn register_hooks() {
 
 fn on_locked(app: &AppHandle) -> Result<(), String> {
     code_snippets::set_expansion_paused(true);
+    code_snippets::clear_runtime_caches(app);
     // 全局快捷键清空由 global_shortcut::setup 的 on_locked 统一处理
     palette::dismiss_palette_window(app)
 }

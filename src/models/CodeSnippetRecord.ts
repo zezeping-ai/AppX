@@ -5,6 +5,9 @@ import {
 } from "@/models/ApplicationRecord";
 import type { CodeSnippetGroup } from "@/models/codeSnippets/groups";
 import { DEFAULT_CODE_SNIPPET_GROUP } from "@/models/codeSnippets/groups";
+import type { CodeSnippetAppVariant } from "@/models/codeSnippets/variants";
+
+export type { CodeSnippetAppVariant } from "@/models/codeSnippets/variants";
 
 export interface CodeSnippetMeta {
   group: CodeSnippetGroup;
@@ -18,6 +21,7 @@ export interface CodeSnippetRecordAttributes extends ApplicationRecordAttributes
   abbreviation?: string;
   shortcut?: string | null;
   content?: string;
+  app_variants?: CodeSnippetAppVariant[];
   meta?: CodeSnippetMeta;
 }
 
@@ -26,6 +30,7 @@ export const defaults = {
   abbreviation: "",
   shortcut: null,
   content: "",
+  app_variants: [] as CodeSnippetAppVariant[],
   meta: {
     group: DEFAULT_CODE_SNIPPET_GROUP,
     language: null,
@@ -37,6 +42,7 @@ export const defaults = {
 export class CodeSnippetRecord extends ApplicationRecord {
   static readonly tableName = "code_snippets";
   static readonly defaults = defaults;
+  static override readonly jsonColumns: readonly string[] = ["meta", "app_variants"];
   static override readonly defaultOrderBy =
     `json_extract("meta", '$.order') ASC, id ASC` as string;
 

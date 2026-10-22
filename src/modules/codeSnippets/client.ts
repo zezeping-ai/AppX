@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CodeSnippetFrontmostApp,
   CodeSnippetPermissionsView,
   CodeSnippetSettingsView,
   CodeSnippetSyncItem,
@@ -7,6 +8,10 @@ import type {
 
 export async function syncSnippetRegistry(snippets: CodeSnippetSyncItem[]): Promise<void> {
   await invoke("code_snippets_sync", { snippets });
+}
+
+export async function getFrontmostApp(): Promise<CodeSnippetFrontmostApp> {
+  return invoke<CodeSnippetFrontmostApp>("code_snippets_get_frontmost_app");
 }
 
 export async function setExpansionPaused(paused: boolean): Promise<void> {

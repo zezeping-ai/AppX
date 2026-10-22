@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager};
 const MAIN_WINDOW_LABEL: &str = "main";
 
 struct CapturedFocus {
-    /// 平台应用标识（bundle id / 可执行路径 / wm_class:pid）
+    /// 平台应用标识（bundle id / 可执行路径 / wm_class）
     app_id: String,
     /// AppX 自身：面板 make_key 会抢走 WebView 编辑焦点，还需还原 DOM 节点
     web_editable: bool,
@@ -61,6 +61,14 @@ pub fn restore(app: &AppHandle) {
 /// 放弃还原，只清状态（点外关闭、会话锁定等）。
 pub fn discard() {
     let _ = take();
+}
+
+/// 打开浮层前捕获的目标 app_id（未 restore/discard 前可读，供变体匹配）。
+pub fn captured_app_id() -> Option<String> {
+    TARGET
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|t| t.app_id.clone()))
 }
 
 fn take() -> Option<CapturedFocus> {
@@ -218,27 +226,16 @@ fn activate_linux_x11(target: &str) {
     use x11rb::rust_connection::RustConnection;
     use x11rb::wrapper::ConnectionExt as _;
 
-    let Some(target_pid) = target
-        .split(':')
-        .nth(1)
-        .and_then(|s| s.parse::<u32>().ok())
-    else {
+    // 兼容旧格式 `wm_class:pid` 与新格式纯 `wm_class`
+    let target_class = target.split(':').next().unwrap_or(target);
+    if target_class.is_empty() {
         return;
-    };
+    }
 
     let Ok((conn, screen_num)) = RustConnection::connect(None) else {
         return;
     };
     let root = conn.setup().roots[screen_num].root;
-
-    let Some(pid_atom) = conn
-        .intern_atom(false, b"_NET_WM_PID")
-        .ok()
-        .and_then(|c| c.reply().ok())
-        .map(|r| r.atom)
-    else {
-        return;
-    };
 
     let Some(tree) = conn
         .query_tree(root)
@@ -249,17 +246,17 @@ fn activate_linux_x11(target: &str) {
     };
 
     for &window in &tree.children {
-        let Some(reply) = conn
-            .get_property(false, window, pid_atom, AtomEnum::CARDINAL, 0, 1)
+        let Some(class_reply) = conn
+            .get_property(false, window, AtomEnum::WM_CLASS, AtomEnum::STRING, 0, 256)
             .ok()
             .and_then(|c| c.reply().ok())
         else {
             continue;
         };
-        let Some(pid) = reply.value32().and_then(|mut it| it.next()) else {
+        let Some(wm_class) = parse_wm_class(&class_reply.value) else {
             continue;
         };
-        if pid != target_pid {
+        if wm_class != target_class {
             continue;
         }
 
@@ -281,4 +278,13 @@ fn activate_linux_x11(target: &str) {
         );
         break;
     }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn parse_wm_class(bytes: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(bytes).ok()?.trim_end_matches('\0');
+    let mut parts = text.split('\0').filter(|s| !s.is_empty());
+    let instance = parts.next()?;
+    let class = parts.next().unwrap_or(instance);
+    Some(format!("{instance}.{class}"))
 }

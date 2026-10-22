@@ -1,12 +1,19 @@
 import type { CodeSnippetGroup } from "@/modules/codeSnippets/groups";
+import type { CodeSnippetAppVariant } from "@/models/codeSnippets/variants";
 
+/** 同步到 Rust 的轻量索引（不含密文） */
 export type CodeSnippetSyncItem = {
   id: number;
   name: string;
   abbreviation: string;
   shortcut?: string | null;
-  content: string;
   group?: CodeSnippetGroup;
+};
+
+export type CodeSnippetFrontmostApp = {
+  appId: string | null;
+  appName: string | null;
+  isOwn: boolean;
 };
 
 export type CodeSnippetFormValues = {
@@ -17,6 +24,7 @@ export type CodeSnippetFormValues = {
   language: string;
   content: string;
   note: string;
+  appVariants: CodeSnippetAppVariant[];
 };
 
 export type CodeSnippetListItem = {

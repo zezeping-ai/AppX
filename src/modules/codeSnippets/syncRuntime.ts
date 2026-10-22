@@ -1,7 +1,7 @@
 import { CodeSnippetRecord } from "@/models";
 import { syncSnippetRegistry } from "@/modules/codeSnippets/client";
 
-/** 将数据库中的 snippet 同步到 Rust 运行时注册表 */
+/** 将数据库中的 snippet 索引同步到 Rust（不含密文，正文触发时查库） */
 export async function syncAllSnippetsToRuntime(): Promise<void> {
   const rows = await CodeSnippetRecord.all();
   await syncSnippetRegistry(
@@ -10,7 +10,6 @@ export async function syncAllSnippetsToRuntime(): Promise<void> {
       name: row.name,
       abbreviation: row.abbreviation,
       shortcut: row.shortcut,
-      content: row.content,
       group: row.meta.group,
     })),
   );

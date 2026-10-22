@@ -30,14 +30,25 @@ pub fn trigger_paste() {
     });
 }
 
-/// 纯文本：Transient 写板 → 粘贴 → 恢复。
+/// 纯文本：Transient 写板 → 粘贴 → 恢复（含焦点 settle，适合面板关闭后投递）。
 pub fn insert_at_focus(content: &str) {
+    insert_at_focus_after(content, FOCUS_SETTLE_MS);
+}
+
+/// 目标应用已聚焦时用（全局快捷键）：跳过 focus settle，更快出字。
+pub fn insert_at_focus_immediate(content: &str) {
+    insert_at_focus_after(content, 0);
+}
+
+fn insert_at_focus_after(content: &str, settle_ms: u64) {
     if content.is_empty() {
         return;
     }
     let text = content.to_string();
     thread::spawn(move || {
-        thread::sleep(Duration::from_millis(FOCUS_SETTLE_MS));
+        if settle_ms > 0 {
+            thread::sleep(Duration::from_millis(settle_ms));
+        }
         run_transient_paste(|| clipboard::transient::write_text_for_paste(&text));
     });
 }

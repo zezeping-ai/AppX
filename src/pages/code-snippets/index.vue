@@ -17,7 +17,6 @@ import {
   inlineExpansionTriggerLabel,
   type CodeSnippetGroup,
 } from "@/modules/codeSnippets";
-import { decryptText } from "@/modules/crypto";
 import { setGlobalShortcutsPaused } from "@/modules/globalShortcut";
 import SnippetForm from "@/pages/code-snippets/Form.vue";
 import { getErrorMessage } from "@/shared/error";
@@ -73,20 +72,10 @@ function onReset() {
   void list.onReset();
 }
 
-async function onForm(record: CodeSnippetRecord | null) {
-  let plainContent = "";
-  if (record) {
-    try {
-      plainContent = await decryptText(record.content);
-    } catch (error) {
-      message.error(getErrorMessage(error, "读取内容失败"));
-      return;
-    }
-  }
-
+function onForm(record: CodeSnippetRecord | null) {
+  // 立刻打开抽屉；密文 Argon2 解密放到 Form 内异步完成，避免点击卡住
   const handle = drawer.create({
     title: record ? "编辑 Snippet" : "新建 Snippet",
-    // 覆盖可拖拽 drawer 默认 flex，由 body 整体滚动
     bodyStyle: {
       display: "block",
       overflow: "auto",
@@ -96,11 +85,11 @@ async function onForm(record: CodeSnippetRecord | null) {
       default: () =>
         h(SnippetForm, {
           record,
-          plainContent,
           onSubmitted: () => {
             handle.close();
             void list.onLoad();
           },
+          onClose: () => handle.close(),
         }),
     },
   });

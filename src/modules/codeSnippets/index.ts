@@ -1,11 +1,13 @@
 export type {
   CodeSnippetFormValues,
+  CodeSnippetFrontmostApp,
   CodeSnippetListItem,
   CodeSnippetPaletteItem,
   CodeSnippetPermissionsView,
   CodeSnippetSettingsView,
   CodeSnippetSyncItem,
 } from "@/modules/codeSnippets/types";
+export type { CodeSnippetAppVariant } from "@/models/codeSnippets/variants";
 export {
   CODE_SNIPPET_GROUPS,
   DEFAULT_CODE_SNIPPET_GROUP,
@@ -16,6 +18,7 @@ export {
 export type { CodeSnippetGroup } from "@/modules/codeSnippets/groups";
 export {
   syncSnippetRegistry,
+  getFrontmostApp,
   getCodeSnippetPermissions,
   openAccessibilitySettings,
   getCodeSnippetSettings,
